@@ -26,3 +26,4 @@ my_courses_query = {
 }
 my_courses = parse_config.myCoursesConfigParser(my_courses_config, my_courses_query).get_config_data()
 load_config.coursesMessageConfig("my_courses").update_config(config_data=my_courses)
+# hello tetst

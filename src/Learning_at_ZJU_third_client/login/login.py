@@ -1,26 +1,51 @@
 import requests
-from lxml import etree
 import time
+from lxml import etree
+from pathlib import Path
 from encrypt import LoginRSA
 from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
+from load_config import load_config
+from printlog.print_log import print_log
 
 class LoginFit:
-    def __init__(self, username:str, password:str, base_url:str, headers=None):
-        self.base_url = base_url
-        self.username = username
-        self.password = password
+    def __init__(self, studentid: str = None, password: str = None, base_url: str = None, cookies: dict[str:str] = None, headers=None):
+        user_config = load_config.userConfig().load_config()
+        
+        if base_url == None:
+            self.base_url = "https://courses.zju.edu.cn/user/index#/"
+        else:
+            self.base_url = base_url
+
+        if studentid == None:
+            self.studentid = user_config.get("studentid", None)
+            while self.studentid == None:
+                self.studentid = input("请输入学号：")
+                if self.studentid == None:
+                    print_log("Error", "学号不能为空！", "login.LoginFit.__init__")
+
         self.headers = headers
         self.login_session = creat_login_session(headers=headers)
+        
+        if cookies == None:
+            self.cookies = user_config.get("cookies", None)
+            if password == None and self.cookies == None:
+                self.password = input("请输入密码: ")
+            else:
+                self.login_session.cookies.update(self.cookies)
 
     def login(self)->requests.Session:
-        response = self.login_session.get(url=self.base_url)
-        
-        if self.check_login_status(response=response):
-            print(f"[Info {time.strftime('%H:%M:%S', time.localtime())}]登录成功！学号: {self.username}")
+        login_response = self.login_session.get(url=self.base_url)
+
+        if "学在浙大" in login_response.text:
+            print_log("Info", f"登录成功！学号: {self.studentid}", "login.LoginFit.login")
+            self.userid = self.get_userid(login_response)
+            self.update_user_config(login_response)
+            print_log("Info", "User Config配置更新成功", "login.LoginFit.login")
             return self.login_session
         else:
-            print(f"[Info {time.strftime('%H:%M:%S', time.localtime())}]未登录，尝试登录中......")
-            print(response.url)
+            print_log("Info", f"未登录，尝试登录中......", "login.LoginFit.login")
+            if self.password == None:
+                self.password = input("请输入密码:")
         
         # 准备登录POST表单内容
         # 请求加密password所需的exponent和modulus
@@ -33,16 +58,16 @@ class LoginFit:
             exponent = data["exponent"]
             modulus = data["modulus"]
 
-        except requests.exceptions.HTTPError as errh:
+        except HTTPError as errh:
             print(f"HTTP错误: {errh}")
 
-        except requests.exceptions.ConnectionError as errc:
+        except ConnectionError as errc:
             print(f"连接错误: {errc}")
 
-        except requests.exceptions.Timeout as errt:
+        except Timeout as errt:
             print(f"超时错误: {errt}")
 
-        except requests.exceptions.RequestException as err:
+        except RequestException as err:
             print(f"发生了其他请求错误: {err}")
 
         except ValueError as e: # 当响应不是有效JSON时，.json()会抛出json.JSONDecodeError，它是ValueError的子类
@@ -54,56 +79,56 @@ class LoginFit:
             encrypted_password = self.encrypt_password(exponent=exponent, modulus=modulus)
         
         except ValueError as e:
-            print(f"[Error {time.strftime('%H:%M:%S', time.localtime())}]密码值错误！发生在RSA加密时。")
+            print_log("Error", f"密码值错误！发生在RSA加密时。", "login.LoginFit.login")
 
         # 获取execution
-        execution = self.get_execution(response=response)
+        execution = self.get_execution(response=login_response)
 
         # 构建POST表单
-        print(f"[Info {time.strftime('%H:%M:%S', time.localtime())}]构建POST表单中...")
+        print_log("Info", f"构建POST表单中...", "login.LoginFit.login")
         data = {
-            'username': self.username,
+            'username': self.studentid,
             'password': encrypted_password,
             'authcode': '',
             'execution': execution[0],
             '_eventId': 'submit'
         }
         
-        print(f"[Info {time.strftime('%H:%M:%S', time.localtime())}]构建成功！使用POST表单:")
+        print_log("Info", f"构建成功！使用POST表单:", "login.LoginFit.login")
         for key, value in data.items():
             if len(value) >= 200:
                 value = value[:200] + "..."
             print(f"{key}: {value}")
 
         # POST登录
-        print(f"[Info {time.strftime('%H:%M:%S', time.localtime())}]POST登录请求中...")
-        login_response = self.login_session.post(url=response.url, headers=self.headers, data=data)
+        print_log("Info", f"POST登录请求中...", "login.LoginFit.login")
+        login_response = self.login_session.post(url=login_response.url, headers=self.headers, data=data)
         
         if "学在浙大" in login_response.text:
-            print(f"[Info {time.strftime('%H:%M:%S', time.localtime())}]登录成功！学号: {self.username}")
+            print_log("Info", f"登录成功！学号: {self.studentid}", "login.LoginFit.login")
+            self.userid = self.get_userid(login_response)
+            self.update_user_config(login_response)
+            print_log("Info", "User Config配置更新成功", "login.LoginFit.login")
         else:
-            print(f"[Error {time.strftime('%H:%M:%S', time.localtime())}]登录失败！")
+            print_log("Error", f"登录失败！", "login.LoginFit.login")
 
         return self.login_session
+    
+    def update_user_config(self, response: requests.Response):
+        user_config_file = load_config.userConfig()
+        user_config = user_config_file.load_config()
+        user_config["url"] = response.url
+        user_config["studentid"] = self.studentid
+        user_config["userid"] = self.userid
+        user_config["cookies"] = self.login_session.cookies.get_dict()
+        user_config_file.update_config(config_data=user_config)
+        
 
-    def check_login_status(self, response: requests.Response)->bool:
-        """check the login status now and determine whether to make a login or already logined
-
-        Parameters
-        ----------
-        response : requests.Response
-            the response of the requests from url
-
-        Returns
-        -------
-        bool
-            True stands for successfully and False means it need to login.
-        """        
-
-        if response.url == self.base_url:
-            return True
-        else:
-            return False
+    def get_userid(self, response: requests.Response)->str:
+        html = etree.HTML(response.text)
+        xpath_pattern = r'//span[@id="userId"]/@value'
+        result = html.xpath(xpath_pattern)
+        return result[0]
 
     def encrypt_password(self, exponent:str, modulus:str)->str:
         """encrypt password by RSA
@@ -161,9 +186,9 @@ def creat_login_session(headers=None)->requests.Session:
     login_session = requests.session()
 
     if headers == None:
-        print(f"[Info {time.strftime('%H:%M:%S', time.localtime())}]未检测到登录需求headers，启用默认headers")
+        print_log("Info", f"未检测到登录需求headers，启用默认headers", "login.creat_login_session")
         headers = default_headers
-        print(f"[Info {time.strftime('%H:%M:%S', time.localtime())}]已启用默认headers")
+        print_log("Info", f"已启用默认headers", "login.creat_login_session")
         for key, value in headers.items():
             print(f"{key}: {value}")
 

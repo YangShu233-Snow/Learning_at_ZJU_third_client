@@ -1,6 +1,9 @@
 # custom
-
 *.html
+*.json
+reminder.md
+!api_list.json
+!global_config.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

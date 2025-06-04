@@ -47,9 +47,9 @@ class APIFits:
     def make_api_url(self, api_config: dict, api_name):
         return api_config.get("url", None)
 
-class courseContentAPIFits(APIFits):
+class coursePageAPIFits(APIFits):
     def __init__(self, login_session: requests.Response, course_id: str):
-        super().__init__(login_session, "course_content")
+        super().__init__(login_session, "course_page")
         self.course_id = course_id
 
     def make_api_url(self, api_config, api_name):
@@ -58,7 +58,11 @@ class courseContentAPIFits(APIFits):
             print_log("Error", f"{api_name}参数url缺失！", "zju_api.courseContentAPIFits.make_api_url")
             return None
         
-        return base_api_url + f"/{self.course_id}/content"
+        if api_name == "homework":
+            print(base_api_url + f"/{self.course_id}/{api_name}/submission-status")
+            return base_api_url + f"/{self.course_id}/{api_name}/submission-status"
+
+        return base_api_url + f"/{self.course_id}/{api_name}"
 
 class coursesAPIFits(APIFits):
     def __init__(self, login_session: requests.Response):

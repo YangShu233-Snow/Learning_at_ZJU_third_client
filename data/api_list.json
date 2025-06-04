@@ -36,12 +36,38 @@
             }
         }
     },
-    "course_content": {
-        "apis_name": ["course_content"],
+    "course_page": {
+        "apis_name": ["modules", "activities", "exams", "homework", "submitted-exams", "exam-scores"],
         "apis_config": {
-            "course_content": {
-                "url": "https://courses.zju.edu.cn:443/course",
+            "modules": {
+                "url": "https://courses.zju.edu.cn/api/courses",
                 "params": {}
+            },
+            "activities": {
+                "url": "https://courses.zju.edu.cn/api/courses",
+                "params": {}
+            },
+            "exams": {
+                "url": "https://courses.zju.edu.cn/api/courses",
+                "params": {}
+            },
+            "homework": {
+                "url": "https://courses.zju.edu.cn/api/course",
+                "params": {
+                    "no-intercept": "true"
+                }
+            },
+            "submitted-exams": {
+                "url": "https://courses.zju.edu.cn/api/courses",
+                "params": {
+                    "no-intercept": "true"
+                }
+            },
+            "exam-scores": {
+                "url": "https://courses.zju.edu.cn/api/courses",
+                "params": {
+                    "no-intercept": "true"
+                }
             }
         }
     }

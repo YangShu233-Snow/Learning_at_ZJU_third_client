@@ -15,6 +15,16 @@ class ConfigParser:
     def get_base_message(self):
         pass
 
+class CourseModulesConfigParser(ConfigParser):
+    def __init__(self, course_modules_config, course_modules_querys):
+        self.course_modules_config = course_modules_config
+        self.course_modules_message = self.course_modules_config.get("modules", None)
+        self.course_modules_querys = course_modules_querys
+        self.result = {}
+
+    def get_config_data(self) -> dict:
+        pass
+    
 class myCoursesConfigParser(ConfigParser):
     def __init__(self, my_courses_config: dict, my_courses_querys: dict[str: list[str]]):
         self.my_courses_config = my_courses_config
@@ -25,8 +35,8 @@ class myCoursesConfigParser(ConfigParser):
     def get_config_data(self)->dict:
         print_log("Info", f"正在从my_courses_config.json中提取数据...", "parse_config.myCoursesConfigParser.get_config_data")
         for course in self.my_courses_message:
-            course_name = course.get("name", "未知课程")
-            self.result[course_name] = self.make_query(course=course)
+            course_id = course.get("id", "0")
+            self.result[course_id] = self.make_query(course=course)
         
         print_log("Info", "提取完成！", "parse_config.myCoursesConfigParser.get_config_data")
         return self.result

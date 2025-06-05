@@ -5,11 +5,11 @@ from printlog.print_log import print_log
 class BaseConfig:
     """基本的json加载逻辑，初始化接受一个`config_name`作为文件名字，默认需要带有.json
     """    
-    def __init__(self, config_name: str):
+    def __init__(self, parent_dir: str ,config_name: str):
         self.config_name:str = config_name
         self.current_script_path = Path(__file__).resolve()
         self.project_root = self.current_script_path.parent.parent.parent.parent
-        self.config_path:Path = self.project_root / "data" / config_name
+        self.config_path:Path = self.project_root / "data" / parent_dir / config_name
 
     def load_config(self)->dict:
         """加载并读取配置
@@ -21,7 +21,7 @@ class BaseConfig:
         """        
 
         config = None
-        
+        print(self.config_path)
         try:
             with open(self.config_path, "r") as f:
                 config = json.load(f)
@@ -65,22 +65,33 @@ class BaseConfig:
 
 class userConfig(BaseConfig):
     def __init__(self):
-        super().__init__("user_config.json")
+        super().__init__("", "user_config.json")
 
 class globalConfig(BaseConfig):
     def __init__(self):
-        super().__init__("global_config.json")
+        super().__init__("", "global_config.json")
 
 class apiListConfig(BaseConfig):
     def __init__(self):
-        super().__init__("api_list.json")
+        super().__init__("", "api_list.json")
 
 class apiConfig(BaseConfig):
-    def __init__(self, api_name):
+    def __init__(self, parent_dir: str ,api_name):
         self.config_name = api_name + "_config.json"
-        super().__init__(self.config_name)
+        self.parent_dir = "all_api_data/" + parent_dir
+        super().__init__(self.parent_dir, self.config_name)
 
 class coursesMessageConfig(BaseConfig):
     def __init__(self, config_name):
         self.config_name = config_name + ".json"
+        self.parent_dir = "all_api_data/courses"
+        super().__init__(self.parent_dir ,self.config_name)
+
+class APIParseQueryConfig(BaseConfig):
+    def __init__(self, config_name):
+        self.config_name = config_name + "_query.json"
         super().__init__(self.config_name)
+
+class myResourcesConfig(BaseConfig):
+    def __init__(self):
+        super().__init__("resources_list", "resources_list")

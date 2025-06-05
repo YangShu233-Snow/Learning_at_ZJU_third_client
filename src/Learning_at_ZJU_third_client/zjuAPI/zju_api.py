@@ -10,6 +10,7 @@ class APIFits:
         self.config = load_config.apiListConfig().load_config().get(self.name, None)
         self.apis_name = None
         self.apis_config = None
+        self.parent_dir = name
     
     def load_api_config(self):
         if self.config == None:
@@ -41,11 +42,15 @@ class APIFits:
 
             api_params = api_config.get("params", None)
             api_respone = self.login_session.get(url=api_url, params=api_params)
-            api_json_file = load_config.apiConfig(api_name)
+            api_json_file = load_config.apiConfig(self.parent_dir, api_name)
             api_json_file.update_config(config_data=api_respone.json())
 
     def make_api_url(self, api_config: dict, api_name):
         return api_config.get("url", None)
+
+class resourcesListAPIFits(APIFits):
+    def __init__(self, login_session):
+        super().__init__(login_session, "resources_list")
 
 class coursePageAPIFits(APIFits):
     def __init__(self, login_session: requests.Response, course_id: str):

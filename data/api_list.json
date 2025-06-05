@@ -70,5 +70,38 @@
                 }
             }
         }
+    },
+    "resources_list": {
+        "apis_name": ["resources"],
+        "apis_config": {
+            "resources": {
+                "url": "https://courses.zju.edu.cn/api/user/resources",
+                "params": {
+                    "conditions": "{\"keyword\":\"\",\"includeSlides\":true,\"limitTypes\":[],\"fileType\":\"all\",\"parentId\":0,\"folderToken\":\"\",\"resourceType\":null,\"filters\":[],\"linkTypes\":[],\"only_ready\":false}",
+                    "page": 1,
+                    "page_size": 10
+                }
+            }
+        }
+    },
+    "resources_submission": {
+        "apis_name": ["uploads"],
+        "apis_config": {
+            "uploads": {
+                "url": "https://courses.zju.edu.cn/api/uploads",
+                "method": "POST",
+                "params": {
+                    "name": "Default_name",
+                    "size": 1,
+                    "parent_type": null,
+                    "parent_id": 0,
+                    "is_scorm": false,
+                    "is_wmpkg": false,
+                    "source": "",
+                    "is_marked_attachment": false,
+                    "embed_material_type": ""
+                }
+            }
+        }
     }
 }

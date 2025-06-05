@@ -5,6 +5,8 @@ reminder.md
 !api_list.json
 !global_config.json
 copy_data
+*.jpg
+images/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -85,12 +85,12 @@
         }
     },
     "resources_submission": {
-        "apis_name": ["uploads"],
+        "apis_name": ["upload", "submissions"],
         "apis_config": {
-            "uploads": {
+            "upload": {
                 "url": "https://courses.zju.edu.cn/api/uploads",
                 "method": "POST",
-                "params": {
+                "data": {
                     "name": "Default_name",
                     "size": 1,
                     "parent_type": null,
@@ -101,7 +101,21 @@
                     "is_marked_attachment": false,
                     "embed_material_type": ""
                 }
+            },
+            "submissions": {
+                "url": "https://courses.zju.edu.cn/api/course/activities",
+                "method": "POST",
+                "data": {
+                    "comment": "<p><span style=\"font-size: 14px;\">{{{comment}}}</span><br></p>",
+                    "uploads": [],
+                    "slides": "",
+                    "is_draft": false,
+                    "mode": "normal",
+                    "other_resources": [],
+                    "uploads_in_rich_text": []
+                }
             }
         }
     }
 }
+

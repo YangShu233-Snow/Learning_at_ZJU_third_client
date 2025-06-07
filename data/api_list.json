@@ -27,7 +27,7 @@
             "my_courses": {
                 "url": "https://courses.zju.edu.cn/api/my-courses",
                 "params": {
-                    "conditions": "{\"status\":[\"ongoing\",\"notStarted\"],\"keyword\":\"\",\"classify_type\":\"recently_started\",\"display_studio_list\":false}",
+                    "conditions": "{\"status\":[\"ongoing\",\"notStarted\"],\"keyword\":\"{{{keyword}}}\",\"classify_type\":\"recently_started\",\"display_studio_list\":false}",
                     "fileds": "id,name,course_code,academic_year_id,course_attributes(teaching_class_name),course_code,department(id,name),instructors(id,name),start_date,url",
                     "page": 1,
                     "page_size": 10,

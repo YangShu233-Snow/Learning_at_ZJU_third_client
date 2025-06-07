@@ -34,11 +34,17 @@ class LoginFit:
                 self.login_session.cookies.update(self.cookies)
 
     def login(self)->requests.Session:
+        """学在浙大登录方法
+
+        Returns
+        -------
+        requests.Session
+            已登录的会话
+        """        
         login_response = self.login_session.get(url=self.base_url)
 
         if "学在浙大" in login_response.text:
             print_log("Info", f"登录成功！学号: {self.studentid}", "login.LoginFit.login")
-            self.userid = self.get_userid(login_response)
             self.update_user_config(login_response)
             print_log("Info", "User Config配置更新成功", "login.LoginFit.login")
             return self.login_session
@@ -106,7 +112,6 @@ class LoginFit:
         
         if "学在浙大" in login_response.text:
             print_log("Info", f"登录成功！学号: {self.studentid}", "login.LoginFit.login")
-            self.userid = self.get_userid(login_response)
             self.update_user_config(login_response)
             print_log("Info", "User Config配置更新成功", "login.LoginFit.login")
         else:
@@ -119,8 +124,9 @@ class LoginFit:
         user_config = user_config_file.load_config()
         user_config["url"] = response.url
         user_config["studentid"] = self.studentid
-        user_config["userid"] = self.userid
+        user_config["userid"] = self.get_userid(response)
         user_config["cookies"] = self.login_session.cookies.get_dict()
+        user_config["username"] = self.get_username(response)
         user_config_file.update_config(config_data=user_config)
         
 
@@ -163,6 +169,24 @@ class LoginFit:
         xpath_pattern = r'//input[@name="execution"]/@value'
         
         return html.xpath(xpath_pattern)
+
+    def get_username(self, response: requests.Response)->str:
+        """从index.html获取用户的姓名
+
+        Parameters
+        ----------
+        response : requests.Response
+            login返回的已登录index
+
+        Returns
+        -------
+        str
+            用户姓名
+        """        
+        html = etree.HTML(response.text)
+        xpath_pattern = r'//root-scope-variable[@name="currentUserName"]/@value'
+        username = html.xpath(xpath_pattern)
+        return username[0]
 
 def creat_login_session(headers=None)->requests.Session:
     """create a session for login

@@ -7,6 +7,7 @@ reminder.md
 copy_data
 *.jpg
 images/
+*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

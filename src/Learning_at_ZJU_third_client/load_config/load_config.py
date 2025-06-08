@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from printlog.print_log import print_log
 
@@ -9,7 +10,8 @@ class BaseConfig:
         self.config_name:str = config_name
         self.current_script_path = Path(__file__).resolve()
         self.project_root = self.current_script_path.parent.parent.parent.parent
-        self.config_path:Path = self.project_root / "data" / parent_dir / config_name
+        self.config_parent_dir_path  = self.project_root / "data" / parent_dir
+        self.config_path:Path = self.config_parent_dir_path / config_name
 
     def load_config(self)->dict:
         """加载并读取配置
@@ -39,7 +41,7 @@ class BaseConfig:
         return config
         
     def update_config(self, config_data: dict):
-        """更新配置文件内容，调用此函数会直接在项目data/下创建对应的.json
+        """更新配置文件内容，调用此函数会直接在项目data/下相应目录创建对应的.json
 
         Parameters
         ----------
@@ -52,6 +54,8 @@ class BaseConfig:
             如果读取不到，则报错
         """        
 
+        # pathlib自动处理文件夹存在问题
+        self.config_parent_dir_path.mkdir(parents = True, exist_ok = True)
         print_log("Info", f"配置文件{self.config_name}更新中中...", "load_config.update_config")
         try:
             with open(self.config_path, "w", encoding='utf-8') as f: # 推荐添加 encoding

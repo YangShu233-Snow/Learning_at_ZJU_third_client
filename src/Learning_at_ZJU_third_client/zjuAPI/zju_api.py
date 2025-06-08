@@ -44,10 +44,10 @@ class APIFits:
                 print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.get_api_data")
                 continue
 
-            api_params = api_config.get("params", None)
-            api_respone = self.login_session.get(url=api_url, params=api_params)
+            api_params = self.make_api_params(api_config = api_config)
+            api_respone = self.login_session.get(url = api_url, params = api_params)
             api_json_file = load_config.apiConfig(self.parent_dir, api_name)
-            api_json_file.update_config(config_data=api_respone.json())
+            api_json_file.update_config(config_data = api_respone.json())
 
     def post_api_data(self)->Response:
         if self.apis_name == None or self.apis_config == None:
@@ -68,11 +68,14 @@ class APIFits:
                 print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.get_api_data")
                 continue
 
-            api_respone = self.login_session.post(url=api_url, json=self.data)
+            api_respone = self.login_session.post(url = api_url, json = self.data)
             return api_respone
 
-    def make_api_url(self, apis_config: dict, api_name):
-        return apis_config.get("url", None)
+    def make_api_url(self, api_config: dict, api_name):
+        return api_config.get("url", None)
+    
+    def make_api_params(self, api_config: dict):
+        return api_config.get("params", None)
     
     def check_api_method(self, apis_config: dict, method: str):
         for value in apis_config.values():
@@ -116,8 +119,20 @@ class coursePageAPIFits(APIFits):
         return base_api_url + f"/{self.course_id}/{api_name}"
 
 class coursesAPIFits(APIFits):
-    def __init__(self, login_session: requests.Response):
+    def __init__(self, login_session: requests.Response, parent_dir: str = "courses", keyword: str = ""):
         super().__init__(login_session, "courses")
+        self.parent_dir = parent_dir
+        self.keyword = keyword
+
+    def make_api_params(self, api_config):
+        # 修改conditions中的keyword参数为搜索关键词
+        api_params: dict = api_config.get("params")
+        default_conditions: str = api_params.get("conditions")
+        search_conditions = default_conditions.replace("{{{keyword}}}", self.keyword)
+        api_params["conditions"] = search_conditions
+
+        return api_params
+
 
 class userIndexAPIFits(APIFits):
     def __init__(self, login_session: requests.Session):

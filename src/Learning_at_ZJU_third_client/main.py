@@ -12,7 +12,7 @@ from upload import file_upload, submit
 from search import courses_search
 
 CURRENT_PROGRAM_PATH = Path(__file__).resolve().parent.parent.parent
-files_name = ["zuoye.txt", "zuoye copy.txt", "zuoye copy 2.txt"]
+files_name = ["黄浩旸-基础医学研究方向职业生涯规划书.doc"]
 
 # 执行登录
 login = login.LoginFit()
@@ -20,26 +20,26 @@ login_session = login.login()
 
 # # 搜索课程名称
 # courses_search.CoursesSearcher("先秦诸子").search_courses(login_session=login_session)
+if False:
+    files = []
+    for file_name in files_name:
+        files.append(Path(CURRENT_PROGRAM_PATH / file_name))
 
-# files = []
-# for file_name in files_name:
-#     files.append(Path(CURRENT_PROGRAM_PATH / file_name))
-
-# to_upload_fils = file_upload.uploadFile(*files)
-# files_id = to_upload_fils.upload(login_session)
-# files_id_value = list(files_id.values())
+    to_upload_fils = file_upload.uploadFile(*files)
+    files_id = to_upload_fils.upload(login_session)
+    files_id_value = list(files_id.values())
 
 
-# for key, value in files_id.items():
-#     print(f"{key}: {value}")
+    for key, value in files_id.items():
+        print(f"{key}: {value}")
 
-# to_submit_assignment = submit.submitAssignment(
-#     activity_id=1009609,
-#     comment="我已阅读须知，会准时携带证件参加考试，并严格遵守考试纪律",
-#     files_id=files_id_value,
-#     )
+    to_submit_assignment = submit.submitAssignment(
+        activity_id=1009609,
+        comment="我已阅读须知，会准时携带证件参加考试，并严格遵守考试纪律",
+        files_id=files_id_value,
+        )
 
-# to_submit_assignment.submit(login_session=login_session)
+    to_submit_assignment.submit(login_session=login_session)
 
 
 
@@ -54,20 +54,6 @@ login_session = login.login()
 # # 请求resourcesList组，本请求获得云盘文件信息（我的资源，有分页）
 # resourcesListAPI = zju_api.resourcesListAPIFits(login_session=login_session)
 # resourcesListAPI.get_api_data()
-
-# # 重构“我的课程”所有信息为新的json
-# my_courses_config = load_config.apiConfig("courses", "my_courses").load_config()
-# my_courses_query = {
-#     "name": ["name"],
-#     "academic_year": ["academic_year", "name"],
-#     "teaching_class_name": ["course_attributes", "teaching_class_name"],
-#     "course_code": ["course_code"],
-#     "department": ["department", "name"],
-#     "instructors": ["instructors", "name"],
-#     "start_date": ["start_date"]
-# }
-# my_courses = parse_config.myCoursesConfigParser(my_courses_config, my_courses_query).get_config_data()
-# load_config.coursesMessageConfig("my_courses").update_config(config_data=my_courses)
 
 # # 通过课程id查询指定课程页面的信息
 # key = "79813"

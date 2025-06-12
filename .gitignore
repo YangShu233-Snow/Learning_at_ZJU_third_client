@@ -9,6 +9,7 @@ copy_data
 images/
 *.txt
 *.doc
+*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

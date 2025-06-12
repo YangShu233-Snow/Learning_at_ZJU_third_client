@@ -7,9 +7,13 @@ from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestExce
 from load_config import load_config
 from printlog.print_log import print_log
 
+CURRENT_SCRIPT_PATH = Path(__file__)
+USER_AVATAR_PATH = CURRENT_SCRIPT_PATH.parent.parent.parent.parent / "images/user_avatar.png"
+
 class LoginFit:
     def __init__(self, studentid: str = None, password: str = None, base_url: str = None, cookies: dict[str:str] = None, headers=None):
         user_config = load_config.userConfig().load_config()
+        self.password = None
         
         if base_url == None:
             self.base_url = "https://courses.zju.edu.cn/user/index#/"
@@ -47,6 +51,8 @@ class LoginFit:
             print_log("Info", f"登录成功！学号: {self.studentid}", "login.LoginFit.login")
             self.update_user_config(login_response)
             print_log("Info", "User Config配置更新成功", "login.LoginFit.login")
+            self.get_user_avatar(login_response)
+            print_log("Info", "用户头像更新成功", "login.LoginFit.login")
             return self.login_session
         else:
             print_log("Info", f"未登录，尝试登录中......", "login.LoginFit.login")
@@ -114,6 +120,8 @@ class LoginFit:
             print_log("Info", f"登录成功！学号: {self.studentid}", "login.LoginFit.login")
             self.update_user_config(login_response)
             print_log("Info", "User Config配置更新成功", "login.LoginFit.login")
+            self.get_user_avatar(login_response)
+            print_log("Info", "用户头像更新成功", "login.LoginFit.login")
         else:
             print_log("Error", f"登录失败！", "login.LoginFit.login")
 
@@ -129,6 +137,15 @@ class LoginFit:
         user_config["username"] = self.get_username(response)
         user_config_file.update_config(config_data=user_config)
         
+    def get_user_avatar(self, response: requests.Response)->str:
+        html = etree.HTML(response.text)
+        xpath_pattern = r'//root-scope-variable/@value'
+        result = html.xpath(xpath_pattern)
+        
+        if result != []:
+            avatar_url = result[0].split('?')[0]
+            with open(USER_AVATAR_PATH, "wb") as f:
+                f.write(requests.get(avatar_url).content)
 
     def get_userid(self, response: requests.Response)->str:
         html = etree.HTML(response.text)

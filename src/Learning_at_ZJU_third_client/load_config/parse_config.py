@@ -37,7 +37,7 @@ class ConfigParser:
                 config_value[query_name] = None
                 continue
 
-            for k_index, key in enumerate(path_keys):
+            for _, key in enumerate(path_keys):
                 if not isinstance(current_val, dict):
                     break
 
@@ -59,6 +59,10 @@ class ConfigParser:
 
     def get_base_message(self):
         pass
+
+class RecentVisitCourses(ConfigParser):
+    def __init__(self, recent_visit_courses_config, recent_visit_courses_queries):
+        super().__init__(recent_visit_courses_config, recent_visit_courses_queries)
 
 class APIListConfigParser(ConfigParser):
     def __init__(self, api_list_config, queries):

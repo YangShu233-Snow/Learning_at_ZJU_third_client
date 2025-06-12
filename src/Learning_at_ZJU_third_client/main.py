@@ -3,20 +3,27 @@ import requests
 import json
 import mimetypes
 import datetime
+import sys
 from pathlib import Path
-from load_config import load_config, parse_config
+from load_config import load_config, parse_config, gui_data_parser
 from login import login
 from zjuAPI import zju_api
 from printlog import print_log
 from upload import file_upload, submit
 from search import courses_search
-
-CURRENT_PROGRAM_PATH = Path(__file__).resolve().parent.parent.parent
-files_name = ["黄浩旸-基础医学研究方向职业生涯规划书.doc"]
+from gui import userWelcomePage
+from PySide6.QtWidgets import QApplication
 
 # 执行登录
 login = login.LoginFit()
 login_session = login.login()
+
+recent_visit_courses = gui_data_parser.RecentVisitCoursesData()
+
+app = QApplication(sys.argv)
+user_welcome_page = userWelcomePage.UserWelcomePage(recent_visit_courses.results)
+user_welcome_page.show()
+sys.exit(app.exec())
 
 # # 搜索课程名称
 # courses_search.CoursesSearcher("先秦诸子").search_courses(login_session=login_session)

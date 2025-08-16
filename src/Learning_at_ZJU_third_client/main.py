@@ -7,10 +7,9 @@ import sys
 from pathlib import Path
 from load_config import load_config, parse_config, gui_data_parser
 from login import login
-from zjuAPI import zju_api
+from zjuAPI import zju_api, courses_search
 from printlog import print_log
 from upload import file_upload, submit
-from search import courses_search
 from gui import userWelcomePage
 from PySide6.QtWidgets import QApplication
 

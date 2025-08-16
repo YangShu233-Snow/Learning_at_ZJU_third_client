@@ -95,10 +95,10 @@ class LoginFit:
         }
         
         print_log("Info", f"构建成功！使用POST表单:", "login.LoginFit.login")
-        for key, value in data.items():
-            if len(value) >= 200:
-                value = value[:200] + "..."
-            print(f"{key}: {value}")
+        # for key, value in data.items():
+        #     if len(value) >= 200:
+        #         value = value[:200] + "..."
+        #     print(f"{key}: {value}")
 
         # POST登录
         print_log("Info", f"POST登录请求中...", "login.LoginFit.login")
@@ -223,8 +223,8 @@ def creat_login_session(headers=None)->requests.Session:
         print_log("Info", f"未检测到登录需求headers，启用默认headers", "login.creat_login_session")
         headers = default_headers
         print_log("Info", f"已启用默认headers", "login.creat_login_session")
-        for key, value in headers.items():
-            print(f"{key}: {value}")
+        # for key, value in headers.items():
+        #     print(f"{key}: {value}")
 
     login_session.headers.update(headers)
     

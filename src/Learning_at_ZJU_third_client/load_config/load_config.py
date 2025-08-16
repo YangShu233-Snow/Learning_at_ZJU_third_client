@@ -23,7 +23,7 @@ class BaseConfig:
         """        
 
         config = None
-        print(self.config_path)
+        # print(self.config_path)
         try:
             with open(self.config_path, "r") as f:
                 config = json.load(f)
@@ -99,3 +99,7 @@ class APIParseQueryConfig(BaseConfig):
 class myResourcesConfig(BaseConfig):
     def __init__(self):
         super().__init__("resources_list", "resources_list")
+
+class searchCoursesResults(BaseConfig):
+    def __init__(self):
+        super().__init__("all_api_data/search_results", "my_courses_config.json")

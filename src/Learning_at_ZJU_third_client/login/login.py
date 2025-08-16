@@ -1,5 +1,5 @@
 import requests
-import time
+import keyring
 from lxml import etree
 from pathlib import Path
 from encrypt import LoginRSA
@@ -11,31 +11,31 @@ CURRENT_SCRIPT_PATH = Path(__file__)
 USER_AVATAR_PATH = CURRENT_SCRIPT_PATH.parent.parent.parent.parent / "images/user_avatar.png"
 
 class LoginFit:
-    def __init__(self, studentid: str = None, password: str = None, base_url: str = None, cookies: dict[str:str] = None, headers=None):
-        user_config = load_config.userConfig().load_config()
-        self.password = None
+    def __init__(self, base_url: str = None, cookies: dict[str:str] = None, headers=None):
+        self.studentid = keyring.get_password("lazy", "studentid")
+        self.password = keyring.get_password("lazy", "password")
         
         if base_url == None:
             self.base_url = "https://courses.zju.edu.cn/user/index#/"
         else:
             self.base_url = base_url
 
-        if studentid == None:
-            self.studentid = user_config.get("studentid", None)
-            while self.studentid == None:
-                self.studentid = input("请输入学号：")
-                if self.studentid == None:
-                    print_log("Error", "学号不能为空！", "login.LoginFit.__init__")
+        while self.studentid == None:
+            self.studentid = input("请输入学号：")
+            if self.studentid == None:
+                print_log("Error", "学号不能为空！", "login.LoginFit.__init__")
+            else:
+                keyring.set_password("lazy", "studentid", self.studentid)
+
+        while self.password == None:
+            self.password = input("请输入密码：")
+            if self.password == None:
+                print_log("Error", "密码不能为空！", "login.LoginFit.__init__")
+            else:
+                keyring.set_password("lazy", "password", self.password)
 
         self.headers = headers
         self.login_session = creat_login_session(headers=headers)
-        
-        if cookies == None:
-            self.cookies = user_config.get("cookies", None)
-            if password == None and self.cookies == None:
-                self.password = input("请输入密码: ")
-            else:
-                self.login_session.cookies.update(self.cookies)
 
     def login(self)->requests.Session:
         """学在浙大登录方法
@@ -46,18 +46,6 @@ class LoginFit:
             已登录的会话
         """        
         login_response = self.login_session.get(url=self.base_url)
-
-        if "学在浙大" in login_response.text:
-            print_log("Info", f"登录成功！学号: {self.studentid}", "login.LoginFit.login")
-            self.update_user_config(login_response)
-            print_log("Info", "User Config配置更新成功", "login.LoginFit.login")
-            self.get_user_avatar(login_response)
-            print_log("Info", "用户头像更新成功", "login.LoginFit.login")
-            return self.login_session
-        else:
-            print_log("Info", f"未登录，尝试登录中......", "login.LoginFit.login")
-            if self.password == None:
-                self.password = input("请输入密码:")
         
         # 准备登录POST表单内容
         # 请求加密password所需的exponent和modulus
@@ -128,12 +116,17 @@ class LoginFit:
         return self.login_session
     
     def update_user_config(self, response: requests.Response):
+        """更新用户信息文件，记录登录地址，用户学在浙大id和用户姓名。
+
+        Parameters
+        ----------
+        response : requests.Response
+            _description_
+        """        
         user_config_file = load_config.userConfig()
         user_config = user_config_file.load_config()
         user_config["url"] = response.url
-        user_config["studentid"] = self.studentid
         user_config["userid"] = self.get_userid(response)
-        user_config["cookies"] = self.login_session.cookies.get_dict()
         user_config["username"] = self.get_username(response)
         user_config_file.update_config(config_data=user_config)
         

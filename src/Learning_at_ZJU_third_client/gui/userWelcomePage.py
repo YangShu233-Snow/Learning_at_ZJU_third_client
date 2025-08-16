@@ -1,11 +1,12 @@
 import sys
 from datetime import datetime
 from pathlib import Path
-from PySide6.QtCore import Qt, QRect, Slot, QSize, QByteArray
+from PySide6.QtCore import Qt, QRect, QSize, QByteArray
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtGui import QPixmap, QPainter, QPainterPath
-from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QApplication, QLineEdit, QHBoxLayout, QPushButton
+from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QLineEdit, QHBoxLayout, QPushButton, QSizePolicy
 from load_config import load_config
+from .QtExtention.QFlowLayout import FlowLayout
 
 DEFAULT_USER_AVATAR_SVG = """<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
   <path fill="#4A90E2" d="M27.5,27.2c1.5-1.5,2.6-3.2,3.4-5.1c0,0,0-0.1,0-0.1c0.2-0.4,0.3-0.9,0.5-1.4c0-0.1,0-0.2,0.1-0.3 c0.1-0.4,0.2-0.8,0.3-1.2c0-0.2,0.1-0.4,0.1-0.6c0-0.3,0.1-0.6,0.1-0.9c0.1-0.5,0.1-1,0.1-1.6c0-4.3-1.7-8.3-4.7-11.3 c-3-3-7-4.7-11.3-4.7C11.7,0,7.7,1.7,4.7,4.7c-3,3-4.7,7-4.7,11.3c0,0.5,0,1,0.1,1.5c0,0.3,0.1,0.5,0.1,0.8c0,0.2,0.1,0.5,0.1,0.7 c0.1,0.4,0.2,0.7,0.3,1c0,0.1,0.1,0.3,0.1,0.4c0.1,0.4,0.3,0.8,0.4,1.2c0,0.1,0,0.1,0.1,0.2c0.2,0.4,0.4,0.9,0.6,1.3c0,0,0,0,0,0.1 c0.7,1.3,1.5,2.6,2.6,3.7c0,0,0,0,0,0l0,0c0.1,0.1,0.2,0.3,0.4,0.4c3,3,7,4.7,11.3,4.7c4.3,0,8.3-1.7,11.3-4.7 C27.4,27.3,27.4,27.2,27.5,27.2L27.5,27.2C27.5,27.2,27.5,27.2,27.5,27.2z M5.4,5.4C8.2,2.6,12,1,16,1s7.8,1.6,10.6,4.4S31,12,31,16 c0,0.5,0,1-0.1,1.5c0,0.2-0.1,0.5-0.1,0.7c0,0.2-0.1,0.5-0.1,0.7c-0.1,0.3-0.2,0.7-0.2,1c0,0.1-0.1,0.2-0.1,0.4 c-0.1,0.4-0.2,0.8-0.4,1.1c0,0.1,0,0.1-0.1,0.2c-0.2,0.4-0.3,0.8-0.6,1.2c0,0,0,0,0,0c-0.6,1.2-1.5,2.4-2.4,3.4 c-1-1.3-3.3-2.2-6-2.2c-3,0-3-1.1-2.7-2.3c0.4-1.5,3.1-0.8,3.9-4.8c0,0,1.5-1.1,1.7-2.3s-0.7-1.8-1.6-1.2c0,0,1-6.7-4-7.8 c-0.7-0.2-1.6-0.3-2.4-0.3c-1.1,0-2,0.2-2.8,0.4c-0.4,0.1-0.8,0.3-1.1,0.6c-0.6,0-1.6,0.1-2.4-0.1c0,0,0.1,1.4,0.3,2.4 c0,0.1-0.5-0.1-0.7,0.6C9,9.7,9.2,11.4,9.4,12.4c0,0.6,0.1,1.1,0.1,1.1c-0.9-0.5-1.7,0-1.6,1.2C8,15.9,9.5,17,9.5,17 c0.8,3.9,3.4,3.2,3.9,4.8c0.3,1.2,0.3,2.2-2.7,2.3c-2.6,0-4.7,0.9-5.8,2.1C4.6,25.7,4.3,25.4,4,25c0,0,0,0,0,0 c-0.3-0.4-0.5-0.7-0.8-1.1c0,0,0,0,0-0.1c-0.2-0.4-0.4-0.7-0.6-1.1c0,0,0-0.1-0.1-0.1c-0.2-0.4-0.3-0.7-0.5-1.1 c0-0.1-0.1-0.2-0.1-0.3c-0.1-0.3-0.2-0.7-0.3-1c0-0.2-0.1-0.3-0.1-0.5c-0.1-0.3-0.2-0.6-0.2-0.9c0-0.2-0.1-0.5-0.1-0.7 c0-0.2-0.1-0.4-0.1-0.7C1,17,1,16.5,1,16C1,12,2.6,8.2,5.4,5.4z" />
@@ -26,10 +27,18 @@ TIME_DIVISION_RANGE = [
 ]
 
 class UserWelcomeGreetingsLabel(QLabel):
+    """欢迎页问候语
+
+    Parameters
+    ----------
+    QLabel : _type_
+        _description_
+    """    
     def __init__(self, parent = None):
         super().__init__(parent)
         self.username = load_config.userConfig().load_config().get("username")
         self.setText(self._init_user_welcome_greetings())
+        self.setProperty("class", "UserWelcomeGreetingsLabel")
 
     def _init_user_welcome_greetings(self):
         current_hour = datetime.now().hour
@@ -99,6 +108,8 @@ class WelcomeSearchBoxWidget(QWidget):
         # 创建输入框
         self.search_box_input_line = QLineEdit(self)
         self.search_box_input_line.setPlaceholderText("按课程名或课号搜索...")
+        self.search_box_input_line.setMaximumWidth(500)
+        self.search_box_input_line.setMinimumWidth(500)
 
         # 创建搜索按钮
         self.search_button = QPushButton("搜索", self)
@@ -106,8 +117,10 @@ class WelcomeSearchBoxWidget(QWidget):
         self.search_box_input_line.returnPressed.connect(self.search_func)
 
         # 构建布局内容
+        search_box_layout.addStretch(1)
         search_box_layout.addWidget(self.search_box_input_line)
         search_box_layout.addWidget(self.search_button)
+        search_box_layout.addStretch(1)
 
         return search_box_layout
 
@@ -148,6 +161,8 @@ class subRecentVisitCourse(QWidget):
         
         # 初始化单个最近浏览课程
         self._init_sub_recent_visit_course()
+        self.setFixedSize(350, 125)
+        self.setProperty("class", "RecentVisitCourseCard")
 
     def _init_sub_recent_visit_course(self):
         """单个最近浏览课程
@@ -179,9 +194,15 @@ class subRecentVisitCourse(QWidget):
         course_name_label = QLabel(self.course_name)
         course_schedule_label = QLabel(self.course_schedule)
 
+        course_name_label.setWordWrap(True)
+        course_schedule_label.setWordWrap(True)
+
         # 构建布局并加载入组件
+        course_message_layout.addStretch(1)
         course_message_layout.addWidget(course_name_label)
         course_message_layout.addWidget(course_schedule_label)
+        course_message_layout.setSpacing(45)
+        course_message_layout.addStretch(1)
         course_message_widget.setLayout(course_message_layout)
 
         return course_message_widget
@@ -195,8 +216,8 @@ class subRecentVisitCourse(QWidget):
             _description_
         """        
         # 尺寸不符合要求，则缩放
-        if self.course_avatar.width() != 140 or self.course_avatar.height() != 79:
-            default_size = QSize(140, 79)
+        if self.course_avatar.width() != 135 or self.course_avatar.height() != 75:
+            default_size = QSize(135, 75)
             self.course_avatar = self.course_avatar.scaled(default_size,
                                                            Qt.AspectRatioMode.IgnoreAspectRatio,
                                                            Qt.TransformationMode.SmoothTransformation)
@@ -222,21 +243,27 @@ class RecentVisitCourses(QWidget):
     def _init_recent_visit_courses(self):
         """加载所有最近浏览课程，并组装为最近浏览的组件
         """        
-        recent_visit_courses_layout = QHBoxLayout()
+        recent_visit_courses_layout = FlowLayout(self, margin=10, h_spacing=15, v_spacing=15, alignment=Qt.AlignCenter)
         
-        for recent_visit_course in self.recent_visit_courses:
-            course_name = recent_visit_course.get("course_name")
-            course_schedule = recent_visit_course.get("course_schedule")
-            course_avatar = recent_visit_course.get("cover")
+        if not self.recent_visit_courses:
+            # 如果没有课程，可以显示一个提示
+            no_course_label = QLabel("最近没有浏览过课程哦~")
+            no_course_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            recent_visit_courses_layout.addWidget(no_course_label)
+        else:
+            for recent_visit_course in self.recent_visit_courses:
+                course_name = recent_visit_course.get("course_name")
+                course_schedule = recent_visit_course.get("course_schedule")
+                course_avatar = recent_visit_course.get("cover")
+                
+                if course_avatar is None:
+                    with open(DEFAULT_COURSE_COVER_PATH, "rb") as f:
+                        course_avatar = f.read()
+                
+                # 组装单个最近课程的组件
+                recent_visit_course_widget = subRecentVisitCourse(course_name, course_schedule, course_avatar)
+                recent_visit_courses_layout.addWidget(recent_visit_course_widget)
             
-            if course_avatar is None:
-                with open(DEFAULT_COURSE_COVER_PATH, "rb") as f:
-                    course_avatar = f.read()
-            
-            # 组装单个最近课程的组件
-            recent_visit_course_widget = subRecentVisitCourse(course_name, course_schedule, course_avatar)
-            recent_visit_courses_layout.addWidget(recent_visit_course_widget)
-        
         self.setLayout(recent_visit_courses_layout)
 
 class UserWelcomePage(QWidget):
@@ -259,12 +286,19 @@ class UserWelcomePage(QWidget):
 
         # 创建最近访问课程实例
         recent_visit_courses_widget = self._init_recent_visit_courses()
+        recent_visit_courses_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         
+        user_welcome_page_layout.addStretch(1)
+
         # 构建布局
         user_welcome_page_layout.addWidget(user_avater_label, 0, Qt.AlignmentFlag.AlignCenter)
         user_welcome_page_layout.addWidget(greetings_label, 0, Qt.AlignmentFlag.AlignCenter)
         user_welcome_page_layout.addWidget(search_box_widget)
         user_welcome_page_layout.addWidget(recent_visit_courses_widget)
+
+        user_welcome_page_layout.setSpacing(20)
+
+        user_welcome_page_layout.addStretch(1)
 
         # 加载布局进组件
         self.setLayout(user_welcome_page_layout)

@@ -22,6 +22,7 @@ recent_visit_courses = gui_data_parser.RecentVisitCoursesData()
 
 app = QApplication(sys.argv)
 user_welcome_page = userWelcomePage.UserWelcomePage(recent_visit_courses.results)
+user_welcome_page.resize(800, 600)
 user_welcome_page.show()
 sys.exit(app.exec())
 

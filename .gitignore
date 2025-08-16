@@ -6,10 +6,8 @@ reminder.md
 !global_config.json
 copy_data
 *.jpg
-images/
-*.txt
-*.doc
 *.png
+!default_course_cover.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

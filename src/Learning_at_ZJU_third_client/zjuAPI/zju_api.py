@@ -4,13 +4,13 @@ from load_config import load_config
 from printlog.print_log import print_log
 
 class APIFits:
-    def __init__(self, login_session: requests.Session, name, apis_name = None, apis_config = None, data = None):
+    def __init__(self, login_session: requests.Session, name, apis_name = None, apis_config = None, parent_dir = None, data = None):
         self.login_session = login_session
         self.name = name
         self.config = load_config.apiListConfig().load_config().get(self.name, None)
         self.apis_name = apis_name
         self.apis_config = apis_config
-        self.parent_dir = name
+        self.parent_dir = parent_dir if parent_dir else name
         self.data = data
     
     def load_api_config(self):
@@ -153,3 +153,7 @@ class userIndexAPIFits(APIFits):
             return base_api_url + f"/{userid}/{api_name}"
 
         return base_api_url
+    
+class todoListLiteAPIFits(APIFits):
+    def __init__(self, login_session: requests.Session):
+        super().__init__(login_session, "todo_list_lite", parent_dir="user_index")

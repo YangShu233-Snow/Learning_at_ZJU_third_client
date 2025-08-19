@@ -103,3 +103,8 @@ class myResourcesConfig(BaseConfig):
 class searchCoursesResults(BaseConfig):
     def __init__(self):
         super().__init__("all_api_data/search_results", "my_courses_config.json")
+
+class userIndexConfig(BaseConfig):
+    def __init__(self, config_name: str):
+        self.config_name = config_name + ".json"
+        super().__init__("all_api_data/user_index",self.config_name)

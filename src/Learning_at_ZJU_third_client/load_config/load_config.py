@@ -98,7 +98,7 @@ class APIParseQueryConfig(BaseConfig):
 
 class myResourcesConfig(BaseConfig):
     def __init__(self):
-        super().__init__("resources_list", "resources_list")
+        super().__init__("all_api_data/resources_list", "resources_config.json")
 
 class searchCoursesResults(BaseConfig):
     def __init__(self):

@@ -94,12 +94,8 @@ class LoginFit:
             '_eventId': 'submit'
         }
         
-        print_log("Info", f"构建成功！使用POST表单:", "login.LoginFit.login")
-        # for key, value in data.items():
-        #     if len(value) >= 200:
-        #         value = value[:200] + "..."
-        #     print(f"{key}: {value}")
-
+        print_log("Info", f"构建成功！", "login.LoginFit.login")
+        
         # POST登录
         print_log("Info", f"POST登录请求中...", "login.LoginFit.login")
         login_response = self.login_session.post(url=login_response.url, headers=self.headers, data=data)

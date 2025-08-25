@@ -8,6 +8,7 @@ copy_data
 *.jpg
 *.png
 !default_course_cover.png
+*.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

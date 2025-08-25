@@ -21,6 +21,15 @@
             }
         }
     },
+    "todo_list_lite": {
+        "apis_name": ["todo_list"],
+        "apis_config": {
+            "todo_list":{
+                "url": "https://courses.zju.edu.cn/api/todos?no-intercept=true",
+                "params": {}
+            }
+        }
+    },
     "courses": {
         "apis_name": ["my_courses"],
         "apis_config": {
@@ -114,6 +123,15 @@
                     "other_resources": [],
                     "uploads_in_rich_text": []
                 }
+            }
+        }
+    },
+    "resource_download": {
+        "apis_name": ["download"],
+        "apis_config": {
+            "download": {
+                "url": "https://courses.zju.edu.cn/api/uploads",
+                "params": {}
             }
         }
     }

@@ -44,7 +44,7 @@ class APIFits:
                 print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.get_api_data")
                 continue
 
-            api_params = self.make_api_params(api_config = api_config)
+            api_params = self.make_api_params(api_config = api_config, api_name=api_name)
             api_respone = self.login_session.get(url = api_url, params = api_params)
             api_json_file = load_config.apiConfig(self.parent_dir, api_name)
             api_json_file.update_config(config_data = api_respone.json())
@@ -74,7 +74,7 @@ class APIFits:
     def make_api_url(self, api_config: dict, api_name):
         return api_config.get("url", None)
     
-    def make_api_params(self, api_config: dict):
+    def make_api_params(self, api_config: dict, api_name: str):
         return api_config.get("params", None)
     
     def check_api_method(self, apis_config: dict, method: str):
@@ -98,8 +98,39 @@ class submissionAPIFits(APIFits):
 
 
 class resourcesListAPIFits(APIFits):
-    def __init__(self, login_session):
+    def __init__(self, login_session, page: int = 1, show_amount: int = 10):
         super().__init__(login_session, "resources_list")
+        self.page = page
+        self.show_amount = show_amount
+
+    def make_api_params(self, api_config: str, api_name: str):
+        api_params = api_config.get("params")
+
+        if api_params == None:
+            print_log("Error", f"{api_name}缺乏params参数配置！", "zju_api.resourcesListAPIFits.make_api_params")
+        
+        if api_name == "resources":
+            api_params["page"] = self.page
+            api_params["page_size"] = self.show_amount
+            return api_params
+
+        return super().make_api_params(api_config, "")
+
+class resourcesDownloadAPIFits(APIFits):
+    def __init__(self, login_session, resource_id: str):
+        super().__init__(login_session, "resource_download")
+        self.resource_id = resource_id
+
+    def make_api_url(self, api_config, api_name):    
+        base_api_url = api_config.get("url", None)
+        if base_api_url == None:
+            print_log("Error", f"{api_name}参数url缺失！", "zju_api.resourcesDownloadAPIFits.make_api_url")
+            return None
+            
+        if api_name == "download":
+            return base_api_url + f"/{self.resource_id}/blob"
+
+        return super().make_api_url(api_config, api_name)
 
 class coursePageAPIFits(APIFits):
     def __init__(self, login_session: requests.Response, course_id: str):
@@ -113,7 +144,6 @@ class coursePageAPIFits(APIFits):
             return None
         
         if api_name == "homework":
-            print(base_api_url + f"/{self.course_id}/{api_name}/submission-status")
             return base_api_url + f"/{self.course_id}/{api_name}/submission-status"
 
         return base_api_url + f"/{self.course_id}/{api_name}"
@@ -124,7 +154,7 @@ class coursesAPIFits(APIFits):
         self.parent_dir = parent_dir
         self.keyword = keyword
 
-    def make_api_params(self, api_config):
+    def make_api_params(self, api_config, api_name: str):
         # 修改conditions中的keyword参数为搜索关键词
         api_params: dict = api_config.get("params")
         default_conditions: str = api_params.get("conditions")

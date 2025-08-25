@@ -7,7 +7,7 @@ from pathlib import Path
 from requests.exceptions import HTTPError
 import sys
 from datetime import datetime, timezone
-from colorama import Fore, Style, init
+from colorama import Fore, Style, Back, init
 
 class HelpManual:
     def __init__(self):
@@ -40,6 +40,9 @@ class HelpManual:
         print("任务采用颜色分级，根据任务紧急程度分为红色，黄色，蓝色与绿色。")
         print(f"该命令存在别名：{", ".join(self.todo_list_alias)}")
 
+    def list_cloud_files(self):
+        pass
+
     def quit_help(self):
         print("quit 命令退出CLI交互。")
         print("\t用法: quit")
@@ -65,6 +68,11 @@ def quit(command_parts: list[str]):
 
 def search_courses(command_parts: list[str], login_client):
     command = command_parts[0]
+    C_NAME = Style.BRIGHT + Fore.YELLOW
+    C_LABEL = Fore.GREEN
+    C_KEY_INFO = Fore.CYAN
+    C_NORMAL_INFO = Fore.WHITE
+    C_CODE = Style.DIM + Fore.WHITE
 
     if len(command_parts) != 2:
         print(f"'{command}'命令参数不合法！")
@@ -91,19 +99,26 @@ def search_courses(command_parts: list[str], login_client):
 
     for course in course_results:
         course_name = course.get("name", "null")
-        course_time = course.get("course_attributes").get("teaching_class_name")
-        course_teachers = course.get("instructors")
+        course_time = course.get("course_attributes").get("teaching_class_name", "null")
+        course_teachers = course.get("instructors", [])
+        course_department = course.get("department").get("name", "null")
+        course_academic_year = course.get("academic_year").get("name", "null")
+        course_code = course.get("course_code", "null")
+
         teachers_name = []
         for teacher in course_teachers:
             name = teacher.get("name", "null")
             teachers_name.append(name)
         
-        print("=========================")
-        print(course_name)
-        print(f"上课时间：{course_time}")
-        print(f"任课教师：{"、".join(teachers_name)}")
-        print("=========================")
+        print("----------------------------------------")
+        print(f"{C_NAME}{course_name}")
+        print(f"  {C_LABEL}上课时间: {C_KEY_INFO}{course_time}")
+        print(f"  {C_LABEL}授课教师: {C_NORMAL_INFO}{'、'.join(teachers_name    )}")
+        print(f"  {C_LABEL}开课院系: {C_NORMAL_INFO}{course_department}")
+        print(f"  {C_LABEL}开课学年: {C_NORMAL_INFO}{course_academic_year}")
+        print(f"  {C_LABEL}课程代码：{C_CODE}{course_code}")
 
+    print("----------------------------------------")
     return 0
 
 def dir_walker(dir_path: Path) -> list[Path]:
@@ -154,9 +169,11 @@ def upload_files(command_parts: list[str], login_client):
             file_paths.append(file_path)
         else:
             print(f"{file_path_str} 不是一个文件/文件夹！")
+            print("Warning", f"{file_path_str} 不是一个文件/文件夹！", "CLI.CLI.upload_files")
 
     if len(file_paths) == 0:
         print("没有文件/文件夹可以上传！")
+        print("Info", f"{file_path_str} 不是一个文件/文件夹！", "CLI.CLI.upload_files")
         return 0
 
     # 载入所有文件路径
@@ -172,23 +189,30 @@ def upload_files(command_parts: list[str], login_client):
         files_uploader = file_upload.uploadFile(to_upload_file)
         files_uploader.upload(login_client)
     except HTTPError as e:
-        print_log("Error", "上传发生未知错误！", "CLI.CLI.upload_files")
+        print_log("Error", "上传发生网络错误！", "CLI.CLI.upload_files")
         return 1
 
     print("文件上传完成！")
     return 0
 
 def print_todo_colorful(todo_attributes: dict):
+    C_DEADLINE = Back.RED + Fore.WHITE
+    C_EMERGENCY = Style.BRIGHT + Fore.RED
+    C_HIGH_PRIORITY = Fore.YELLOW
+    C_URGENT = Fore.BLUE
+    C_ROUTINE = Fore.GREEN
+    C_NORMAL = Fore.WHITE
+    C_KEY_INFO = Fore.CYAN
+
     # 定义不同紧急程度的颜色和标签
     # (下限天数, 上限天数, 颜色代码, 标签)
     ddl_urgency = (
-        (0, 1, '\033[91m', "即将截止"),  # 1天内：红色
-        (1, 3, '\033[93m', "略有余地"),  # 3天内：黄色
-        (3, 7, '\033[94m', "计划之中")   # 7天内：蓝色
+        (0, 1, C_EMERGENCY, "即将截止"),  # 1天内：红色
+        (1, 3, C_HIGH_PRIORITY, "略有余地"),  # 3天内：黄色
+        (3, 7, C_URGENT, "计划之中")   # 7天内：蓝色
     )
     # 默认颜色（7天以上）：绿色
-    color_code = '\033[92m'
-    RESET = '\033[0m'
+    color_code = C_ROUTINE
     
     # 从传入的字典中获取截止日期
     todo_deadline = todo_attributes.get("todo_deadline")
@@ -198,40 +222,37 @@ def print_todo_colorful(todo_attributes: dict):
 
     # 判断任务是否已经截止
     if todo_deadline > now_time:
-        #【修复】正确计算时间差
         time_to_ddl = todo_deadline - now_time
         # 设置一个默认的紧急程度
         todo_attributes["todo_urgency"] = "远在天边"
         
         # 遍历紧急程度定义，设置对应的颜色和标签
         for urgency in ddl_urgency:
-            #【修复】使用 time_to_ddl.days 进行正确的总天数比较
+            # 使用 time_to_ddl.days 进行正确的总天数比较
             if time_to_ddl.days < urgency[1]:
                 color_code = urgency[2]
                 todo_attributes["todo_urgency"] = urgency[3]
                 break
     else:
-        color_code = '\033[1;91m' # 加粗红色
+        color_code = C_DEADLINE # 加粗红色
         todo_attributes["todo_urgency"] = "已经截止"
 
-    # 为了更好的视觉效果，将整个任务信息块都着色
-    print(f"{color_code}===================={RESET}")
-    print(f"{color_code}{todo_attributes.get('todo_title')}{RESET}")
-    print(f"{color_code}截止日期: {todo_attributes.get('todo_deadline').strftime('%Y-%m-%d %H:%M:%S')} {todo_attributes.get('todo_urgency')}{RESET}")
-    print(f"{color_code}任务id: {todo_attributes.get('todo_id')}{RESET}")
-    print(f"{color_code}任务类型: {todo_attributes.get('todo_type')}{RESET}")
-    print(f"{color_code}课程名称: {todo_attributes.get('todo_course_name')}{RESET}")
-    print(f"{color_code}课程id: {todo_attributes.get('todo_course_id')}{RESET}")
+    print(f"----------------------------------------")
+    print(f"{color_code}{todo_attributes.get('todo_title')}")
+    print(f"{C_NORMAL}截止日期: {C_KEY_INFO}{todo_attributes.get('todo_deadline').strftime('%Y-%m-%d %H:%M:%S')} {todo_attributes.get('todo_urgency')}")
+    print(f"{C_NORMAL}任务id: {todo_attributes.get('todo_id')}")
+    print(f"{C_NORMAL}任务类型: {todo_attributes.get('todo_type')}")
+    print(f"{C_NORMAL}课程名称: {todo_attributes.get('todo_course_name')}")
+    print(f"{C_NORMAL}课程id: {todo_attributes.get('todo_course_id')}")
 
 def todo_list(command_parts: list[str], login_client):
     command = command_parts[0]
     show_amount = 5
     offset = 0
-    end = 0
     
     # 检验参数
     if "--help" in command_parts:
-        HelpManual.todo_list_help()
+        HelpManual().todo_list_help()
         return 0
     
     # 显示数量
@@ -289,7 +310,7 @@ def todo_list(command_parts: list[str], login_client):
         if index >= show_amount:
             remaining_amount = todo_list_amount - index - 1
             if remaining_amount != 0:
-                print("====================")
+                print("----------------------------------------")
                 print(f"...还有{remaining_amount}个结果待显示")
             break
         todo_attributes = dict(        
@@ -304,7 +325,108 @@ def todo_list(command_parts: list[str], login_client):
         print_todo_colorful(todo_attributes)
         continue
     else:
-        print("====================")
+        print("----------------------------------------")
+
+def transform_resource_size(resource_size: int)->str:
+    resource_size_KB = resource_size / 1024
+    resource_size_MB = resource_size_KB / 1024
+    resource_size_GB = resource_size_MB / 1024
+
+    if resource_size_GB >= 0.5:
+        return f"{resource_size_GB:.2f}GB"
+    
+    if resource_size_MB >= 0.5:
+        return f"{resource_size_MB:.2f}MB"
+    
+    if resource_size_KB >= 0.5:
+        return f"{resource_size_KB:.2f}KB"
+    
+    return f"{resource_size:.2f}B"
+
+
+def list_cloud_files(command_parts: list[str], login_client):
+    C_NAME = Style.BRIGHT + Fore.YELLOW
+    C_LABEL = Fore.GREEN
+    C_KEY_INFO = Fore.CYAN
+    C_NORMAL_INFO = Fore.WHITE
+    C_CODE = Style.DIM + Fore.WHITE
+
+    command = command_parts[0]
+    show_amount = 10
+    page = 1
+
+    # 检验参数
+    if "--help" in command_parts:
+        HelpManual.list_cloud_files()
+        return 0
+    
+    # 显示数量
+    if "-n" in command_parts:
+        if command_parts.index("-n") == (len(command_parts) - 1):
+            print("'-n' 未提供参数！")
+            return 1
+        
+        show_amount = command_parts[command_parts.index('-n') + 1]
+        if not show_amount.isnumeric():
+            print("'-n'应提供整型参数！")
+            return 1
+        
+        show_amount = int(show_amount)
+        if show_amount == 0:
+            print("显示数量不应为0！")
+            return 1
+    
+    # 页面索引
+    if '-p' in command_parts:
+        if command_parts.index('-p') == (len(command_parts) - 1):
+            print("'-p' 未提供参数！")
+            return 1
+        
+        page = command_parts[command_parts.index('-p') + 1]
+        if not page.isnumeric():
+            print("'-p'应提供整型参数！")
+            return 1
+        
+        page = int(page)
+        if page == 0:
+            print("页面索引不应为0！")
+            return 1
+    
+    # 更新云盘资源列表数据
+    zju_api.resourcesListAPIFits(login_client, page, show_amount).get_api_data()
+    resources_list_dict = load_config.myResourcesConfig().load_config()
+    
+    # 检查页面索引是否超出限制
+    pages = resources_list_dict.get('pages')
+    if page > pages:
+        print(f"页面索引超出限制！当前每页显示{show_amount}个资源，共{pages}页")
+        return 0
+    
+    resources_list: list[dict] = resources_list_dict.get('uploads')
+    if resources_list == None:
+        print_log("Error", "云盘资源列表获取存在问题！请将此条日志报告给开发者！", "CLI.CLI.list_cloud_files")
+        return 1
+    
+    if len(resources_list) == 0:
+        print("资源列表为空！")
+        return 0
+    
+    for resource in resources_list:
+        resource_name = resource.get('name', 'null')
+        resource_id = resource.get('id', 'null')
+        resource_size = resource.get('size', 0)
+        resource_download_status = resource.get('allow_download', False)
+        resource_update_time = datetime.fromisoformat(resource.get("updated_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00'))
+
+        print("--------------------------------------------------")
+        print(f"{C_NAME}{resource_name}")
+        print(f"  {C_LABEL}文件ID: {C_KEY_INFO}{resource_id}")
+        print(f"  {C_LABEL}文件是否可下载: {C_KEY_INFO}{resource_download_status}")
+        print(f"  {C_LABEL}文件上传时间: {C_NORMAL_INFO}{resource_update_time}")
+        print(f"  {C_LABEL}文件大小: {C_CODE}{resource_size}")
+
+    print("--------------------------------------------------")
+    return 0
 
 def main():
     init(autoreset=True)
@@ -346,3 +468,11 @@ def main():
             if status_code == 1:
                 print(f"{command} 命令执行未成功，你可以使用{command} --help获取该命令的帮助")
             continue
+
+        elif command in ["list_cloud_files", "lcf"]:
+            status_code = list_cloud_files(command_parts, login_client)
+            if status_code == 1:
+                print(f"{command} 命令执行未成功，你可以使用{command} --help获取该命令的帮助")
+            continue
+
+        print(f"{command} 不存在！你可以使用'help'命令获取帮助！")

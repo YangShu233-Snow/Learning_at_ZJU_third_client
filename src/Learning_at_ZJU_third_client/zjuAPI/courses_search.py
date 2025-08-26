@@ -1,7 +1,7 @@
 from requests import Response
 from load_config import load_config
 from printlog.print_log import print_log
-from zjuAPI import zju_api
+from . import zju_api
 
 class CoursesSearcher:
     def __init__(self, keyword: str = ""):

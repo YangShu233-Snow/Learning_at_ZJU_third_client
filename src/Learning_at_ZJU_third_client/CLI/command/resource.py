@@ -1,17 +1,20 @@
 import typer
-from typing_extensions import Optional, Annotated
-from requests import Session
+from typing_extensions import Optional, Annotated, List
+from requests.exceptions import HTTPError
 from rich import print as rprint
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from datetime import datetime
+from pathlib import Path
 
-from zjuAPI import zju_api, courses_search
+from zjuAPI import zju_api
+from upload import file_upload
 from printlog.print_log import print_log
 from ..state import state
 
 # resource 命令组
 app = typer.Typer(help="学在浙大云盘资源相关命令，可以查看，搜索，上传或下载云盘文件。")
 
-# 资源列举file_type检验函数
+# 资源列举file_type检验
 def is_list_resoureces_file_type_valid(file_type: str):
     valid_file_type = ["all", "file", "video", "document", "image", "audio", "scorm", "swf", "link"]
     if file_type in valid_file_type:
@@ -21,13 +24,31 @@ def is_list_resoureces_file_type_valid(file_type: str):
     print(f"{file_type} 资源类型不存在！")
     raise typer.Exit(code=1)
 
+# 文件大小换算
+def transform_resource_size(resource_size: int)->str:
+    resource_size_KB = resource_size / 1024
+    resource_size_MB = resource_size_KB / 1024
+    resource_size_GB = resource_size_MB / 1024
+
+    if resource_size_GB >= 0.5:
+        return f"{resource_size_GB:.2f}GB"
+    
+    if resource_size_MB >= 0.5:
+        return f"{resource_size_MB:.2f}MB"
+    
+    if resource_size_KB >= 0.5:
+        return f"{resource_size_KB:.2f}KB"
+    
+    return f"{resource_size:.2f}B"
+
 # 注册资源列举命令
 @app.command("list", help="列举学在浙大云盘内的文件及其信息，支持指定文件名称与类型。")
 def list_resources(
     keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="文件名称")] = "",
     amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示文件的数量")] = 10,
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="云盘文件页面索引")] = 1,
-    file_type: Annotated[Optional[str], typer.Option("--type", "-t", help="文件类型", callback=is_list_resoureces_file_type_valid)] = "all"):
+    file_type: Annotated[Optional[str], typer.Option("--type", "-t", help="文件类型", callback=is_list_resoureces_file_type_valid)] = "all"
+    ):
     """
     列举学在浙大云盘内的文件资源，允许指定文件名称，显示数量与文件类型。
 
@@ -49,7 +70,7 @@ def list_resources(
     for resource in resources_list:
         resource_name = resource.get('name', 'null')
         resource_id = resource.get('id', 'null')
-        resource_size = resource.get('size', 0)
+        resource_size = transform_resource_size(resource.get('size', 0))
         resource_download_status = resource.get('allow_download', False)
         resource_update_time = datetime.fromisoformat(resource.get("updated_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00'))    
 
@@ -62,3 +83,76 @@ def list_resources(
 
     print("--------------------------------------------------")
     print(f"本页共 {current_results_amount} 个结果，第 {page_index}/{total_pages} 页。")
+
+# 修整并检查文件路径
+def check_files_path(files: List[Path])->List[Path]:
+    new_files_path = []
+    for file in files:
+        new_file_path = file.expanduser().resolve()
+        if not new_file_path.exists():
+            raise typer.BadParameter(message=f"{new_file_path} 不存在！")
+        
+        new_files_path.append(new_file_path)
+
+    return new_files_path
+
+# 解包文件夹及其嵌套
+def to_upload_dir_walker(dir: Path)->List[Path]:
+    to_upload_files = []
+
+    for file in dir.glob("*"):
+        if Path.is_dir(file):
+            to_upload_files.extend(to_upload_dir_walker(file))
+            continue
+
+        to_upload_files.append(file)
+
+    return to_upload_files
+
+# 注册资源上传命令
+@app.command(name="upload", help="上传本地文件至云盘，启用 --recursion 以自动解包文件夹")
+def upload_resources(
+    files: Annotated[List[Path], typer.Argument(help="一个或多个文件路径", callback=check_files_path)],
+    recursion: Annotated[Optional[bool], typer.Option("--recursion", "-r", help="启用此参数以解析文件夹")] = False
+):
+    to_upload_files = []
+    
+    print_log("Info", "载入目标路径", "CLI.command.resource.upload_resources")
+
+    # 创建进度提示，开始载入并上传文件
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="载入文件中...", total=1)
+        for file in files:
+            if Path.is_dir(file):
+                if not recursion:
+                    print_log("Warning", f"{file} 为文件夹，但是 --recursion未启用", "CLI.command.resource.upload_resources")
+                    print(f"{file} 是一个文件夹，但是你没有启用 --recursion，它不会被解包为文件上传！")
+                    continue
+
+                to_upload_files.extend(to_upload_dir_walker(file))
+                continue
+            
+            to_upload_files.append(file)
+        progress.advance(task, advance=1)
+
+
+        total_to_upload_files_amount = len(to_upload_files)
+        print_log("Info", f"成功载入 {total_to_upload_files_amount} 个文件", "CLI.command.resource.upload_resources")    
+        print(f"{total_to_upload_files_amount} 个文件被载入")
+
+        task = progress.add_task(description="文件上传中...")
+        try:
+            files_uploader = file_upload.uploadFile(to_upload_files)
+            files_uploader.upload(state.client.session)
+        except HTTPError as e:
+            print_log("Error", f"上传发生网络错误！错误原因: {e}", "CLI.command.resource.upload_resources")
+            print("上传发生错误！")
+            raise typer.Exit(code=1)
+        
+        print("文件上传完成！")
+        progress.advance(task, advance=1)
+        raise typer.Exit()

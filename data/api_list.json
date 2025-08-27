@@ -130,10 +130,18 @@
         "apis_name": ["download"],
         "apis_config": {
             "download": {
-                "url": "https://courses.zju.edu.cn/api/uploads",
+                "url": "https://courses.zju.edu.cn/api/uploads/<placeholder>/blob",
+                "params": {}
+            }
+        }
+    },
+    "course_resource_download": {
+        "apis_name": ["download"],
+        "apis_config": {
+            "download": {
+                "url": "https://courses.zju.edu.cn/api/uploads/reference/<placeholder>/blob",
                 "params": {}
             }
         }
     }
 }
-

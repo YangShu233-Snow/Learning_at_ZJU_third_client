@@ -29,7 +29,7 @@ class APIFits:
         if self.apis_config == None:
             print_log("Error", f"{self.name}配置项\"apis_config\"不存在！", "zju_api.load_api_config")
 
-    def get_api_data(self):
+    def get_api_data(self, auto_load: bool = False)->dict:
         if self.apis_name == None or self.apis_config == None:
             self.load_api_config()
 
@@ -46,8 +46,13 @@ class APIFits:
 
             api_params = self.make_api_params(api_config = api_config, api_name=api_name)
             api_respone = self.login_session.get(url = api_url, params = api_params)
-            api_json_file = load_config.apiConfig(self.parent_dir, api_name)
-            api_json_file.update_config(config_data = api_respone.json())
+            api_respone_json = api_respone.json()
+
+            if auto_load:
+                api_json_file = load_config.apiConfig(self.parent_dir, api_name)
+                api_json_file.update_config(config_data = api_respone_json)
+
+            return api_respone_json
 
     def post_api_data(self)->Response:
         if self.apis_name == None or self.apis_config == None:
@@ -98,10 +103,12 @@ class submissionAPIFits(APIFits):
 
 
 class resourcesListAPIFits(APIFits):
-    def __init__(self, login_session, page: int = 1, show_amount: int = 10):
+    def __init__(self, login_session, keyword: str, page: int = 1, show_amount: int = 10, file_type: str = "all"):
         super().__init__(login_session, "resources_list")
+        self.keyword = keyword
         self.page = page
         self.show_amount = show_amount
+        self.file_type = file_type
 
     def make_api_params(self, api_config: str, api_name: str):
         api_params = api_config.get("params")
@@ -110,8 +117,10 @@ class resourcesListAPIFits(APIFits):
             print_log("Error", f"{api_name}缺乏params参数配置！", "zju_api.resourcesListAPIFits.make_api_params")
         
         if api_name == "resources":
+            api_params["keyword"] = self.keyword
             api_params["page"] = self.page
             api_params["page_size"] = self.show_amount
+            api_params["fileType"] = self.file_type
             return api_params
 
         return super().make_api_params(api_config, "")

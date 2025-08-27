@@ -1,4 +1,4 @@
-from CLI import CLI
+from CLI.CLI_Typer import app
 
 if __name__ == "__main__":
-    CLI.main()
+    app()

@@ -1,4 +1,6 @@
 import requests
+import json
+import rich
 from requests import Response
 from requests.exceptions import HTTPError
 from typing_extensions import List
@@ -113,19 +115,23 @@ class resourcesListAPIFits(APIFits):
         self.file_type = file_type
 
     def make_api_params(self, api_config: str, api_name: str):
-        api_params = api_config.get("params")
+        api_params: dict = api_config.get("params")
 
         if api_params == None:
             print_log("Error", f"{api_name}缺乏params参数配置！", "zju_api.resourcesListAPIFits.make_api_params")
         
         if api_name == "resources":
-            api_params["keyword"] = self.keyword
+            # conditions这里需要是字符串，所以要解码-赋值-编码来处理
+            api_params_conditions: dict = json.loads(api_params.get("conditions"))
+            api_params_conditions["keyword"] = self.keyword
+            api_params_conditions["fileType"] = self.file_type
+            api_params["conditions"] = json.dumps(api_params_conditions, separators=(',', ':'), ensure_ascii=False)
             api_params["page"] = self.page
             api_params["page_size"] = self.show_amount
-            api_params["fileType"] = self.file_type
             return api_params
 
         return super().make_api_params(api_config, "")
+
 
 class resourcesDownloadAPIFits(APIFits):
     def __init__(self, login_session, resource_id: str):

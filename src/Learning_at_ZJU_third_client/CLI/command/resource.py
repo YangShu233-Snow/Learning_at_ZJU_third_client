@@ -17,8 +17,12 @@ app = typer.Typer(help="学在浙大云盘资源相关命令，可以查看，�
 # 资源列举file_type检验
 def is_list_resoureces_file_type_valid(file_type: str):
     valid_file_type = ["all", "file", "video", "document", "image", "audio", "scorm", "swf", "link"]
+
+    if file_type == None:
+        return "all"
+
     if file_type in valid_file_type:
-        return
+        return file_type
     
     print_log("Error", f"{file_type} 资源类型不存在！", "CLI.command.resource.is_list_resoureces_file_type_valid")
     print(f"{file_type} 资源类型不存在！")
@@ -72,7 +76,7 @@ def list_resources(
     keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="文件名称")] = "",
     amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示文件的数量")] = 10,
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="云盘文件页面索引")] = 1,
-    file_type: Annotated[Optional[str], typer.Option("--type", "-t", help="文件类型", callback=is_list_resoureces_file_type_valid)] = "all",
+    file_type: Annotated[Optional[str], typer.Option("--type", "-t", help="文件类型", callback=is_list_resoureces_file_type_valid)] = None,
     short: Annotated[Optional[bool], typer.Option("--short", "-s", help="简化输出内容，仅显示文件名与文件id")] = False,
     quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="仅输出文件id")] = False
     ):

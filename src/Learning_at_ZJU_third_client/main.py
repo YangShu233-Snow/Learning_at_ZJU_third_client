@@ -17,13 +17,7 @@ from PySide6.QtWidgets import QApplication
 login = login.LoginFit()
 login_session = login.login()
 
-recent_visit_courses = gui_data_parser.RecentVisitCoursesData()
-
-app = QApplication(sys.argv)
-user_welcome_page = userWelcomePage.UserWelcomePage(recent_visit_courses.results)
-user_welcome_page.resize(800, 600)
-user_welcome_page.show()
-sys.exit(app.exec())
+# recent_visit_courses = gui_data_parser.RecentVisitCoursesData()
 
 # # 搜索课程名称
 # courses_search.CoursesSearcher("先秦诸子").search_courses(login_session=login_session)

@@ -135,6 +135,23 @@
             }
         }
     },
+    "resource_delete": {
+        "apis_name": ["delete", "batch_delete"],
+        "apis_config": {
+            "delete": {
+                "url": "https://courses.zju.edu.cn/api/user/upload/<placeholder>",
+                "method": "DELETE",
+                "params": {}
+            },
+            "batch_delete": {
+                "url": "https://courses.zju.edu.cn/api/user/uploads",
+                "method": "DELETE",
+                "params": {
+                    "upload_ids": []
+                }
+            }
+        }
+    },
     "course_resource_download": {
         "apis_name": ["download"],
         "apis_config": {

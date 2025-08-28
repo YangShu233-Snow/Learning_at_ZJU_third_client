@@ -1,5 +1,7 @@
 import requests
 from requests import Response
+from requests.exceptions import HTTPError
+from typing_extensions import List
 from load_config import load_config
 from printlog.print_log import print_log
 
@@ -65,12 +67,12 @@ class APIFits:
         for api_name in self.apis_name:
             api_config: dict = self.apis_config.get(api_name, None)
             if api_config == None:
-                print_log("Error", f"{api_name}不存在！", "zju_api.get_api_data")
+                print_log("Error", f"{api_name}不存在！", "zju_api.post_api_data")
                 continue
             
             api_url = self.make_api_url(api_config, api_name)
             if api_url == None:
-                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.get_api_data")
+                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.post_api_data")
                 continue
 
             api_respone = self.login_session.post(url = api_url, json = self.data)
@@ -141,6 +143,106 @@ class resourcesDownloadAPIFits(APIFits):
 
         return super().make_api_url(api_config, api_name)
 
+class resourcesRemoveAPIFits(APIFits):
+    def __init__(self, login_session, resource_id: int|None = None, resources_id: List[int]|None = None):
+        super().__init__(login_session, "resource_delete")
+        self.resource_id = resource_id
+        self.resources_id = resources_id
+    
+    def make_api_params(self, api_config, api_name):
+        api_params = api_config.get("params")
+
+        if api_params == None:
+            print_log("Error", f"{api_name}缺乏params参数配置！", "zju_api.resourcesListAPIFits.make_api_params")
+        
+        if api_name == "batch_delete":
+            api_params["upload_ids"] = self.resources_id
+            return api_params
+
+        return super().make_api_params(api_config, "")
+
+
+    def make_api_url(self, api_config, api_name, resource_id: int|None = None):
+        base_api_url = api_config.get("url")
+        if base_api_url == None:
+            print_log("Error", f"{api_name}参数url缺失！", "zju_api.resourcesRemoveAPIFits.make_api_url")
+            return 
+        if api_name == "delete":
+            return base_api_url.replace("<placeholder>", str(self.resource_id))
+        return super().make_api_url(api_config, api_name)
+
+    def delete(self)->bool:
+        if self.apis_config == None:
+            self.load_api_config()
+
+        if not self.check_api_method(self.apis_config, "DELETE"):
+            print_log("Error", "该方法只适用DELET请求！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            raise RuntimeError
+        
+        api_name = "delete"
+        api_config: dict = self.apis_config.get(api_name, None)
+        if api_config == None:
+            print_log("Error", f"{api_name}不存在！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            return False
+        
+        api_url = self.make_api_url(api_config, api_name, self.resource_id)
+        if api_url == None:
+            print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            return False
+        
+        try:
+            api_respone = self.login_session.delete(url=api_url)
+            api_respone.raise_for_status()
+            print_log("Info", f"删除成功", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            return True
+        except HTTPError as e:
+            if api_respone.status_code == 404:
+                print_log("Error", "删除失败", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+                return False
+            
+            print_log("Error", f"未知请求错误！错误原因: {e}", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            return False
+        except Exception as e:
+            print_log("Error", f"未知错误！错误原因: {e}", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            return False
+        
+    def batch_delete(self):
+        if self.apis_config == None:
+            self.load_api_config()
+
+        if not self.check_api_method(self.apis_config, "DELETE"):
+            print_log("Error", "该方法只适用DELET请求！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            raise RuntimeError
+        
+        api_name = "batch_delete"
+        api_config: dict = self.apis_config.get(api_name, None)
+        if api_config == None:
+            print_log("Error", f"{api_name}不存在！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            return False
+        
+        api_url = self.make_api_url(api_config, api_name)
+        if api_url == None:
+            print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            return False
+
+        api_params = self.make_api_params(api_config, api_name)
+        
+        try:
+            api_respone = self.login_session.delete(url=api_url, json=api_params)
+            api_respone.raise_for_status()
+            print_log("Info", f"删除成功", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            return True
+        except HTTPError as e:
+            if api_respone.status_code == 404:
+                print_log("Error", "删除失败", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+                return False
+            
+            print_log("Error", f"未知请求错误！错误原因: {e}", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            return False
+        except Exception as e:
+            print_log("Error", f"未知错误！错误原因: {e}", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            return False
+            
 class coursePageAPIFits(APIFits):
     def __init__(self, login_session: requests.Response, course_id: str):
         super().__init__(login_session, "course_page")

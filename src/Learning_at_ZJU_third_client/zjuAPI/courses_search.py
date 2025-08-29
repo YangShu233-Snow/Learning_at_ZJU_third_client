@@ -1,3 +1,4 @@
+# 弃用
 from requests import Response
 from load_config import load_config
 from printlog.print_log import print_log

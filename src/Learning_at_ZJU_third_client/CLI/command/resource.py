@@ -85,7 +85,7 @@ def list_resources(
 
     并不建议将显示数量指定太大，这可能延长网络请求时间，并且大量输出会淹没你的显示窗口。实际上你可以通过 "--page" 参数实现翻页。
     """
-    results = zju_api.resourcesListAPIFits(state.client.session, keyword, page_index, amount, file_type).get_api_data(False)
+    results = zju_api.resourcesListAPIFits(state.client.session, keyword, page_index, amount, file_type).get_api_data(False)[0]
     total_pages = results.get("pages")
     if page_index > total_pages:
         print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
@@ -210,7 +210,7 @@ def remove_resources(
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用 --batch 则使用快速批量模式，但此模式存在缺陷，服务端不会对文件id做任何校验，倘若你输入一个不存在的文件id也会返回删除成功")] = False
 ):
     """
-    删除学在浙大云盘内的指定文件，可一次提供多个文件id批量删除。
+    删除学在浙大云盘内的指定文件，支持一次提供多个文件id批量删除。
 
     本命令需要二次确认，启用 --force 则忽略二次确认。
     """
@@ -263,3 +263,12 @@ def remove_resources(
         print_log("Info", f"删除完成", "CLI.command.resource.remove_resources")
         rprint(f"删除完成，{success_delete_amount} 个文件被成功删除，{files_id_amount - success_delete_amount} 个文件删除失败。")
         return
+
+@app.command(name="download", help="下载云盘指定文件，支持多文件下载")
+def download_resource(
+    files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")]
+):
+    """
+    下载学在浙大云盘内的指定文件，支持一次提供多个文件id批量下载。
+    """
+

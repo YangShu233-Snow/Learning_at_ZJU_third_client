@@ -5,7 +5,7 @@ from login.login import ZjuClient
 from printlog.print_log import print_log
 
 from .state import state
-from .command import course, resource
+from .command import course, resource, assignment
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_STUDENTID_NAME = "studentid"
@@ -68,7 +68,9 @@ def login():
 # --- 注册命令组 ---
 # 课程命令组
 app.add_typer(course.app, name="course", help="学在浙大课程相关命令，支持列举，搜索与查看课程章节等功能。")
-app.add_typer(course.app, name="cs", help="course 命令的别名")
 
 # 资源命令组
 app.add_typer(resource.app, name="resource", help="学在浙大云盘资源相关命令，可以查看，搜索，上传或下载云盘文件。")
+
+# 任务命令组
+app.add_typer(assignment.app, name="assignment", help="学在浙大云盘资源相关命令，可以查看，搜索，上传或下载云盘文件。")

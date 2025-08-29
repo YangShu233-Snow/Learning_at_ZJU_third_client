@@ -3,7 +3,7 @@ from typing_extensions import Optional, Annotated
 from requests import Session
 from rich import print as rprint
 
-from zjuAPI import zju_api, courses_search
+from zjuAPI import zju_api
 from ..state import state
 
 # courses 命令组
@@ -13,9 +13,11 @@ app = typer.Typer(help="""
 
 # 注册课程搜素命令
 @app.command("search", help="搜索指定的课程，搜索结果会以表单的形式呈现。")
-def search_courses(keyword: Annotated[str, typer.Argument(help="课程搜索关键字")]):
-    courses_searcher = courses_search.CoursesSearcher(state.client.session)
-    search_results = courses_searcher.search_courses(keyword)
+def search_courses(
+    keyword: Annotated[str, typer.Argument(help="课程搜索关键字")]
+    ):
+    courses_searcher = zju_api.coursesAPIFits(state.client.session, keyword=keyword)
+    search_results = courses_searcher.get_api_data()[0]
     search_results_amount = search_results.get("total", 0)
     rprint(f"搜索结果共 [green]{search_results_amount}[/green] 个")
 

@@ -84,8 +84,8 @@ def search_courses(command_parts: list[str], login_client):
         HelpManual().search_courses_help()
         return 0
 
-    courses_searcher = courses_search.CoursesSearcher(keyword)
-    courses_searcher.search_courses(login_client)
+    courses_searcher = courses_search.CoursesSearcher(login_client)
+    courses_searcher.search_courses(keyword, True)
 
     result = load_config.searchCoursesResults().load_config()
 
@@ -287,7 +287,7 @@ def todo_list(command_parts: list[str], login_client):
         offset = offset -1
 
     # 更新并加载todo_list
-    zju_api.todoListLiteAPIFits(login_client).get_api_data()
+    zju_api.todoListLiteAPIFits(login_client).get_api_data(True)
     todo_list_dict = load_config.userIndexConfig("todo_list_config").load_config()
     todo_list: list[dict] = todo_list_dict.get("todo_list", None)
     if todo_list == None:
@@ -393,7 +393,7 @@ def list_cloud_files(command_parts: list[str], login_client):
             return 1
     
     # 更新云盘资源列表数据
-    zju_api.resourcesListAPIFits(login_client, page, show_amount).get_api_data()
+    zju_api.resourcesListAPIFits(login_client, page, show_amount).get_api_data(True)
     resources_list_dict = load_config.myResourcesConfig().load_config()
     
     # 检查页面索引是否超出限制

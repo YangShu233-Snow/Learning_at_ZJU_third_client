@@ -29,13 +29,14 @@ class submitAssignment:
         # 提交任务
         print(post_data)
         submissions = zju_api.submissionAPIFits(login_session=login_session, activity_id=self.activity_id, data=post_data)
-        submit_response = submissions.post_api_data()
+        submit_responses = submissions.post_api_data()
         
-        if submit_response.status_code != 201:
-            print_log("Error", f"任务提交失败", "submit.submitAssignment.submit")
-            print(submit_response.status_code)
-            print(submit_response.json())
-            raise HTTPError
+        for submit_response in submit_responses:
+            if submit_response.status_code != 201:
+                print_log("Error", f"任务提交失败", "submit.submitAssignment.submit")
+                print(submit_response.status_code)
+                print(submit_response.json())
+                raise HTTPError
 
         print_log("Info", f"任务提交成功", "submit.submitAssignment.submit")
         

@@ -1,8 +1,12 @@
 {
     "user_index": {
-        "apis_name": ["todo_list", "notifications", "recent_visit_courses"],
+        "apis_name": [
+            "todo_list",
+            "notifications",
+            "recent_visit_courses"
+        ],
         "apis_config": {
-            "todo_list":{
+            "todo_list": {
                 "url": "https://courses.zju.edu.cn/api/todos?no-intercept=true",
                 "params": {}
             },
@@ -22,21 +26,33 @@
         }
     },
     "todo_list_lite": {
-        "apis_name": ["todo_list"],
+        "apis_name": [
+            "todo_list"
+        ],
         "apis_config": {
-            "todo_list":{
+            "todo_list": {
                 "url": "https://courses.zju.edu.cn/api/todos?no-intercept=true",
                 "params": {}
             }
         }
     },
     "courses": {
-        "apis_name": ["my_courses"],
+        "apis_name": [
+            "my_courses"
+        ],
         "apis_config": {
             "my_courses": {
                 "url": "https://courses.zju.edu.cn/api/my-courses",
                 "params": {
-                    "conditions": "{\"status\":[\"ongoing\",\"notStarted\"],\"keyword\":\"{{{keyword}}}\",\"classify_type\":\"recently_started\",\"display_studio_list\":false}",
+                    "conditions": {
+                        "status": [
+                            "ongoing",
+                            "notStarted"
+                        ],
+                        "keyword": "",
+                        "classify_type": "recently_started",
+                        "display_studio_list": false
+                    },
                     "fileds": "id,name,course_code,academic_year_id,course_attributes(teaching_class_name),course_code,department(id,name),instructors(id,name),start_date,url",
                     "page": 1,
                     "page_size": 10,
@@ -46,7 +62,14 @@
         }
     },
     "course_page": {
-        "apis_name": ["modules", "activities", "exams", "homework", "submitted-exams", "exam-scores"],
+        "apis_name": [
+            "modules",
+            "activities",
+            "exams",
+            "homework",
+            "submitted-exams",
+            "exam-scores"
+        ],
         "apis_config": {
             "modules": {
                 "url": "https://courses.zju.edu.cn/api/courses",
@@ -80,21 +103,11 @@
             }
         }
     },
-    "resources_list": {
-        "apis_name": ["resources"],
-        "apis_config": {
-            "resources": {
-                "url": "https://courses.zju.edu.cn/api/user/resources",
-                "params": {
-                    "conditions": "{\"keyword\":\"\",\"includeSlides\":true,\"limitTypes\":[],\"fileType\":\"all\",\"parentId\":0,\"folderToken\":\"\",\"resourceType\":null,\"filters\":[],\"linkTypes\":[],\"only_ready\":false}",
-                    "page": 1,
-                    "page_size": 10
-                }
-            }
-        }
-    },
     "resources_submission": {
-        "apis_name": ["upload", "submissions"],
+        "apis_name": [
+            "upload",
+            "submissions"
+        ],
         "apis_config": {
             "upload": {
                 "url": "https://courses.zju.edu.cn/api/uploads",
@@ -126,14 +139,68 @@
             }
         }
     },
-    "resource_download": {
-        "apis_name": ["download"],
+    "course_resource_download": {
+        "apis_name": [
+            "download"
+        ],
         "apis_config": {
             "download": {
-                "url": "https://courses.zju.edu.cn/api/uploads",
+                "url": "https://courses.zju.edu.cn/api/uploads/reference/<placeholder>/blob",
                 "params": {}
+            }
+        }
+    },
+    "resource": {
+        "apis_name": [
+            "list",
+            "download",
+            "batch_download",
+            "remove",
+            "batch_remove"
+        ],
+        "apis_config": {
+            "list": {
+                "url": "https://courses.zju.edu.cn/api/user/resources",
+                "params": {
+                    "conditions": {
+                        "keyword": "",
+                        "includeSlides": true,
+                        "limitTypes": [],
+                        "fileType": "all",
+                        "parentId": 0,
+                        "folderToken": "",
+                        "resourceType": null,
+                        "filters": [],
+                        "linkTypes": [],
+                        "only_ready": false
+                    },
+                    "page": 1,
+                    "page_size": 10
+                }
+            },
+            "download": {
+                "url": "https://courses.zju.edu.cn/api/uploads/<placeholder>/blob",
+                "params": {}
+            },
+            "batch_download": {
+                "url": "https://courses.zju.edu.cn/zip/uploads",
+                "params": {
+                    "timezone": -480,
+                    "upload_ids": []
+                }
+            },
+            "remove": {
+                "url": "https://courses.zju.edu.cn/api/user/upload/<placeholder>",
+                "method": "DELETE",
+                "params": {}
+            },
+            "batch_remove": {
+                "url": "https://courses.zju.edu.cn/api/user/uploads",
+                "method": "DELETE",
+                "params": {
+                    "upload_ids": []
+                }
             }
         }
     }
 }
-

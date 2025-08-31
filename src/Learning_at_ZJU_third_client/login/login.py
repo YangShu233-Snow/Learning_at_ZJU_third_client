@@ -143,8 +143,6 @@ class ZjuClient:
         
         if "学在浙大" in response.text:
             print_log("Info", f"登录成功！学号: {self.studentid}", "login.login.ZjuClient.login")
-            self._update_user_config(response)
-            print_log("Info", "User Config配置更新成功", "login.login.ZjuClient.login")
             return True
         else:
             print_log("Error", f"登录失败，请检查学号与密码是否正确！", "login.login.ZjuClient.login")
@@ -183,27 +181,6 @@ class ZjuClient:
         xpath_pattern = r'//input[@name="execution"]/@value'
         
         return html.xpath(xpath_pattern)
-    
-    def _update_user_config(self, response: requests.Response):
-        """更新用户信息文件，记录登录地址，用户学在浙大id和用户姓名。
-
-        Parameters
-        ----------
-        response : requests.Response
-            _description_
-        """        
-        user_config_file = load_config.userConfig()
-        user_config = user_config_file.load_config()
-        user_config["url"] = response.url
-        user_config["userid"] = self._get_userid(response)
-        user_config["username"] = self._get_username(response)
-        user_config_file.update_config(config_data=user_config)
-
-    def _get_userid(self, response: requests.Response)->str:
-        html = etree.HTML(response.text)
-        xpath_pattern = r'//span[@id="userId"]/@value'
-        result = html.xpath(xpath_pattern)
-        return result[0]
     
     def _get_username(self, response: requests.Response)->str:
         """从index.html获取用户的姓名
@@ -266,9 +243,11 @@ class ZjuClient:
         try:
             response = self.session.get(url="https://courses.zju.edu.cn/api/announcement")
             response.raise_for_status()
-            if "announcement" in response.json():
+            if "announcements" in response.json():
                 print_log("Info", "会话验证有效", "login.login.ZjuClient.is_valid_session")
                 return True
+            
+            return False
         except RequestException:
             print_log("Warning", "会话已过期失效！", "login.login.ZjuClient.is_valid_session")
             return False

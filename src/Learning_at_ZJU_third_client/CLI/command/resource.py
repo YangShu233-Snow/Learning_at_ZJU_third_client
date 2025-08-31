@@ -71,7 +71,7 @@ def to_upload_dir_walker(dir: Path)->List[Path]:
     return to_upload_files
 
 # 注册资源列举命令
-@app.command("list", help="列举学在浙大云盘内的文件及其信息，支持指定文件名称与类型。")
+@app.command("list")
 def list_resources(
     keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="文件名称")] = "",
     amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示文件的数量")] = 10,
@@ -86,7 +86,7 @@ def list_resources(
     并不建议将显示数量指定太大，这可能延长网络请求时间，并且大量输出会淹没你的显示窗口。实际上你可以通过 "--page" 参数实现翻页。
     """
     results = zju_api.resourcesListAPIFits(state.client.session, keyword, page_index, amount, file_type).get_api_data(False)[0]
-    total_pages = results.get("pages")
+    total_pages = results.get("pages", 0)
     if page_index > total_pages:
         print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
         raise typer.Exit(code=1)
@@ -96,7 +96,7 @@ def list_resources(
 
     if current_results_amount == 0:
         print("啊呀！没有找到文件呢。")
-        raise typer.Exit()
+        return
     
     # quiet 模式仅打印文件id，并且不换行
     # short 模式仅按表单格式打印文件名与文件id
@@ -131,6 +131,7 @@ def list_resources(
 
     if short:
         print("------------------------------")
+        print(f"本页共 {current_results_amount} 个结果，第 {page_index}/{total_pages} 页。")
         return
 
     print("--------------------------------------------------")
@@ -138,7 +139,7 @@ def list_resources(
     return 
 
 # 注册资源上传命令
-@app.command(name="upload", help="上传本地文件至云盘，启用 --recursion 以自动解包文件夹")
+@app.command(name="upload")
 def upload_resources(
     files: Annotated[List[Path], typer.Argument(help="一个或多个文件路径", callback=check_files_path)],
     recursion: Annotated[Optional[bool], typer.Option("--recursion", "-r", help="启用此参数以解析文件夹")] = False
@@ -203,7 +204,7 @@ def upload_resources(
     return 
     
 # 注册资源删除命令
-@app.command(name="remove", help="删除云盘指定文件，支持多文件删除")
+@app.command(name="remove")
 def remove_resources(
     files_id: Annotated[List[int], typer.Argument(help="需删除文件的id")],
     force: Annotated[Optional[bool], typer.Option("--force", "-f", help="启用 --force 以关闭二次确认")] = False,
@@ -264,7 +265,7 @@ def remove_resources(
         rprint(f"删除完成，{success_delete_amount} 个文件被成功删除，{files_id_amount - success_delete_amount} 个文件删除失败。")
         return
 
-@app.command(name="download", help="下载云盘指定文件，支持多文件下载")
+@app.command(name="download")
 def download_resource(
     files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False

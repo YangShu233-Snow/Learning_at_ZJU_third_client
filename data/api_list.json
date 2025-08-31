@@ -36,12 +36,12 @@
             }
         }
     },
-    "courses": {
+    "course": {
         "apis_name": [
-            "my_courses"
+            "list"
         ],
         "apis_config": {
-            "my_courses": {
+            "list": {
                 "url": "https://courses.zju.edu.cn/api/my-courses",
                 "params": {
                     "conditions": {

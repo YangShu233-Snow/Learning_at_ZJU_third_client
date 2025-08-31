@@ -343,7 +343,6 @@ def transform_resource_size(resource_size: int)->str:
     
     return f"{resource_size:.2f}B"
 
-
 def list_cloud_files(command_parts: list[str], login_client):
     C_NAME = Style.BRIGHT + Fore.YELLOW
     C_LABEL = Fore.GREEN

@@ -133,22 +133,6 @@ class coursePageAPIFits(APIFits):
 
         return base_api_url + f"/{self.course_id}/{api_name}"
 
-class coursesAPIFits(APIFits):
-    def __init__(self, login_session: requests.Response, parent_dir: str = "courses", keyword: str = ""):
-        super().__init__(login_session, "courses")
-        self.parent_dir = parent_dir
-        self.keyword = keyword
-
-    def make_api_params(self, api_config, api_name: str):
-        # 修改conditions中的keyword参数为搜索关键词
-        api_params: dict = api_config.get("params")
-        conditions: dict = api_params.get("conditions")
-        conditions["keyword"] = self.keyword
-        # 我的course查询 api 的 conditions 需要为字符串
-        api_params["conditions"] = json.dumps(conditions, separators=(',', ':'), ensure_ascii=True)
-
-        return api_params
-
 
 class userIndexAPIFits(APIFits):
     def __init__(self, login_session: requests.Session):
@@ -175,6 +159,45 @@ class todoListLiteAPIFits(APIFits):
         super().__init__(login_session, "todo_list_lite", parent_dir="user_index")
 
 # --- Course API ---
+class coursesAPIFits(APIFits):
+    def __init__(self, 
+                 login_session: requests.Session, 
+                 apis_name = [
+                     "list"
+                 ],
+                 apis_config = None,
+                 parent_dir: str = "course",
+                 data = None
+                 ):
+        super().__init__(login_session, "course", apis_name, apis_config, parent_dir, data)
+
+
+class coursesListAPIFits(coursesAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 keyword: str,
+                 page: int = 1,
+                 show_amount: int = 10,
+                 apis_name=["list"]
+                 ):
+        super().__init__(login_session, apis_name)
+        self.keyword = keyword
+        self.page = page
+        self.show_amount = show_amount
+
+    def make_api_params(self, api_config, api_name: str):
+        api_params: dict = api_config.get("params")
+
+        # 修改conditions中的keyword参数为搜索关键词
+        conditions: dict = api_params.get("conditions")
+        conditions["keyword"] = self.keyword
+        # 我的course查询 api 的 conditions 需要为字符串
+        api_params["conditions"] = json.dumps(conditions, separators=(',', ':'), ensure_ascii=True)
+
+        api_params["page"] = self.page
+        api_params["page_size"] = self.show_amount
+
+        return api_params
 
 # --- Assignment API ---
 
@@ -189,7 +212,7 @@ class resourcesAPIFits(APIFits):
                     "batch_remove"
                 ], 
                 apis_config=None, 
-                parent_dir=None, 
+                parent_dir="resources", 
                 data=None
                 ):
         super().__init__(login_session, "resource", apis_name, apis_config, parent_dir, data)

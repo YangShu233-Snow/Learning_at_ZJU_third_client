@@ -2,7 +2,7 @@ import typer
 from typing_extensions import Optional, Annotated, List
 from requests.exceptions import HTTPError
 from rich import print as rprint
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import Progress, SpinnerColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn
 from datetime import datetime
 from pathlib import Path
 
@@ -266,9 +266,79 @@ def remove_resources(
 
 @app.command(name="download", help="下载云盘指定文件，支持多文件下载")
 def download_resource(
-    files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")]
+    files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
+    batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False
 ):
     """
     下载学在浙大云盘内的指定文件，支持一次提供多个文件id批量下载。
+
+    使用 --batch 选项以启用批量下载，最终下载文件打包为.zip
     """
 
+    files_id_amount = len(files_id)
+    success_amount = 0
+
+    if batch:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True   
+        ) as progress:
+            task = progress.add_task(description="[green]正在下载文件中...[/green]", total=files_id_amount)
+            
+            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, resources_id=files_id)
+            
+            if resources_downloader.batch_download():
+                rprint(f"[green]下载成功！")
+                rprint(f"[green]下载完成！[/green]")
+            else:
+                rprint(f"[bold red]下载失败!")
+
+            progress.update(
+                task,
+                advance=1
+            )
+
+            return
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        TaskProgressColumn(),
+        TextColumn(" | "),
+        TimeRemainingColumn(),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="[green]正在下载文件中...[/green]", total=files_id_amount)
+        
+        if batch:
+            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, resources_id=files_id)
+            if resources_downloader.batch_download():
+                rprint(f"[green]下载成功！")
+                rprint(f"[green]下载完成！[/green]")
+            else:
+                rprint(f"[bold red]下载失败!")
+
+            progress.update(
+                task,
+                advance=1
+            )
+
+            return
+
+        for file_id in files_id:
+            resource_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, resource_id=file_id)
+            if resource_downloader.download():
+                success_amount += 1
+                rprint(f"{file_id} [green]下载成功！")
+            else:
+                rprint(f"{file_id} [bold red]下载失败!")
+
+            progress.update(
+                task,
+                advance=1,
+                description="正在下载中..."
+            )
+
+        rprint(f"[green]下载完成！[/green]成功下载 {success_amount} 个文件，失败 {files_id_amount - success_amount} 个文件。")
+        return

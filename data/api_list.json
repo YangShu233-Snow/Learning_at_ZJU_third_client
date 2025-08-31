@@ -154,6 +154,7 @@
         "apis_name": [
             "list",
             "download",
+            "batch_download",
             "remove",
             "batch_remove"
         ],
@@ -180,6 +181,13 @@
             "download": {
                 "url": "https://courses.zju.edu.cn/api/uploads/<placeholder>/blob",
                 "params": {}
+            },
+            "batch_download": {
+                "url": "https://courses.zju.edu.cn/zip/uploads",
+                "params": {
+                    "timezone": -480,
+                    "upload_ids": []
+                }
             },
             "remove": {
                 "url": "https://courses.zju.edu.cn/api/user/upload/<placeholder>",

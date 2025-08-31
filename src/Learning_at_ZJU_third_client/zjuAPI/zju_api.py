@@ -1,14 +1,20 @@
 import requests
 import json
 import rich
+import re
+from pathlib import Path
+from datetime import datetime
+from urllib.parse import unquote
 from requests import Response
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, RequestException
 from typing_extensions import List
 from load_config import load_config
 from printlog.print_log import print_log
 
+DOWNLOAD_DIR = Path.home() / "Downloads"
+
 class APIFits:
-    def __init__(self, login_session: requests.Session, name, apis_name = None, apis_config = None, parent_dir = None, data = None):
+    def __init__(self, login_session: requests.Session, name, apis_name: List[str]|None = None, apis_config: dict|None = None, parent_dir = None, data = None):
         self.login_session = login_session
         self.name = name
         self.config = load_config.apiListConfig().load_config().get(self.name, None)
@@ -93,7 +99,7 @@ class APIFits:
     def make_api_params(self, api_config: dict, api_name: str):
         return api_config.get("params", None)
     
-    def check_api_method(self, apis_config: dict, method: str):
+    def check_api_method(self, apis_config: dict, method: str)->bool:
         for value in apis_config.values():
             if value == method:
                 return True
@@ -221,19 +227,154 @@ class resourcesListAPIFits(resourcesAPIFits):
 class resourcesDownloadAPIFits(resourcesAPIFits):
     def __init__(self, 
                  login_session, 
-                 resource_id: int,
-                 apis_name=["download"]
+                 resource_id: int|None = None,
+                 resources_id: List[int]|None = None,
+                 apis_name=["download", "batch_download"]
                 ):
         super().__init__(login_session, apis_name)
-        self.resource_id = resource_id
+        self.resources_id = resource_id
+        self.resources_id = resources_id
 
     def make_api_url(self, api_config, api_name):    
-        base_api_url = api_config.get("url", None)
-        if base_api_url == None:
+        base_api_url: str = api_config.get("url", None)
+        if not base_api_url:
             print_log("Error", f"{api_name}参数url缺失！", "zju_api.resourcesDownloadAPIFits.make_api_url")
             return None
+
+        if api_name == "download": 
+            return base_api_url.replace("<placeholder>", str(self.resource_id))
+        
+        return super().make_api_url(api_config, api_name)
+    
+    def make_api_params(self, api_config, api_name):
+        api_params: dict = api_config.get("params", None)
+        if not api_params:
+            print_log("Error", f"{api_name}参数url缺失！", "zju_api.resourcesDownloadAPIFits.make_api_url")
+            return None
+        
+        if api_name == "batch_download":
+            api_params["upload_ids"]= ",".join(map(str, self.resources_id))
+            return api_params
+        
+        return super().make_api_params(api_config, api_name)
+    
+    def download(self)->bool:
+        if self.apis_name == None or self.apis_config == None:
+            self.load_api_config()
+
+        if not DOWNLOAD_DIR.exists():
+            Path(DOWNLOAD_DIR).mkdir()
+
+        api_name = "download"
+        api_config: dict = self.apis_config.get(api_name)
+        if not api_config:
+            print_log("Error", f"{api_name}不存在！", "zju_api.resourcesDownloadAPIFits.download")
+
+        api_url = self.make_api_url(api_config, api_name)
+        if not api_url:
+            print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.get_api_data")
+            return 
+
+        try:
+            # 鉴于启用 stream 模式，使用上下文管理器来管理 TCP 连接
+            with self.login_session.get(api_url, stream=True, timeout=10) as response:
+                response.raise_for_status()
+
+                filename = None
+                content_disposition = response.headers.get('Content-Disposition')
+                if content_disposition:
+                    fn_match = re.search('filename="?(.+)"?', content_disposition)
+                    if fn_match:
+                        filename = fn_match.group(1).strip('"')
+                        filename = filename.encode("latin-1").decode("utf-8")
+
+                if not filename and 'name=' in response.url:
+                    filename = unquote(response.url.split("name=")[-1])
+
+                if not filename:
+                    filename = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+                print_log("Info", f"获取到文件名: {filename}", "zju_api.resourcesDownloadAPIFits.download")
+
+                file_path = DOWNLOAD_DIR / filename
+
+                print_log("Info", f"开始下载文件: {filename}", "zju_api.resourcesDownloadAPIFits.download")
+                # 分块读取
+                with open(file_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+                print_log("Info", f"{filename} 下载完成", "zju_api.resourcesDownloadAPIFits.download")
+                return True
+
+        except HTTPError as e:
+            print_log("Error", f"请求过程中发生 HTTP 错误！错误原因: {e}", "zju_api.resourcesDownloadAPIFits.download")
+            return False
+        except Exception as e:
+            print_log("Error", f"请求过程中发生未知错误！错误原因: {e}", "zju_api.resourcesDownloadAPIFits.download")
+            return False
             
-        return base_api_url + f"/{self.resource_id}/blob"
+    def batch_download(self)->bool:
+        if self.apis_name == None or self.apis_config == None:
+            self.load_api_config()
+
+        if not DOWNLOAD_DIR.exists():
+            Path(DOWNLOAD_DIR).mkdir()
+
+        api_name = "batch_download"
+        api_config: dict = self.apis_config.get(api_name)
+
+        if not api_config:
+            print_log("Error", f"{api_name}不存在！", "zju_api.resourcesDownloadAPIFits.batch_download")
+            return False
+
+        api_url = self.make_api_url(api_config, api_name)
+        if api_url == None:
+            print_log("Error", f"{api_name}缺少 url 参数！", "zju_api.resourcesDownloadAPIFits.batch_download")
+            return False
+
+        api_params = self.make_api_params(api_config=api_config, api_name=api_name)
+        if not api_params:
+            print_log("Error", f"{api_name}缺少 params 参数！", "zju_api.resourcesDownloadAPIFits.batch_download")
+
+        try:
+            with self.login_session.get(api_url, params=api_params, stream=True, timeout=10) as response:
+                response.raise_for_status()
+
+                filename = None
+                content_disposition = response.headers.get('Content-Disposition')
+                if content_disposition:
+                    fn_match = re.search(r"filename\*\s*=\s*utf-?8''([^;]+)", content_disposition)
+                    if fn_match:
+                        filename = fn_match.group(1).strip('"')
+                        filename = filename.encode("utf-8").decode("unicode_escape")
+
+                if not filename and 'name=' in response.url:
+                    filename = unquote(response.url.split("name=")[-1])
+
+                if not filename:
+                    # 默认打包文件的格式为.zip
+                    filename = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ".zip"
+
+                print_log("Info", f"获取到文件名: {filename}", "zju_api.resourcesDownloadAPIFits.download")
+
+                file_path = DOWNLOAD_DIR / filename
+
+                print_log("Info", f"开始下载文件: {filename}", "zju_api.resourcesDownloadAPIFits.download")
+                # 分块读取
+                with open(file_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+
+                print_log("Info", f"{filename} 下载完成", "zju_api.resourcesDownloadAPIFits.download")
+                return True
+
+        except HTTPError as e:
+            print_log("Error", f"请求过程中发生 HTTP 错误！错误原因: {e}", "zju_api.resourcesDownloadAPIFits.batch_download")
+            return False
+        except Exception as e:
+            print_log("Error", f"请求过程中发生未知错误！错误原因: {e}", "zju_api.resourcesDownloadAPIFits.batch_download")
+            return False
 
 class resourcesRemoveAPIFits(resourcesAPIFits):
     def __init__(self, 

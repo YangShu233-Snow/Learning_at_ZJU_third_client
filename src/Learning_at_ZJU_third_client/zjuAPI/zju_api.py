@@ -117,23 +117,6 @@ class submissionAPIFits(APIFits):
     def make_api_url(self, apis_config, api_name):
         return apis_config.get("url", None) + f"/{self.activity_id}/submissions"
 
-class coursePageAPIFits(APIFits):
-    def __init__(self, login_session: requests.Response, course_id: str):
-        super().__init__(login_session, "course_page")
-        self.course_id = course_id
-
-    def make_api_url(self, api_config, api_name):
-        base_api_url = api_config.get("url", None)
-        if base_api_url == None:
-            print_log("Error", f"{api_name}参数url缺失！", "zju_api.courseContentAPIFits.make_api_url")
-            return None
-        
-        if api_name == "homework":
-            return base_api_url + f"/{self.course_id}/{api_name}/submission-status"
-
-        return base_api_url + f"/{self.course_id}/{api_name}"
-
-
 class userIndexAPIFits(APIFits):
     def __init__(self, login_session: requests.Session):
         super().__init__(login_session, "user_index")
@@ -198,6 +181,29 @@ class coursesListAPIFits(coursesAPIFits):
         api_params["page_size"] = self.show_amount
 
         return api_params
+
+class courseViewAPIFits(coursesAPIFits):
+    def __init__(self, 
+                 login_session: requests.Session, 
+                 course_id: int,
+                 apis_name=[
+                    "view",
+                    "modules",
+                    "activities",
+                    "exams"
+                ]
+                ):
+        super().__init__(login_session, apis_name)
+        self.course_id = course_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url", None)
+        if not base_api_url:
+            print_log("Error", f"{api_name}参数url缺失！", "zju_api.courseViewAPIFits.make_api_url")
+            return None
+        
+        api_url = base_api_url.replace("<placeholder>", str(self.course_id))
+        return api_url
 
 # --- Assignment API ---
 

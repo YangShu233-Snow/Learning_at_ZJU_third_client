@@ -38,7 +38,12 @@
     },
     "course": {
         "apis_name": [
-            "list"
+            "list",
+            "view",
+            "modules",
+            "activities",
+            "exams",
+            "exam-scores"
         ],
         "apis_config": {
             "list": {
@@ -57,6 +62,34 @@
                     "page": 1,
                     "page_size": 10,
                     "showScorePassedStatus": "false"
+                }
+            },
+            "view": {
+                "url": "https://courses.zju.edu.cn/api/courses/<placeholder>",
+                "params": {
+                    "fileds": "name"
+                }
+            },
+            "modules": {
+                "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/modules",
+                "params": {}
+            },
+            "activities": {
+                "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/activities",
+                "params": {
+                    "sub_course_id": 0
+                }
+            },
+            "exams": {
+                "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/exams",
+                "params": {
+                    "no-intercept": "true"
+                }
+            },
+            "exam-scores": {
+                "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/exam-scores",
+                "params": {
+                    "no-intercept": "true"
                 }
             }
         }

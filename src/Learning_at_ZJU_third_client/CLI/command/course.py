@@ -2,6 +2,7 @@ import typer
 from typing_extensions import Optional, Annotated, List
 from requests import Session
 from rich import print as rprint
+from rich.progress import Progress, SpinnerColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn
 from rich.tree import Tree
 from rich.table import Table
 from rich.panel import Panel
@@ -43,6 +44,15 @@ def get_status_text(start_status: bool, close_status: bool)->Text:
         return Text(f"🟢 进行中", style="green")
     
     return Text(f"⚪️ 未开始", style="dim")
+
+def get_completion_text(completion_status: bool, completion_criterion_key: str):
+    if completion_criterion_key == "none":
+        return Text(f"无需完成", style="dim")
+    
+    if completion_status:
+        return Text(f"🟢 已完成", style="green")
+    
+    return Text(f"🔴 未完成", style="red")
 
 def make_jump_url(course_id: int, material_id: int, material_type: str):
     if material_type == "material":
@@ -163,217 +173,248 @@ def view_course(
     
     """
     # 给出module_id则进行完整的请求
-    if module_id:
-        course_messages, raw_course_modules, raw_course_activities, raw_course_exams = zju_api.courseViewAPIFits(state.client.session, course_id).get_api_data()
-        course_name = course_messages.get("name", "null")
-        course_modules: List[dict] = raw_course_modules.get("modules", [])
-        course_activities: List[dict] = raw_course_activities.get("activities", [])
-        course_exams: List[dict] = raw_course_exams.get("exams", [])
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="获取课程信息中...", total=1)
+        if module_id:
+            course_messages, raw_course_modules, raw_course_activities, raw_course_exams, raw_course_completeness = zju_api.courseViewAPIFits(state.client.session, course_id).get_api_data()
+            course_name = course_messages.get("name", "null")
+            course_modules: List[dict] = raw_course_modules.get("modules", [])
+            course_activities: List[dict] = raw_course_activities.get("activities", [])
+            course_exams: List[dict] = raw_course_exams.get("exams", [])
+            exams_completeness: List[int] = raw_course_completeness.get("completed_result", {}).get("completed", {}).get("exam_activity", [])
+            activities_completeness: List[int] = raw_course_completeness.get("completed_result", {}).get("completed", {}).get("learning_activity", [])
 
-        # 筛选目标module, activities 和 exams
-        modules_list: List[dict] = []
-        for course_module in course_modules:
-            if course_module.get("id") == module_id:
-                modules_list.append(course_module)
-                break
+            # 筛选目标module, activities 和 exams
+            modules_list: List[dict] = []
+            for course_module in course_modules:
+                if course_module.get("id") == module_id:
+                    modules_list.append(course_module)
+                    break
+            else:
+                print_log("Error", f"{course_name}(ID: {course_id})中 {module_id} 章节不存在！", "CLI.command.course.view_course")
+                rprint(f"未找到ID为 {module_id} 的章节！")
+                raise typer.Exit(code=1)
+            
+            activities_list: List[dict] = []
+            for course_activity in course_activities:
+                if course_activity.get("module_id") == module_id:
+                    activities_list.append(course_activity)
+
+            exam_lists: List[dict] = []
+            for course_exam in course_exams:
+                if course_exam.get("module_id") == module_id:
+                    exam_lists.append(course_exam)
         else:
-            print_log("Error", f"{course_name}(ID: {course_id})中 {module_id} 章节不存在！", "CLI.command.course.view_course")
-            rprint(f"未找到ID为 {module_id} 的章节！")
-            raise typer.Exit(code=1)
-        
-        activities_list: List[dict] = []
-        for course_activity in course_activities:
-            if course_activity.get("module_id") == module_id:
-                activities_list.append(course_activity)
+            course_messages, raw_course_modules = zju_api.courseViewAPIFits(state.client.session, course_id, ["view", "modules"]).get_api_data()
 
-        exam_lists: List[dict] = []
-        for course_exam in course_exams:
-            if course_exam.get("module_id") == module_id:
-                exam_lists.append(course_exam)
-    else:
-        course_messages, raw_course_modules = zju_api.courseViewAPIFits(state.client.session, course_id, ["view", "modules"]).get_api_data()
+            course_name = course_messages.get("name", "null")
+            modules_list: List[dict] = raw_course_modules.get("modules", [])
+        progress.advance(task)
 
-        course_name = course_messages.get("name", "null")
-        modules_list: List[dict] = raw_course_modules.get("modules", [])
+        task = progress.add_task(description="加载内容中...", total=1)
 
-    # 装填树状图
-    course_tree = Tree(f"[bold yellow]{course_name}[/bold yellow][dim] 课程ID: {course_id}[/dim]")
-    if module_id:
-        module = modules_list[0]
-        module_name = module.get("name", "null")
-        module_tree = course_tree.add(f"[green]{module_name}[/green][dim] 章节ID: {module_id}[/dim]")
-        type_map = {
-            "material": "资料",
-            "online_video": "视频",
-            "homework": "作业",
-            "questionnaire": "问卷",
-            "exam": "测试"
-        }
+        # 装填树状图
+        course_tree = Tree(f"[bold yellow]{course_name}[/bold yellow][dim] 课程ID: {course_id}[/dim]")
+        if module_id:
+            module = modules_list[0]
+            module_name = module.get("name", "null")
+            module_tree = course_tree.add(f"[green]{module_name}[/green][dim] 章节ID: {module_id}[/dim]")
+            type_map = {
+                "material": "资料",
+                "online_video": "视频",
+                "homework": "作业",
+                "questionnaire": "问卷",
+                "exam": "测试"
+            }
 
-        for activity in activities_list:
-            # 标题、类型与ID
-            activity_title = activity.get("title", "null")
-            activity_type = type_map.get(activity.get("type", "null"), activity.get("type", "null"))
-            activity_id = activity.get("id", "null")
+            # --- 加载活动内容 ---
+            for activity in activities_list:
+                # 标题、类型与ID
+                activity_title = activity.get("title", "null")
+                activity_type = type_map.get(activity.get("type", "null"), activity.get("type", "null"))
+                activity_id = activity.get("id", "null")
+                activity_completion_criterion_key = activity.get("completion_criterion_key", "none")
+                completion_status = True if activity_id in activities_completeness else False
 
-            # 活动的start_time和end_time都可能是null值，必须多做一次判断
-            # is_started 和 is_closed 来判断活动是否开始或者截止
-            # 开放日期
-            activity_start_time = activity.get("start_time", "1900-01-01T00:00:00Z")
-            if activity_start_time:
-                activity_start_time = datetime.fromisoformat(activity_start_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                activity_start_time = "null"
-            
-            activity_is_started: bool = activity.get("is_started", False)
-            
-            # 截止日期
-            activity_end_time = activity.get("end_time", "1900-01-01T00:00:00Z")
-            if activity_end_time:
-                activity_end_time = datetime.fromisoformat(activity_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                activity_end_time = "null"
+                # 活动的start_time和end_time都可能是null值，必须多做一次判断
+                # is_started 和 is_closed 来判断活动是否开始或者截止
+                # 开放日期
+                activity_start_time = activity.get("start_time", "1900-01-01T00:00:00Z")
+                if activity_start_time:
+                    activity_start_time = datetime.fromisoformat(activity_start_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    activity_start_time = "null"
+                
+                activity_is_started: bool = activity.get("is_started", False)
+                
+                # 截止日期
+                activity_end_time = activity.get("end_time", "1900-01-01T00:00:00Z")
+                if activity_end_time:
+                    activity_end_time = datetime.fromisoformat(activity_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    activity_end_time = "null"
 
-            activity_is_closed: bool = activity.get("is_closed", False)
+                activity_is_closed: bool = activity.get("is_closed", False)
 
-            # 创建状态描述文本和截止时间富文本
-            status_text = get_status_text(activity_is_started, activity_is_closed)
-            start_time_text = Text.assemble(
-                ("开放时间: ", "cyan"),
-                (activity_start_time, "bright_white")
-            )
-            end_time_text = Text.assemble(
-                ("截止时间: ", "cyan"),
-                (activity_end_time, "bright_white")
-            )
-            url_jump = make_jump_url(course_id, activity_id, activity.get("type", "null"))
-            url_jump_text = Text.assemble(
-                ("跳转链接: ", "cyan"),
-                (url_jump, "bright_white")
-            )
+                # 创建状态描述文本和截止时间富文本
+                status_text = get_status_text(activity_is_started, activity_is_closed)
+                start_time_text = Text.assemble(
+                    ("开放时间: ", "cyan"),
+                    (activity_start_time, "bright_white")
+                )
+                end_time_text = Text.assemble(
+                    ("截止时间: ", "cyan"),
+                    (activity_end_time, "bright_white")
+                )
+                # 跳转链接
+                url_jump = make_jump_url(course_id, activity_id, activity.get("type", "null"))
+                url_jump_text = Text.assemble(
+                    ("跳转链接: ", "cyan"),
+                    (url_jump, "bright_white")
+                )
 
-            # --- 准备Panel内容 ---
-            content_renderables = []
-            title_line = Text.assemble(
-                (f"{activity_title}", "bold bright_magenta"),
-                status_text
-            )
-            content_renderables.append(title_line)
-            content_renderables.append(start_time_text)
-            content_renderables.append(end_time_text)
-            if url_jump:
+                # 任务完成状态
+                completion_text = get_completion_text(completion_status, activity_completion_criterion_key)
+
+                # --- 准备Panel内容 ---
+                content_renderables = []
+                title_line = Text.assemble(
+                    (f"{activity_title}", "bold bright_magenta"),
+                    "\n",
+                    completion_text,
+                    status_text
+                )
+                content_renderables.append(title_line)
+                content_renderables.append(start_time_text)
+                content_renderables.append(end_time_text)
+                if url_jump:
+                    content_renderables.append(url_jump_text)
+
+                # 附件
+                activity_uploads: List[dict]= activity.get("uploads", [])
+                if activity_uploads:
+                    content_renderables.append("[cyan]附件: [/cyan]")
+
+                for upload in activity_uploads:
+                    file_name = upload.get("name", "null")
+                    file_id = upload.get("id", "null")
+                    file_size = transform_resource_size(upload.get("size", 0))
+
+                    upload_table = Table(show_header=False, box=None, padding=(0, 1), show_edge=False, expand=True)
+                    upload_table.add_column("Name", no_wrap=True)
+                    upload_table.add_column("Info", justify="right")
+
+                    upload_table.add_row(
+                        f"{file_name}",
+                        f"大小: {file_size} | 文件ID: {file_id}"
+                    )
+                    
+                    content_renderables.append(upload_table)
+
+                panel_title = f"[white][{activity_type}][/white]"
+                panel_subtitle = f"[white]ID: {activity_id}[/white]"
+
+                activity_panel = Panel(
+                    Group(*content_renderables),
+                    title=panel_title,
+                    subtitle=panel_subtitle,
+                    border_style="bright_black",
+                    expand=True,
+                    padding=(1, 2)
+                )
+
+                module_tree.add(activity_panel)
+
+            # --- 加载测试内容 ---
+            for exam in exam_lists:
+                exam_title = exam.get("title", "null")
+                exam_type = type_map.get(exam.get("type", "null"), exam.get("type", "null"))
+                exam_id = exam.get("id", "null")
+                exam_completion_criterion_key = exam.get("completion_criterion_key", "none")
+                completion_status = True if exam_id in exams_completeness else False
+
+                # 理由同上
+                # 开放日期
+                exam_start_time = exam.get("start_time", "1900-01-01T00:00:00Z")
+                if exam_start_time:
+                    exam_start_time = datetime.fromisoformat(exam_start_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    exam_start_time = "null"
+                
+                exam_is_started: bool = exam.get("is_started", False)
+                
+                # 截止日期
+                exam_end_time = exam.get("end_time", "1900-01-01T00:00:00Z")
+                if exam_end_time:
+                    exam_end_time = datetime.fromisoformat(exam_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    exam_end_time = "null"
+
+                exam_is_closed: bool = exam.get("is_closed", False)
+
+                # 创建状态描述文本和截止时间富文本
+                status_text = get_status_text(exam_is_started, exam_is_closed)
+                start_time_text = Text.assemble(
+                    ("开放时间: ", "cyan"),
+                    (exam_start_time, "bright_white")
+                )
+                end_time_text = Text.assemble(
+                    ("截止时间: ", "cyan"),
+                    (exam_end_time, "bright_white")
+                )
+                url_jump = make_jump_url(course_id, exam_id, exam.get("type", "null"))
+                url_jump_text = Text.assemble(
+                    ("跳转链接: ", "cyan"),
+                    (url_jump, "bright_white")
+                )
+
+                completion_text = get_completion_text(completion_status, activity_completion_criterion_key)
+
+                # --- 准备Panel内容 ---
+                content_renderables = []
+                title_line = Text.assemble(
+                    (f"{exam_title}", "bold bright_magenta"),
+                    "\n",
+                    completion_text,
+                    status_text
+                )
+                content_renderables.append(title_line)
+                content_renderables.append(start_time_text)
+                content_renderables.append(end_time_text)
                 content_renderables.append(url_jump_text)
 
-            # 附件
-            activity_uploads: List[dict]= activity.get("uploads", [])
-            if activity_uploads:
-                content_renderables.append("[cyan]附件: [/cyan]")
+                panel_title = f"[yellow][{exam_type}][/yellow]"
+                panel_subtitle = f"[yellow]ID: {exam_id}[/yellow]"
 
-            for upload in activity_uploads:
-                file_name = upload.get("name", "null")
-                file_id = upload.get("id", "null")
-                file_size = transform_resource_size(upload.get("size", 0))
-
-                upload_table = Table(show_header=False, box=None, padding=(0, 1), show_edge=False, expand=True)
-                upload_table.add_column("Name", no_wrap=True)
-                upload_table.add_column("Info", justify="right")
-
-                upload_table.add_row(
-                    f"{file_name}",
-                    f"大小: {file_size} | 文件ID: {file_id}"
+                activity_panel = Panel(
+                    Group(*content_renderables),
+                    title=panel_title,
+                    subtitle=panel_subtitle,
+                    border_style="bright_yellow",
+                    expand=True,
+                    padding=(1, 2)
                 )
-                
-                content_renderables.append(upload_table)
 
-            panel_title = f"[white][{activity_type}][/white]"
-            panel_subtitle = f"[white]ID: {activity_id}[/white]"
+                module_tree.add(activity_panel)
+        else:
+            for module in modules_list:
+                module_name = module.get("name", "null")
+                module_id = module.get("id", "null")
 
-            activity_panel = Panel(
-                Group(*content_renderables),
-                title=panel_title,
-                subtitle=panel_subtitle,
-                border_style="bright_black",
-                expand=True,
-                padding=(1, 2)
-            )
+                # 微型表格，装填！ ---- from gemini 2.5pro
+                course_tree_node = Table(show_header=False, box=None, padding=(0, 1), show_edge=False, expand=True)
+                course_tree_node.add_column("Name", no_wrap=True, style="green")
+                course_tree_node.add_column("ID", justify="right", style="bright_white")
+                course_tree_node.add_row(module_name, f"章节ID: {module_id}")
 
-            module_tree.add(activity_panel)
+                course_tree.add(course_tree_node)
 
-        for exam in exam_lists:
-            exam_title = exam.get("title", "null")
-            exam_type = type_map.get(exam.get("type", "null"), exam.get("type", "null"))
-            exam_id = exam.get("id", "null")
-
-            # 理由同上
-            # 开放日期
-            exam_start_time = exam.get("start_time", "1900-01-01T00:00:00Z")
-            if exam_start_time:
-                exam_start_time = datetime.fromisoformat(exam_start_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                exam_start_time = "null"
-            
-            exam_is_started: bool = exam.get("is_started", False)
-            
-            # 截止日期
-            exam_end_time = exam.get("end_time", "1900-01-01T00:00:00Z")
-            if exam_end_time:
-                exam_end_time = datetime.fromisoformat(exam_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                exam_end_time = "null"
-
-            exam_is_closed: bool = exam.get("is_closed", False)
-
-            # 创建状态描述文本和截止时间富文本
-            status_text = get_status_text(exam_is_started, exam_is_closed)
-            start_time_text = Text.assemble(
-                ("开放时间: ", "cyan"),
-                (exam_start_time, "bright_white")
-            )
-            end_time_text = Text.assemble(
-                ("截止时间: ", "cyan"),
-                (exam_end_time, "bright_white")
-            )
-            url_jump = make_jump_url(course_id, exam_id, exam.get("type", "null"))
-            url_jump_text = Text.assemble(
-                ("跳转链接: ", "cyan"),
-                (url_jump, "bright_white")
-            )
-
-            # --- 准备Panel内容 ---
-            content_renderables = []
-            title_line = Text.assemble(
-                (f"{exam_title}", "bold bright_magenta"),
-                status_text
-            )
-            content_renderables.append(title_line)
-            content_renderables.append(start_time_text)
-            content_renderables.append(end_time_text)
-            content_renderables.append(url_jump_text)
-
-            panel_title = f"[yellow][{exam_type}][/yellow]"
-            panel_subtitle = f"[yellow]ID: {exam_id}[/yellow]"
-
-            activity_panel = Panel(
-                Group(*content_renderables),
-                title=panel_title,
-                subtitle=panel_subtitle,
-                border_style="bright_yellow",
-                expand=True,
-                padding=(1, 2)
-            )
-
-            module_tree.add(activity_panel)
-    else:
-        for module in modules_list:
-            module_name = module.get("name", "null")
-            module_id = module.get("id", "null")
-
-            # 微型表格，装填！ ---- from gemini 2.5pro
-            course_tree_node = Table(show_header=False, box=None, padding=(0, 1), show_edge=False, expand=True)
-            course_tree_node.add_column("Name", no_wrap=True, style="green")
-            course_tree_node.add_column("ID", justify="right", style="bright_white")
-            course_tree_node.add_row(module_name, f"章节ID: {module_id}")
-
-            course_tree.add(course_tree_node)
+        progress.advance(task)
 
     rprint(course_tree)
+
+

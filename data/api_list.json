@@ -43,7 +43,8 @@
             "modules",
             "activities",
             "exams",
-            "exam-scores"
+            "exam-scores",
+            "completeness"
         ],
         "apis_config": {
             "list": {
@@ -91,6 +92,10 @@
                 "params": {
                     "no-intercept": "true"
                 }
+            },
+            "completeness": {
+                "url": "https://courses.zju.edu.cn/api/course/79813/my-completeness",
+                "params": {}
             }
         }
     },

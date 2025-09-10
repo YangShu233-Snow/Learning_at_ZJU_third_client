@@ -190,7 +190,8 @@ class courseViewAPIFits(coursesAPIFits):
                     "view",
                     "modules",
                     "activities",
-                    "exams"
+                    "exams",
+                    "completeness"
                 ]
                 ):
         super().__init__(login_session, apis_name)

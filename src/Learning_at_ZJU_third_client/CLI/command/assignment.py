@@ -16,3 +16,9 @@ app = typer.Typer(help="""
 
                   暂时不支持对测试与考试的提交。
                   """)
+
+@app.command("view")
+def view_assignment(
+    activity_id: Annotated[int, typer.Argument(help="任务id")]
+):
+    pass

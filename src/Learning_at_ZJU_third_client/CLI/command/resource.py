@@ -271,7 +271,7 @@ def download_resource(
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False
 ):
     """
-    下载学在浙大云盘内的指定文件，支持一次提供多个文件id批量下载。
+    下载学在浙大的文件，同时支持个人浙大云盘与课程资源下载，支持一次提供多个文件id批量下载。
 
     使用 --batch 选项以启用批量下载，最终下载文件打包为.zip
     """

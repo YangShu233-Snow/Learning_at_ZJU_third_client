@@ -99,48 +99,6 @@
             }
         }
     },
-    "course_page": {
-        "apis_name": [
-            "modules",
-            "activities",
-            "exams",
-            "homework",
-            "submitted-exams",
-            "exam-scores"
-        ],
-        "apis_config": {
-            "modules": {
-                "url": "https://courses.zju.edu.cn/api/courses",
-                "params": {}
-            },
-            "activities": {
-                "url": "https://courses.zju.edu.cn/api/courses",
-                "params": {}
-            },
-            "exams": {
-                "url": "https://courses.zju.edu.cn/api/courses",
-                "params": {}
-            },
-            "homework": {
-                "url": "https://courses.zju.edu.cn/api/course",
-                "params": {
-                    "no-intercept": "true"
-                }
-            },
-            "submitted-exams": {
-                "url": "https://courses.zju.edu.cn/api/courses",
-                "params": {
-                    "no-intercept": "true"
-                }
-            },
-            "exam-scores": {
-                "url": "https://courses.zju.edu.cn/api/courses",
-                "params": {
-                    "no-intercept": "true"
-                }
-            }
-        }
-    },
     "resources_submission": {
         "apis_name": [
             "upload",
@@ -174,17 +132,6 @@
                     "other_resources": [],
                     "uploads_in_rich_text": []
                 }
-            }
-        }
-    },
-    "course_resource_download": {
-        "apis_name": [
-            "download"
-        ],
-        "apis_config": {
-            "download": {
-                "url": "https://courses.zju.edu.cn/api/uploads/reference/<placeholder>/blob",
-                "params": {}
             }
         }
     },
@@ -238,6 +185,27 @@
                 "params": {
                     "upload_ids": []
                 }
+            }
+        }
+    },
+    "assignment": {
+        "apis_name": [
+            "activity",
+            "activity_read",
+            "submission_list"
+        ],
+        "apis_config": {
+            "activitiy": {
+                "url": "https://courses.zju.edu.cn/api/activities/<placeholder>?sub_course_id=0",
+                "params": {}
+            },
+            "activity_read": {
+                "url": "https://courses.zju.edu.cn/api/course/activities-read/<placeholder>",
+                "params": {}
+            },
+            "submission_list": {
+                "url": "https://courses.zju.edu.cn/api/activities/<placeholder1>/students/<placeholder2>/submission_list",
+                "params": {}
             }
         }
     }

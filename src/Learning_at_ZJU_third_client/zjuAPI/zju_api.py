@@ -146,14 +146,19 @@ class coursesAPIFits(APIFits):
     def __init__(self, 
                  login_session: requests.Session, 
                  apis_name = [
-                     "list"
+                    "list",
+                    "view",
+                    "modules",
+                    "activities",
+                    "exams",
+                    "exam-scores",
+                    "completeness"
                  ],
                  apis_config = None,
                  parent_dir: str = "course",
                  data = None
                  ):
         super().__init__(login_session, "course", apis_name, apis_config, parent_dir, data)
-
 
 class coursesListAPIFits(coursesAPIFits):
     def __init__(self, 
@@ -207,6 +212,52 @@ class courseViewAPIFits(coursesAPIFits):
         return api_url
 
 # --- Assignment API ---
+class assignmentAPIFits(APIFits):
+    def __init__(self, 
+                 login_session, 
+                 apis_name = [
+                    "activity",
+                    "activity_read",
+                    "submission_list"
+                 ], 
+                 apis_config = None, 
+                 parent_dir = "assignment", 
+                 data = None
+                 ):
+        super().__init__(login_session, "assignment", apis_name, apis_config, parent_dir, data)
+
+class assignmentSubmissionViewAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 activity_id,
+                 student_id,
+                 apis_name=["submission_list"]
+                 ):
+        super().__init__(login_session, apis_name)
+        self.activity_id = activity_id
+        self.student_id = student_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+        if not base_api_url:
+            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentSubmissionViewAPIFits.make_api_url")
+            return None
+        
+        if api_name == "submission_list":
+            return base_api_url.replace("<placeholder1>", self.activity_id).replace("<placeholder2>", self.student_id)
+        
+        return super().make_api_url(api_config, api_name)
+
+class assignmentViewAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 activity_id,
+                 apis_name=[
+                     "activity", 
+                     "activity_read"
+                    ]
+                ):
+        super().__init__(login_session, apis_name)
 
 # --- Resource API ---
 class resourcesAPIFits(APIFits):
@@ -262,7 +313,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                  apis_name=["download", "batch_download"]
                 ):
         super().__init__(login_session, apis_name)
-        self.resources_id = resource_id
+        self.resource_id = resource_id
         self.resources_id = resources_id
 
     def make_api_url(self, api_config, api_name):    

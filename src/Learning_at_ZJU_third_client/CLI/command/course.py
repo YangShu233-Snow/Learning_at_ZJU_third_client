@@ -416,5 +416,3 @@ def view_course(
         progress.advance(task)
 
     rprint(course_tree)
-
-

@@ -259,6 +259,13 @@ class assignmentViewAPIFits(assignmentAPIFits):
                 ):
         super().__init__(login_session, apis_name)
 
+class assignmentTodoListAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 apis_name=["todo"], 
+                 ):
+        super().__init__(login_session, apis_name)
+    
 # --- Resource API ---
 class resourcesAPIFits(APIFits):
     def __init__(self, 

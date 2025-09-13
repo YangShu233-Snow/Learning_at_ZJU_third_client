@@ -192,7 +192,8 @@
         "apis_name": [
             "activity",
             "activity_read",
-            "submission_list"
+            "submission_list",
+            "todo"
         ],
         "apis_config": {
             "activitiy": {
@@ -206,7 +207,11 @@
             "submission_list": {
                 "url": "https://courses.zju.edu.cn/api/activities/<placeholder1>/students/<placeholder2>/submission_list",
                 "params": {}
-            }
+            },
+            "todo": {
+                "url": "https://courses.zju.edu.cn/api/todos?no-intercept=true",
+                "params": {}
+                }
         }
     }
 }

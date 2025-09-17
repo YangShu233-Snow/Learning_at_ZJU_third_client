@@ -1,12 +1,18 @@
 import typer
 from typing_extensions import Optional, Annotated, List
 from rich import print as rprint
+from rich.align import Align
+from rich.table import Table
 from rich.text import Text
 from rich.panel import Panel
+from rich.padding import Padding
 from rich.console import Group
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.rule import Rule
 from datetime import datetime, timezone
 from pathlib import Path
+from lxml import html
+from lxml.html import HtmlElement
 
 from zjuAPI import zju_api
 from upload import submit
@@ -37,11 +43,212 @@ def make_jump_url(course_id: int, material_id: int, material_type: str):
 
     return f"https://courses.zju.edu.cn/course/{course_id}/learning-activity/full-screen#/{material_type}/{material_id}"
 
+def transform_resource_size(resource_size: int)->str:
+    resource_size_KB = resource_size / 1024
+    resource_size_MB = resource_size_KB / 1024
+    resource_size_GB = resource_size_MB / 1024
+
+    if resource_size_GB >= 0.5:
+        return f"{resource_size_GB:.2f}GB"
+    
+    if resource_size_MB >= 0.5:
+        return f"{resource_size_MB:.2f}MB"
+    
+    if resource_size_KB >= 0.5:
+        return f"{resource_size_KB:.2f}KB"
+    
+    return f"{resource_size:.2f}B"
+
+def extract_comment(raw_content: str)->str:
+    if not raw_content or not raw_content.strip():
+        return "无"
+    
+    doc: HtmlElement = html.fromstring(raw_content)
+    plain_text = doc.text_content()
+
+    return plain_text
+
+def extract_uploads(uploads_list: List[dict])->List[Table]:
+    content_renderables = []
+    content_renderables.append("[cyan]附件: [/cyan]")
+
+    for upload in uploads_list:
+        file_name = upload.get("name", "null")
+        file_id = upload.get("id", "null")
+        file_size = transform_resource_size(upload.get("size", 0))
+
+        upload_table = Table(show_header=False, box=None, padding=(0, 1), show_edge=False, expand=True)
+        upload_table.add_column("Name", no_wrap=True)
+        upload_table.add_column("Info", justify="right")
+
+        upload_table.add_row(
+            f"{file_name}",
+            f"大小: {file_size} | 文件ID: {file_id}"
+        )
+        
+        content_renderables.append(upload_table)
+
+    return content_renderables
+
 @app.command("view")
 def view_assignment(
     activity_id: Annotated[int, typer.Argument(help="任务id")]
 ):
-    pass
+    type_map = {
+        "material": "资料",
+        "online_video": "视频",
+        "homework": "作业",
+        "questionnaire": "问卷",
+        "exam": "测试"
+    }
+
+    # --- 请求阶段 ---
+    # 请求预览数据
+    raw_activity_read: dict = zju_api.assignmentPreviewAPIFits(state.client.session, activity_id).post_api_data()[0]
+    student_id = raw_activity_read.get("created_for_id")
+    if not student_id:
+        print_log("Error", f"{activity_id} 缺少'created_for_id'参数，请将此问题上报给开发者！", "CLI.command.assignment.view_assignment")
+        print(f"{activity_id} 返回存在问题！")
+        raise typer.Exit(code=1)
+
+    # 请求主体数据
+    raw_activity = zju_api.assignmentViewAPIFits(state.client.session, activity_id).get_api_data()[0]
+    activity_completion_criterion_key: str = raw_activity.get("completion_criterion_key", "none")
+    activity_highest_score: int = raw_activity.get("highest_score", 0) if raw_activity.get("highest_score", 0) is not None else "N/A"
+    activity_description = extract_comment(raw_activity.get("data", {}).get("description", ""))
+
+    activity_description_text = Text.assemble(
+        activity_description
+    )
+    activity_description_block = Padding(activity_description_text, (0, 0, 0, 2))
+
+    # 判断是否获取提交列表（必须是提交完成的任务且有提交记录）
+    if activity_completion_criterion_key == "submitted":
+        if raw_activity.get("user_submit_count") and raw_activity.get("user_submit_count") > 0:
+            raw_submission_list = zju_api.assignmentSubmissionListAPIFits(state.client.session, activity_id, student_id).get_api_data()[0]
+        else:
+            raw_submission_list = {}
+    else:
+        raw_submission_list = {}
+    
+    # 解析返回内容
+    # 任务名称
+    activity_title = raw_activity.get("title", "null")
+    activity_type = type_map.get(raw_activity.get("type", "null"), raw_activity.get("type", "null"))
+
+    # 开放时间
+    activity_start_time = raw_activity.get("start_time", "1900-01-01T00:00:00Z")
+    if activity_start_time:
+        activity_start_time = datetime.fromisoformat(activity_start_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        activity_start_time = "null"
+    
+    # 截止日期
+    activity_end_time = raw_activity.get("end_time", "1900-01-01T00:00:00Z")
+    if activity_end_time:
+        activity_end_time = datetime.fromisoformat(activity_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        activity_end_time = "null"
+
+    start_time_text = Text.assemble(
+        ("开放时间: ", "cyan"),
+        (activity_start_time, "bright_white")
+    )
+    end_time_text = Text.assemble(
+        ("截止时间: ", "cyan"),
+        (activity_end_time, "bright_white")
+    )
+
+    # --- 准备Panel内容 ---
+    content_renderables = []
+    title_line = Align.center(Text.assemble((f"{activity_title}", "bold bright_magenta")))
+    content_renderables.append(title_line)
+    content_renderables.append(start_time_text)
+    content_renderables.append(end_time_text)
+    content_renderables.append("")
+    content_renderables.append("[cyan]任务描述: [/cyan]")
+    content_renderables.append(activity_description_block)
+
+    # 读取附件（如果有的话）
+    uploads: List[dict] = raw_activity.get("uploads")
+    if uploads:
+        content_renderables.append("")
+        content_renderables.extend(extract_uploads(uploads))
+
+    # 读取提交列表（如果有的话）
+    if raw_submission_list:
+        
+        # 准备Submission的Panel内容
+        submission_content_renderables = []
+        submission_list: List[dict] = raw_submission_list.get("list")
+        
+        for submission in submission_list:
+            submission_created_time = datetime.fromisoformat(submission.get("created_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+            submission_comment = extract_comment(submission.get("comment"))
+            submission_instructor_comment: str = submission.get("instructor_comment") or "无"
+            submission_score: int|None = submission.get("score") if submission.get("score") is not None else "未评分"
+            submission_uploads: List[dict]|list = submission.get("uploads", [])
+
+            # --- 准备Panel内容 --- 
+            submission_inner_comment = Text.assemble(
+                submission_comment
+            )
+            submission_inner_comment_block = Padding(submission_inner_comment, (0, 0, 0, 2))
+
+            submission_inner_instructor_comment = Text.assemble(
+                submission_instructor_comment
+            )
+            submission_inner_instructor_comment_block = Padding(submission_inner_instructor_comment, (0, 0, 0, 2))
+
+            submission_head_text = Text.assemble(
+                ("提交时间: ", "cyan"),
+                submission_created_time,
+                "\n",
+                (f"得分: ", "bold bright_magenta"),
+                (f"{submission_score} / {activity_highest_score}")
+            )
+
+            submission_content_renderables.append(submission_head_text)
+            submission_content_renderables.append("")
+            submission_content_renderables.append("[cyan]老师评语: [/cyan]")
+            submission_content_renderables.append(submission_inner_instructor_comment_block)
+            submission_content_renderables.append("")
+            submission_content_renderables.append("[cyan]提交内容: [/cyan]")
+            submission_content_renderables.append(submission_inner_comment_block)
+            
+            # 读取上传列表（如果有的话）
+            if submission_uploads:
+                submission_upload_content_renderables = extract_uploads(submission_uploads)
+                submission_content_renderables.append("")
+                submission_content_renderables.extend(submission_upload_content_renderables)
+                submission_content_renderables.append("")
+            
+            if submission != submission_list[-1]:
+                submission_content_renderables.append(Rule(style="dim white"))
+                submission_content_renderables.append("")
+
+        # --- 装配Submission List Panel ---
+        submission_list_panel = Panel(
+            Group(*submission_content_renderables),
+            title = "[white][提交内容][/white]",
+            border_style="dim",
+            expand=True,
+            padding=(1, 2)
+        )
+        content_renderables.append("")
+        content_renderables.append(submission_list_panel)
+
+    activity_panel = Panel(
+        Group(*content_renderables),
+        title = f"[white][{activity_type}][/white]",
+        subtitle = f"[white][{activity_id}][/white]",
+        border_style="bright_black",
+        expand=True,
+        padding=(0, 2, 1, 2)
+    )
+
+    rprint(activity_panel)
+
 
 @app.command("todo")
 def todo_assignment(
@@ -72,7 +279,6 @@ def todo_assignment(
         task = progress.add_task(description="获取待办事项信息中...", total=1)
         
         raw_todo_list: dict = zju_api.assignmentTodoListAPIFits(state.client.session).get_api_data()[0]
-
         progress.advance(task, advance=1)
 
         task = progress.add_task(description="加载内容中...", total=1)

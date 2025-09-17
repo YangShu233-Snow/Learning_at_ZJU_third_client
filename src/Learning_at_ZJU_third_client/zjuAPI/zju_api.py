@@ -89,7 +89,7 @@ class APIFits:
                 continue
 
             api_respone = self.login_session.post(url = api_url, json = self.data)
-            all_api_response.append(api_respone)
+            all_api_response.append(api_respone.json())
 
         return all_api_response
 
@@ -226,7 +226,50 @@ class assignmentAPIFits(APIFits):
                  ):
         super().__init__(login_session, "assignment", apis_name, apis_config, parent_dir, data)
 
-class assignmentSubmissionViewAPIFits(assignmentAPIFits):
+class assignmentPreviewAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 activity_id,
+                 apis_name=[
+                     "activity_read"
+                    ]
+                ):
+        super().__init__(login_session, apis_name)
+        self.activity_id = activity_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+        if not base_api_url:
+            print_log("Error", f"{api_name} 缺乏'url'参数", "zju_api.assignmentViewAPIFits.make_api_url")
+            return None
+        
+        api_url = base_api_url.replace("<placeholder>", str(self.activity_id))
+
+        return api_url
+
+class assignmentViewAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 activity_id,
+                 apis_name=[
+                     "activity"
+                     ]
+                 ):
+        super().__init__(login_session, apis_name)
+        self.activity_id = activity_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+        if not base_api_url:
+            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentSubmissionViewAPIFits.make_api_url")
+            return None
+        
+        if api_name == "activity":
+            return base_api_url.replace("<placeholder>", str(self.activity_id))
+
+        return super().make_api_url(api_config, api_name)
+
+class assignmentSubmissionListAPIFits(assignmentAPIFits):
     def __init__(self, 
                  login_session, 
                  activity_id,
@@ -244,20 +287,9 @@ class assignmentSubmissionViewAPIFits(assignmentAPIFits):
             return None
         
         if api_name == "submission_list":
-            return base_api_url.replace("<placeholder1>", self.activity_id).replace("<placeholder2>", self.student_id)
-        
-        return super().make_api_url(api_config, api_name)
+            return base_api_url.replace("<placeholder1>", str(self.activity_id)).replace("<placeholder2>", str(self.student_id))
 
-class assignmentViewAPIFits(assignmentAPIFits):
-    def __init__(self, 
-                 login_session, 
-                 activity_id,
-                 apis_name=[
-                     "activity", 
-                     "activity_read"
-                    ]
-                ):
-        super().__init__(login_session, apis_name)
+        return super().make_api_url(api_config, api_name)
 
 class assignmentTodoListAPIFits(assignmentAPIFits):
     def __init__(self, 

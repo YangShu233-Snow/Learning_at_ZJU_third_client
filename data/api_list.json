@@ -196,12 +196,13 @@
             "todo"
         ],
         "apis_config": {
-            "activitiy": {
+            "activity": {
                 "url": "https://courses.zju.edu.cn/api/activities/<placeholder>?sub_course_id=0",
                 "params": {}
             },
             "activity_read": {
                 "url": "https://courses.zju.edu.cn/api/course/activities-read/<placeholder>",
+                "method": "POST",
                 "params": {}
             },
             "submission_list": {

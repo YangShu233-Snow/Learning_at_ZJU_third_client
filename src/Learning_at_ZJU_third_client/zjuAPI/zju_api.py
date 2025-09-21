@@ -349,11 +349,17 @@ class resourcesListAPIFits(resourcesAPIFits):
 class resourcesDownloadAPIFits(resourcesAPIFits):
     def __init__(self, 
                  login_session, 
+                 output_path: Path,
                  resource_id: int|None = None,
                  resources_id: List[int]|None = None,
                  apis_name=["download", "batch_download"]
                 ):
         super().__init__(login_session, apis_name)
+        if output_path:
+            self.output_path = output_path
+        else:
+            self.output_path = DOWNLOAD_DIR
+
         self.resource_id = resource_id
         self.resources_id = resources_id
 
@@ -384,8 +390,12 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         if self.apis_name == None or self.apis_config == None:
             self.load_api_config()
 
-        if not DOWNLOAD_DIR.exists():
-            Path(DOWNLOAD_DIR).mkdir()
+        if not self.output_path.exists():
+            Path(self.output_path).mkdir()
+
+        if not self.output_path.is_dir():
+            print_log("Error", f"{self.output_path} 不是一个文件夹路径！", "zju_api.resourcesDownloadAPIFits.download")
+            return False
 
         api_name = "download"
         api_config: dict = self.apis_config.get(api_name)
@@ -404,7 +414,6 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
                 filename = None
                 content_disposition = response.headers.get('Content-Disposition')
-                print(response.url)
                 if content_disposition:
                     fn_match = re.search('filename="?(.+)"?', content_disposition)
                     if fn_match:
@@ -422,7 +431,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
                 print_log("Info", f"获取到文件名: {filename}", "zju_api.resourcesDownloadAPIFits.download")
 
-                file_path = DOWNLOAD_DIR / filename
+                file_path = self.output_path / filename
 
                 print_log("Info", f"开始下载文件: {filename}", "zju_api.resourcesDownloadAPIFits.download")
                 # 分块读取
@@ -444,9 +453,13 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         if self.apis_name == None or self.apis_config == None:
             self.load_api_config()
 
-        if not DOWNLOAD_DIR.exists():
-            Path(DOWNLOAD_DIR).mkdir()
+        if not self.output_path.exists():
+            Path(self.output_path).mkdir()
 
+        if not self.output_path.is_dir():
+            print_log("Error", f"{self.output_path} 不是一个文件夹路径！", "zju_api.resourcesDownloadAPIFits.batch_download")
+            return False
+            
         api_name = "batch_download"
         api_config: dict = self.apis_config.get(api_name)
 
@@ -484,7 +497,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
                 print_log("Info", f"获取到文件名: {filename}", "zju_api.resourcesDownloadAPIFits.download")
 
-                file_path = DOWNLOAD_DIR / filename
+                file_path = self.output_path / filename
 
                 print_log("Info", f"开始下载文件: {filename}", "zju_api.resourcesDownloadAPIFits.download")
                 # 分块读取

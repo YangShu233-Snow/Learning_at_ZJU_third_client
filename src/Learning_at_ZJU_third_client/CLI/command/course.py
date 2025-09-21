@@ -2,7 +2,7 @@ import typer
 from typing_extensions import Optional, Annotated, List
 from requests import Session
 from rich import print as rprint
-from rich.progress import Progress, SpinnerColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.tree import Tree
 from rich.table import Table
 from rich.panel import Panel
@@ -389,7 +389,7 @@ def view_course(
                     (url_jump, "bright_white")
                 )
 
-                completion_text = get_completion_text(completion_status, activity_completion_criterion_key)
+                completion_text = get_completion_text(completion_status, exam_completion_criterion_key)
 
                 # --- 准备Panel内容 ---
                 content_renderables = []

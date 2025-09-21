@@ -29,6 +29,19 @@ def is_list_resoureces_file_type_valid(file_type: str):
     print(f"{file_type} 资源类型不存在！")
     raise typer.Exit(code=1)
 
+def is_download_dest_dir(dest: Path):
+    if not dest.exists():
+        print_log("Error", f"{dest} 不存在！", "CLI.command.resource.is_download_dest_dir")
+        print(f"{dest} 不存在！")
+        raise typer.Exit(code=1)
+    
+    if not dest.is_dir():
+        print_log("Error", f"{dest} 应是文件夹！", "CLI.command.resource.is_download_dest_dir")
+        print(f"{dest} 应是文件夹！")
+        raise typer.Exit(code=1)
+    
+    return dest
+
 # 文件大小换算
 def transform_resource_size(resource_size: int)->str:
     resource_size_KB = resource_size / 1024
@@ -286,6 +299,7 @@ def remove_resources(
 @app.command(name="download")
 def download_resource(
     files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
+    dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)],
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False
 ):
     """
@@ -305,7 +319,7 @@ def download_resource(
         ) as progress:
             task = progress.add_task(description="[green]正在下载文件中...[/green]", total=files_id_amount)
             
-            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, resources_id=files_id)
+            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resources_id=files_id)
             
             if resources_downloader.batch_download():
                 rprint(f"[green]下载成功！")
@@ -331,7 +345,7 @@ def download_resource(
         task = progress.add_task(description="[green]正在下载文件中...[/green]", total=files_id_amount)
         
         if batch:
-            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, resources_id=files_id)
+            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resources_id=files_id)
             if resources_downloader.batch_download():
                 rprint(f"[green]下载成功！")
                 rprint(f"[green]下载完成！[/green]")
@@ -346,7 +360,7 @@ def download_resource(
             return
 
         for file_id in files_id:
-            resource_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, resource_id=file_id)
+            resource_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resource_id=file_id)
             if resource_downloader.download():
                 success_amount += 1
                 rprint(f"{file_id} [green]下载成功！")
@@ -360,4 +374,5 @@ def download_resource(
             )
 
         rprint(f"[green]下载完成！[/green]成功下载 {success_amount} 个文件，失败 {files_id_amount - success_amount} 个文件。")
+        rprint(f"[cyan]下载路径: [/cyan]{dest}")
         return

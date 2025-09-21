@@ -2,6 +2,7 @@ import typer
 from typing_extensions import Optional, Annotated, List
 from requests.exceptions import HTTPError
 from rich import print as rprint
+from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn
 from datetime import datetime
 from pathlib import Path
@@ -87,7 +88,8 @@ def list_resources(
     """
     results = zju_api.resourcesListAPIFits(state.client.session, keyword, page_index, amount, file_type).get_api_data(False)[0]
     total_pages = results.get("pages", 0)
-    if page_index > total_pages:
+
+    if page_index > total_pages and total_pages > 0:
         print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
         raise typer.Exit(code=1)
 
@@ -98,44 +100,61 @@ def list_resources(
         print("啊呀！没有找到文件呢。")
         return
     
+    if quiet:
+        resourse_ids = [str(resource.get('id', 'null')) for resource in resources_list]
+        print(" ".join(resourse_ids))
+        return
+
+    resources_list_table = Table(
+        title=f"资源列表 (第 {page_index} / {total_pages} 页)",
+        caption=f"本页显示 {len(resources_list)} 个。",
+        border_style="bright_black",
+        show_header=True,
+        header_style="bold magenta",
+        expand=True
+    )
+
+    if short:
+        resources_list_table.add_column("资源ID", style="cyan", no_wrap=True, width=10)
+        resources_list_table.add_column("资源名称", style="bright_yellow", ratio=1)
+    else:
+        resources_list_table.add_column("资源ID", style="cyan", no_wrap=True, width=8)
+        resources_list_table.add_column("资源名称", style="bright_yellow", ratio=3)
+        resources_list_table.add_column("上传时间", ratio=2)
+        resources_list_table.add_column("文件大小", ratio=1)
+        resources_list_table.add_column("下载状态", ratio=1)
+
+    
     # quiet 模式仅打印文件id，并且不换行
     # short 模式仅按表单格式打印文件名与文件id
     for resource in resources_list:
-        resource_id = resource.get('id', 'null')
-        if quiet:
-            print(resource_id, end=" ")
-            continue
-
+        resource_id = str(resource.get('id', 'null'))
         resource_name = resource.get('name', 'null')
+        
         if short:
-            print("------------------------------")
-            rprint(f"[bright_yellow]{resource_name}[/bright_yellow]")
-            rprint(f"  [green]文件ID: [/green][cyan]{resource_id}[/cyan]")
+            resources_list_table.add_row(resource_id, resource_name)
+            
+            if resource != resources_list[-1]:
+                resources_list_table.add_row()
+            
             continue
         
         resource_size = transform_resource_size(resource.get('size', 0))
-        resource_download_status = resource.get('allow_download', False)
-        resource_update_time = datetime.fromisoformat(resource.get("updated_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00'))    
+        resource_download_status = "[green]可下载[/green]" if resource.get('allow_download', False) else "[red]不可下载[/red]"
+        resource_update_time = datetime.fromisoformat(resource.get("updated_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
 
-        print("--------------------------------------------------")
-        rprint(f"[bright_yellow]{resource_name}[/bright_yellow]")
-        rprint(f"  [green]文件ID: [/green][cyan]{resource_id}[/cyan]")
-        rprint(f"  [green]文件是否可下载: [/green][cyan]{resource_download_status}[/cyan]")
-        rprint(f"  [green]文件上传时间: [/green][white]{resource_update_time}[/white]")
-        rprint(f"  [green]文件大小: [/green][bright_white]{resource_size}[/bright_white]")
+        resources_list_table.add_row(
+            resource_id,
+            resource_name,
+            resource_update_time,
+            resource_size,
+            resource_download_status
+        )
 
-    # quiet 模式不需要结尾
-    if quiet:
-        print("\n")
-        return
-
-    if short:
-        print("------------------------------")
-        print(f"本页共 {current_results_amount} 个结果，第 {page_index}/{total_pages} 页。")
-        return
-
-    print("--------------------------------------------------")
-    print(f"本页共 {current_results_amount} 个结果，第 {page_index}/{total_pages} 页。")
+        if resource != resources_list[-1]:
+            resources_list_table.add_row()
+    
+    rprint(resources_list_table)
     return 
 
 # 注册资源上传命令
@@ -183,7 +202,6 @@ def upload_resources(
             
             to_upload_files.append(file)
         progress.advance(task, advance=1)
-
 
         total_to_upload_files_amount = len(to_upload_files)
         print_log("Info", f"成功载入 {total_to_upload_files_amount} 个文件", "CLI.command.resource.upload_resources")    

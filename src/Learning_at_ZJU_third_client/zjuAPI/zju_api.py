@@ -163,7 +163,7 @@ class coursesAPIFits(APIFits):
 class coursesListAPIFits(coursesAPIFits):
     def __init__(self, 
                  login_session, 
-                 keyword: str,
+                 keyword: str|None,
                  page: int = 1,
                  show_amount: int = 10,
                  apis_name=["list"]
@@ -196,7 +196,9 @@ class courseViewAPIFits(coursesAPIFits):
                     "modules",
                     "activities",
                     "exams",
-                    "completeness"
+                    "completeness",
+                    "classrooms",
+                    "activities_reads"
                 ]
                 ):
         super().__init__(login_session, apis_name)
@@ -402,6 +404,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
                 filename = None
                 content_disposition = response.headers.get('Content-Disposition')
+                print(response.url)
                 if content_disposition:
                     fn_match = re.search('filename="?(.+)"?', content_disposition)
                     if fn_match:
@@ -410,6 +413,9 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
                 if not filename and 'name=' in response.url:
                     filename = unquote(response.url.split("name=")[-1])
+
+                if not filename and 'name=' not in response.url:
+                    filename = unquote(response.url.split('/')[-1])
 
                 if not filename:
                     filename = datetime.now().strftime('%Y-%m-%d %H:%M:%S')

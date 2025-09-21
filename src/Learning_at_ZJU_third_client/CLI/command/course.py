@@ -45,11 +45,26 @@ def get_status_text(start_status: bool, close_status: bool)->Text:
     
     return Text(f"⚪️ 未开始", style="dim")
 
-def get_completion_text(completion_status: bool, completion_criterion_key: str):
+def get_completion_text(completion_status: bool, completion_criterion_key: str)->Text:
     if completion_criterion_key == "none":
         return Text(f"无需完成", style="dim")
     
     if completion_status:
+        return Text(f"🟢 已完成", style="green")
+    
+    return Text(f"🔴 未完成", style="red")
+
+def get_classroom_status_text(status: str)->Text:
+    if status == "finish":
+        return Text(f"🔴 已结束", style="red")
+    
+    if status == "start":
+        return Text(f"🟢 进行中", style="green")
+    
+    return Text(f"⚪️ 未开始", style="dim")
+
+def get_classroom_completion_text(completion_key: str)->Text:
+    if completion_key == "full":
         return Text(f"🟢 已完成", style="green")
     
     return Text(f"🔴 未完成", style="red")
@@ -79,90 +94,79 @@ def list_courses(
     """
     results = zju_api.coursesListAPIFits(state.client.session, keyword, page_index, amount).get_api_data()[0]
     total_pages = results.get("pages", 0)
-    if page_index > total_pages:
+    if page_index > total_pages and total_pages > 0:
         print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
         raise typer.Exit(code=1)
 
     courses_list = results.get("courses", [])
-    current_results_amount = results.get("total", 0)
+    total_results_amount = results.get("total", 0)
 
     # 如果搜索没有结果，则直接退出
-    if current_results_amount == 0:
+    if total_results_amount == 0:
         print("啊呀！没有找到课程呢。")
         return
     
-    # quiet 模式仅打印文件id，并且不换行
-    # short 模式仅按表单格式打印文件名与文件id
-    for course in courses_list:
-        # 课程id
-        course_id = course.get("id", "null")
-
-        if quiet:
-            print(course_id, end=" ")
-            continue
-
-        # 课程名称
-        course_name = course.get("name", "null")
-        if short:
-            print("------------------------------")
-            rprint(f"[bright_yellow]{course_name}[/bright_yellow]")
-            rprint(f"  [green]文件ID: [/green][cyan]{course_id}[/cyan]")
-            continue
-
-
-        # 上课时间
-        course_attributes = course.get("course_attributes")
-        if course_attributes:
-            course_time = course_attributes.get("teaching_class_name", "null")
-        else:
-            course_time = "null"
-
-        # 授课教师
-        teachers_name = []
-        if course.get("instructors"):
-            for teacher in course.get("instructors"):
-                name = teacher.get("name", "null")
-                teachers_name.append(name)
-        else:
-            teachers_name = [""]
-
-        # 开课院系
-        course_department = course.get("department")
-        if course_department:
-            course_department_name = course_department.get("name", "null")
-        else:
-            course_department_name = "null"
-
-        # 课程学年
-        course_academic_year = course.get("academic_year")
-        if course_academic_year:
-            course_academic_year_name = course_academic_year.get("name", "null")
-        else:
-            course_academic_year_name = "null"
-        
-        # 课程代码
-        course_code = course.get("course_code", "null")
-
-        print("----------------------------------------")
-        rprint(f"[bright_yellow]{course_name}[/bright_yellow]")
-        rprint(f"  [green]课程ID: [/green]  [cyan]{course_id}[/cyan]")
-        rprint(f"  [green]上课时间: [/green][cyan]{course_time}[/cyan]")
-        rprint(f"  [green]授课教师: [/green]{'、'.join(teachers_name)}")
-        rprint(f"  [green]开课院系: [/green]{course_department_name}")
-        rprint(f"  [green]开课学年: [/green][white]{course_academic_year_name}[/white]")
-        rprint(f"  [green]课程代码：[/green][bright_black]{course_code}[/bright_black]")
-
+    # quiet 模式仅打印课程id，并且不换行
     if quiet:
-        print("\n")
-        return
+        course_ids = [str(course.get("id", "")) for course in courses_list]
+        print(" ".join(course_ids))
+        return 
+    
+    courses_list_table = Table(
+        title=f"课程列表 (第 {page_index} / {total_pages} 页)",
+        caption=f"共找到 {total_results_amount} 个结果，本页显示 {len(courses_list)} 个。",
+        border_style="bright_black",
+        show_header=True,
+        header_style="bold magenta",
+        expand=True
+    )
 
+    # short模式仅显示课程ID与课程名称
     if short:
-        print("------------------------------")
-        print(f"本页共 {current_results_amount} 个结果，第 {page_index}/{total_pages} 页。")
-        return
+        courses_list_table.add_column("课程ID", style="cyan", no_wrap=True, width=8)
+        courses_list_table.add_column("课程名称", style="bright_yellow", ratio=1)
+    else:
+        courses_list_table.add_column("课程ID", style="cyan", no_wrap=True, width=8)
+        courses_list_table.add_column("课程名称", style="bright_yellow", ratio=3)
+        courses_list_table.add_column("授课教师", ratio=2)
+        courses_list_table.add_column("上课时间", ratio=2)
+        courses_list_table.add_column("开课院系", ratio=2)
+        courses_list_table.add_column("开课学年", style="white", ratio=1)
 
-    print("----------------------------------------")
-    print(f"本页共 {current_results_amount} 个结果，第 {page_index}/{total_pages} 页。")
+    # short 模式仅按表单格式打印课程名与课程id
+    for course in courses_list:
+        course_id = str(course.get("id", "N/A"))
+        course_name = course.get("name", "N/A")
+
+        if short:
+            courses_list_table.add_row(course_id, course_name)
+            continue
+
+        course_attributes = course.get("course_attributes")
+        course_time = course_attributes.get("teaching_class_name", "N/A") if course_attributes else "N/A"
+
+        teachers = course.get("instructors", [])
+        teachers_name = ', '.join([t.get("name", "") for t in teachers]) or "N/A"
+
+        department = course.get("department")
+        course_department_name = department.get("name", "N/A") if department else "N/A"
+
+        academic_year = course.get("academic_year")
+        course_academic_year_name = academic_year.get("name", "N/A") if academic_year else "N/A"
+        
+        courses_list_table.add_row(
+            course_id,
+            course_name,
+            teachers_name,
+            course_time,
+            course_department_name,
+            course_academic_year_name
+        )
+        
+        if course != courses_list[-1]:
+            courses_list_table.add_row()
+
+    rprint(courses_list_table)
 
 @app.command("view")
 def view_course(
@@ -170,7 +174,7 @@ def view_course(
     module_id: Annotated[Optional[int], typer.Option("--module", "-m", help="章节id")] = None
 ):
     """
-    
+    浏览指定课程的目录，默认对章节进行折叠，使用'--module'选项指定展开特定章节。
     """
     # 给出module_id则进行完整的请求
     with Progress(
@@ -180,13 +184,15 @@ def view_course(
     ) as progress:
         task = progress.add_task(description="获取课程信息中...", total=1)
         if module_id:
-            course_messages, raw_course_modules, raw_course_activities, raw_course_exams, raw_course_completeness = zju_api.courseViewAPIFits(state.client.session, course_id).get_api_data()
+            course_messages, raw_course_modules, raw_course_activities, raw_course_exams, raw_course_completeness, raw_course_classrooms, raw_course_activities_reads = zju_api.courseViewAPIFits(state.client.session, course_id).get_api_data()
             course_name = course_messages.get("name", "null")
             course_modules: List[dict] = raw_course_modules.get("modules", [])
             course_activities: List[dict] = raw_course_activities.get("activities", [])
             course_exams: List[dict] = raw_course_exams.get("exams", [])
+            course_classrooms: List[dict] = raw_course_classrooms.get("classrooms", [])
             exams_completeness: List[int] = raw_course_completeness.get("completed_result", {}).get("completed", {}).get("exam_activity", [])
             activities_completeness: List[int] = raw_course_completeness.get("completed_result", {}).get("completed", {}).get("learning_activity", [])
+            classrooms_completeness: List[dict] = [activity_read for activity_read in raw_course_activities_reads.get("activity_reads") if activity_read.get("activity_type") == "classroom_activity"]
 
             # 筛选目标module, activities 和 exams
             modules_list: List[dict] = []
@@ -204,10 +210,20 @@ def view_course(
                 if course_activity.get("module_id") == module_id:
                     activities_list.append(course_activity)
 
-            exam_lists: List[dict] = []
+            exams_list: List[dict] = []
             for course_exam in course_exams:
                 if course_exam.get("module_id") == module_id:
-                    exam_lists.append(course_exam)
+                    exams_list.append(course_exam)
+
+            classrooms_list: List[dict] = []
+            for course_classroom in course_classrooms:
+                if course_classroom.get("module_id") == module_id:
+                    classrooms_list.append(course_classroom)
+
+            if len(activities_list) == 0 and len(exams_list) == 0 and len(classrooms_list) == 0:
+                rprint(f"章节 {module_id} 无内容")
+                return 
+
         else:
             course_messages, raw_course_modules = zju_api.courseViewAPIFits(state.client.session, course_id, ["view", "modules"]).get_api_data()
 
@@ -228,18 +244,19 @@ def view_course(
                 "online_video": "视频",
                 "homework": "作业",
                 "questionnaire": "问卷",
-                "exam": "测试"
+                "exam": "测试",
+                "page": "页面",
+                "classroom": "课堂任务"
             }
 
             # --- 加载活动内容 ---
-            for activity in activities_list:
+            for activity in activities_list: # type: ignore
                 # 标题、类型与ID
                 activity_title = activity.get("title", "null")
                 activity_type = type_map.get(activity.get("type", "null"), activity.get("type", "null"))
                 activity_id = activity.get("id", "null")
                 activity_completion_criterion_key = activity.get("completion_criterion_key", "none")
                 completion_status = True if activity_id in activities_completeness else False
-
                 # 活动的start_time和end_time都可能是null值，必须多做一次判断
                 # is_started 和 is_closed 来判断活动是否开始或者截止
                 # 开放日期
@@ -330,7 +347,7 @@ def view_course(
                 module_tree.add(activity_panel)
 
             # --- 加载测试内容 ---
-            for exam in exam_lists:
+            for exam in exams_list:
                 exam_title = exam.get("title", "null")
                 exam_type = type_map.get(exam.get("type", "null"), exam.get("type", "null"))
                 exam_id = exam.get("id", "null")
@@ -400,6 +417,57 @@ def view_course(
                 )
 
                 module_tree.add(activity_panel)
+
+            # --- 加载课堂任务内容 ---
+            for classroom in classrooms_list:
+                classroom_title = classroom.get("title", "null")
+                classroom_type = type_map.get(classroom.get("type", "null"), classroom.get("type", "null"))
+                classroom_id = classroom.get("id", "null")
+                classroom_status = classroom.get("status")
+                classroom_completeness_status = [classroom_completeness.get("completeness", "null") for classroom_completeness in classrooms_completeness if classroom_completeness.get("activity_id") == classroom_id][0]
+
+                classroom_start_time: str = classroom.get("start_at", "1900-01-01T00:00:00Z")
+                if classroom_start_time:
+                    classroom_start_time = datetime.fromisoformat(classroom_start_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    classroom_start_time = "null"
+
+                classroom_status_text = get_classroom_status_text(classroom_status)
+                classroom_completeness_status_text = get_classroom_completion_text(classroom_completeness_status)
+                start_time_text = Text.assemble(
+                    ("开放时间: ", "cyan"),
+                    (classroom_start_time, "bright_white")
+                )
+
+                prompt_text = Text("请在移动端上完成！", "red")
+                
+                # --- 准备Panel内容 ---
+                content_renderables = []
+                title_line = Text.assemble(
+                    (f"{classroom_title}", "bold bright_magenta"),
+                    "\n",
+                    classroom_completeness_status_text,
+                    classroom_status_text
+                )
+                content_renderables.append(title_line)
+                content_renderables.append(start_time_text)
+                content_renderables.append("")
+                content_renderables.append(prompt_text)
+
+                panel_title = f"[yellow][{classroom_type}][/yellow]"
+                panel_subtitle = f"[yellow]ID: {classroom_id}[/yellow]"
+
+                classroom_panel = Panel(
+                    Group(*content_renderables),
+                    title=panel_title,
+                    subtitle=panel_subtitle,
+                    border_style="bright_green",
+                    expand=True,
+                    padding=(1, 2)
+                )
+
+                module_tree.add(classroom_panel)
+
         else:
             for module in modules_list:
                 module_name = module.get("name", "null")

@@ -44,7 +44,9 @@
             "activities",
             "exams",
             "exam-scores",
-            "completeness"
+            "completeness",
+            "classrooms",
+            "activities_reads"
         ],
         "apis_config": {
             "list": {
@@ -94,7 +96,15 @@
                 }
             },
             "completeness": {
-                "url": "https://courses.zju.edu.cn/api/course/79813/my-completeness",
+                "url": "https://courses.zju.edu.cn/api/course/<placeholder>/my-completeness",
+                "params": {}
+            },
+            "classrooms": {
+                "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/classroom-list",
+                "params": {}
+            },
+            "activities_reads": {
+                "url": "https://courses.zju.edu.cn/api/course/<placeholder>/activity-reads-for-user",
                 "params": {}
             }
         }

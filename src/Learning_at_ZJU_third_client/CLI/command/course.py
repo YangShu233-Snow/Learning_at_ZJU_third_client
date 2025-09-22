@@ -85,13 +85,20 @@ def list_courses(
     amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示课程的数量")] = 10,
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="课程页面索引")] = 1,
     short: Annotated[Optional[bool], typer.Option("--short", "-s", help="简化输出内容，仅显示课程名与课程id")] = False,
-    quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="仅输出课程id")] = False
+    quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="仅输出课程id")] = False,
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False
     ):
     """
     列举学在浙大内的课程信息，允许指定课程名称，显示数量。
 
     并不建议将显示数量指定太大，这可能延长网络请求时间，并且大量输出会淹没你的显示窗口。实际上你可以通过 "--page" 参数实现翻页。
     """
+    # 如果启用--all，则先获取有多少课程
+    if all:
+        pre_results = zju_api.coursesListAPIFits(state.client.session, keyword, 1, 1).get_api_data()[0]
+        totals = pre_results.get("total", 0)
+        page_index = 1
+
     results = zju_api.coursesListAPIFits(state.client.session, keyword, page_index, amount).get_api_data()[0]
     total_pages = results.get("pages", 0)
     if page_index > total_pages and total_pages > 0:
@@ -126,12 +133,12 @@ def list_courses(
         courses_list_table.add_column("课程ID", style="cyan", no_wrap=True, width=8)
         courses_list_table.add_column("课程名称", style="bright_yellow", ratio=1)
     else:
-        courses_list_table.add_column("课程ID", style="cyan", no_wrap=True, width=8)
-        courses_list_table.add_column("课程名称", style="bright_yellow", ratio=3)
-        courses_list_table.add_column("授课教师", ratio=2)
-        courses_list_table.add_column("上课时间", ratio=2)
-        courses_list_table.add_column("开课院系", ratio=2)
-        courses_list_table.add_column("开课学年", style="white", ratio=1)
+        courses_list_table.add_column("课程ID", style="cyan", no_wrap=True, width=6)
+        courses_list_table.add_column("课程名称", style="bright_yellow", ratio=6)
+        courses_list_table.add_column("授课教师", ratio=3)
+        courses_list_table.add_column("上课时间", ratio=3)
+        courses_list_table.add_column("开课院系", ratio=4)
+        courses_list_table.add_column("开课学年", style="white", width=9)
 
     # short 模式仅按表单格式打印课程名与课程id
     for course in courses_list:
@@ -143,13 +150,22 @@ def list_courses(
             continue
 
         course_attributes = course.get("course_attributes")
-        course_time = course_attributes.get("teaching_class_name", "N/A") if course_attributes else "N/A"
+        course_time = course_attributes.get("teaching_class_name", "N/A") if course_attributes.get("teaching_class_name", "N/A") else "N/A"
+
+        course_time = ", ".join(course_time.split(";"))
 
         teachers = course.get("instructors", [])
         teachers_name = ', '.join([t.get("name", "") for t in teachers]) or "N/A"
 
         department = course.get("department")
         course_department_name = department.get("name", "N/A") if department else "N/A"
+
+        if len(course_department_name) > 10:
+            if "与" in course_department_name:
+                course_department_name = course_department_name.split("与")[0] + "与\n" + course_department_name.split("与")[1]
+            else:
+                course_department_name = course_department_name[:11] + "\n" + course_department_name[11:]
+            
 
         academic_year = course.get("academic_year")
         course_academic_year_name = academic_year.get("name", "N/A") if academic_year else "N/A"

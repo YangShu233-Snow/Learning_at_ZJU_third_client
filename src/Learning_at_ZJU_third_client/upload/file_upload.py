@@ -157,7 +157,7 @@ class uploadFile:
             files_id[file_name] = file_id
 
         return files_id
-            
+
     def get_file_size(self, file_path: Path)->int:
         """获得文件字节大小
 

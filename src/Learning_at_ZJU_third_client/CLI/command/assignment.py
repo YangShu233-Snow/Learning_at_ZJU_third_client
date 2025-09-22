@@ -90,22 +90,13 @@ def extract_uploads(uploads_list: List[dict])->List[Table]:
 
     return content_renderables
 
-@app.command("view")
-def view_assignment(
-    activity_id: Annotated[int, typer.Argument(help="任务id")]
-):
-    """
-    浏览指定任务，显示任务基本信息，任务附件与任务提交记录
-    """
-    type_map = {
-        "material": "资料",
-        "online_video": "视频",
-        "homework": "作业",
-        "questionnaire": "问卷",
-        "exam": "测试",
-        "page": "页面"
-    }
+def view_exam(exam_id: int, type_map: dict):
+    pass
 
+def view_classroom(classroom_id: int, type_map: dict):
+    pass
+
+def view_activity(activity_id: int, type_map: dict):
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -280,6 +271,36 @@ def view_assignment(
         progress.advance(task, advance=1)
 
     rprint(activity_panel)
+
+@app.command("view")
+def view_assignment(
+    assignment_id: Annotated[int, typer.Argument(help="任务id")],
+    exam: Annotated[Optional[bool], typer.Option("--exam", "-e", help="启用此选项，将查询对应的考试")],
+    classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")]
+):
+    """
+    浏览指定任务，显示任务基本信息，任务附件与任务提交记录
+    """
+    type_map = {
+        "material": "资料",
+        "online_video": "视频",
+        "homework": "作业",
+        "questionnaire": "问卷",
+        "exam": "测试",
+        "page": "页面",
+        "classroom": "课堂任务"
+    }
+
+    if exam:
+        view_exam(assignment_id, type_map)
+        return 
+    
+    if classroom:
+        view_classroom(assignment_id, type_map)
+        return
+
+    view_activity(assignment_id, type_map)
+    return 
 
 
 @app.command("todo")

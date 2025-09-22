@@ -1,11 +1,12 @@
 import typer
 import keyring
+from rich import print as rprint
 from typing_extensions import Annotated, Optional
 from login.login import ZjuClient
 from printlog.print_log import print_log
 
 from .state import state
-from .command import course, resource, assignment, exam
+from .command import course, resource, assignment, rollcall
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_STUDENTID_NAME = "studentid"
@@ -44,6 +45,16 @@ def main_callback(ctx: typer.Context):
         print("登录失败！请运行'login'命令尝试手动登录。")
         raise typer.Exit(code=1)
 
+# --- 开发者检查测试 ---
+@app.command()
+def check(
+    url: Annotated[str, typer.Argument()]
+):
+    session = state.client.session
+
+    response = session.get(url)
+    rprint(response.text)
+
 # --- 手动登录 --- 
 @app.command()
 def login():
@@ -75,5 +86,5 @@ app.add_typer(resource.app, name="resource", help="学在浙大云盘资源相�
 # 任务命令组
 app.add_typer(assignment.app, name="assignment", help="学在浙大作业任务相关命令，可以查看待完成的任务，提交作业等。")
 
-# 测试命令组
-app.add_typer(exam.app, name="exam", help="学在浙大测试相关命令，可以查看测试的基本信息。")
+# 签到命令组
+app.add_typer(rollcall.app, name="rollcall", help="学在浙大签到相关任务，可以查看当前签到任务，完成指定的雷达签到任务")

@@ -30,6 +30,9 @@ def is_list_resoureces_file_type_valid(file_type: str):
     raise typer.Exit(code=1)
 
 def is_download_dest_dir(dest: Path):
+    if dest == Path().home() / "Downloads" and not dest.exists:
+        Path(dest).mkdir()
+
     if not dest.exists():
         print_log("Error", f"{dest} 不存在！", "CLI.command.resource.is_download_dest_dir")
         print(f"{dest} 不存在！")
@@ -92,13 +95,20 @@ def list_resources(
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="云盘文件页面索引")] = 1,
     file_type: Annotated[Optional[str], typer.Option("--type", "-t", help="文件类型", callback=is_list_resoureces_file_type_valid)] = None,
     short: Annotated[Optional[bool], typer.Option("--short", "-s", help="简化输出内容，仅显示文件名与文件id")] = False,
-    quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="仅输出文件id")] = False
+    quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="仅输出文件id")] = False,
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False
     ):
     """
     列举学在浙大云盘内的文件资源，允许指定文件名称，显示数量与文件类型。
 
     并不建议将显示数量指定太大，这可能延长网络请求时间，并且大量输出会淹没你的显示窗口。实际上你可以通过 "--page" 参数实现翻页。
     """
+    # 如果启用--all，则先获取文件资源总数
+    if all:
+        pre_results = zju_api.resourcesListAPIFits(state.client.session, keyword, 1, 1, file_type).get_api_data(False)[0]
+        amount = pre_results.get("pages", 1)
+        page_index = 1
+
     results = zju_api.resourcesListAPIFits(state.client.session, keyword, page_index, amount, file_type).get_api_data(False)[0]
     total_pages = results.get("pages", 0)
 
@@ -299,7 +309,7 @@ def remove_resources(
 @app.command(name="download")
 def download_resource(
     files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
-    dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)],
+    dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = Path().home() / "Downloads",
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False
 ):
     """

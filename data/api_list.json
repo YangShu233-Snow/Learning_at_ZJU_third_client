@@ -46,7 +46,8 @@
             "exam-scores",
             "completeness",
             "classrooms",
-            "activities_reads"
+            "activities_reads",
+            "coursewares"
         ],
         "apis_config": {
             "list": {
@@ -106,6 +107,14 @@
             "activities_reads": {
                 "url": "https://courses.zju.edu.cn/api/course/<placeholder>/activity-reads-for-user",
                 "params": {}
+            },
+            "coursewares": {
+                "url": "https://courses.zju.edu.cn/api/course/<placeholder>/coursewares",
+                "params": {
+                    "conditions": "{\"category\":null,\"itemsSortBy\":{\"predicate\":\"chapter\",\"reverse\":false},\"ignore_activity_types\":[\"lesson\"]}",
+                    "page": 1,
+                    "page_size": 20
+                }
             }
         }
     },
@@ -223,6 +232,23 @@
                 "url": "https://courses.zju.edu.cn/api/todos?no-intercept=true",
                 "params": {}
                 }
+        }
+    },
+    "rollcall": {
+        "apis_name": [
+            "rollcall",
+            "answer"
+        ],
+        "apis_config": {
+            "rollcall": {
+                "url": "https://courses.zju.edu.cn/api/radar/rollcalls?api_version=1.1.0",
+                "params": {}
+            },
+            "answer": {
+                "url": "https://courses.zju.edu.cn/api/rollcall/<placeholder>/answer?api_version=1.76",
+                "method": "PUT",
+                "params": {}
+            }
         }
     }
 }

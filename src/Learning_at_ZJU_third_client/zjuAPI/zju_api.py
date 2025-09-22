@@ -53,10 +53,12 @@ class APIFits:
             
             api_url = self.make_api_url(api_config, api_name)
             if api_url == None:
-                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.get_api_data")
+                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFits.get_api_data")
                 continue
 
             api_params = self.make_api_params(api_config = api_config, api_name=api_name)
+            print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.get_api_data")
+            print_log("Info", f"参数为 {api_config.items()}", "zju_api.APIFits.get_api_data")
             api_respone = self.login_session.get(url = api_url, params = api_params)
             api_respone_json = api_respone.json()
 
@@ -68,7 +70,7 @@ class APIFits:
 
         return results_json
 
-    def post_api_data(self)->List[Response]:
+    def post_api_data(self)->List[dict]:
         all_api_response = []
         if self.apis_name == None or self.apis_config == None:
             self.load_api_config()
@@ -76,7 +78,7 @@ class APIFits:
         for api_name in self.apis_name:
             api_config: dict = self.apis_config.get(api_name, None)
             if api_config == None:
-                print_log("Error", f"{api_name}不存在！", "zju_api.post_api_data")
+                print_log("Error", f"{api_name}不存在！", "zju_api.APIFits.post_api_data")
                 continue
                 
             if not self.check_api_method(api_config, "POST"):
@@ -85,11 +87,46 @@ class APIFits:
 
             api_url = self.make_api_url(api_config, api_name)
             if api_url == None:
-                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.post_api_data")
+                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFits.post_api_data")
                 continue
 
+            print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.post_api_data")
+            print_log("Info", f"载荷为 {self.data.items()}", "zju_api.APIFits.post_api_data")
             api_respone = self.login_session.post(url = api_url, json = self.data)
             all_api_response.append(api_respone.json())
+
+        return all_api_response
+    
+    def put_api_data(self)->List[dict|bool]:
+        all_api_response = []
+        if self.apis_name == None or self.apis_config == None:
+            self.load_api_config()
+
+        for api_name in self.apis_name:
+            api_config: dict = self.apis_config.get(api_name, None)
+            
+            if not api_config:
+                print_log("Error", f"{api_name}不存在！", "zju_api.APIFits.put_api_data")
+                continue
+
+            if not self.check_api_method(api_config, "PUT"):
+                print_log("Error", "该方法只适用PUT请求！", "zju_api.APIFits.put_api_data")
+                raise RuntimeError
+            
+            api_url = self.make_api_url(api_config, api_name)
+            if api_url == None:
+                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFits.put_api_data")
+                continue
+            
+            print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.put_api_data")
+            api_response = self.login_session.put(url = api_url, json = self.data)
+            try:
+                api_response.raise_for_status()
+            except HTTPError as e:
+                print_log("Error", f"Put请求失败！{api_response.url}: {e}", "zju_api.APIFits.put_api_data")
+                all_api_response.append(False)
+            else:
+                all_api_response.append(api_response.json())
 
         return all_api_response
 
@@ -620,3 +657,48 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
         except Exception as e:
             print_log("Error", f"未知错误！错误原因: {e}", "zju_api.resourcesRemoveAPIFits.delete_api_data")
             return False
+        
+# --- rollcall API ---
+class rollcallAPIFits(APIFits):
+    def __init__(self, 
+                 login_session, 
+                 apis_name = [
+                    "rollcall",
+                    "answer"
+                 ],
+                 apis_config = None, 
+                 parent_dir=None, 
+                 data=None
+                 ):
+        super().__init__(login_session, "rollcall", apis_name, apis_config, parent_dir, data)
+
+class rollcallListAPIFits(rollcallAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 apis_name = [
+                    "rollcall"
+                 ],
+                 ):
+        super().__init__(login_session, apis_name)
+
+class rollcallAnswerAPIFits(rollcallAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 rollcall_id: int,
+                 rollcall_data,
+                 apis_name = [
+                     "answer"
+                 ]):
+        super().__init__(login_session, apis_name, data=rollcall_data)
+        self.rollcall_id = rollcall_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+        if not base_api_url:
+            print_log("Error", f"{api_name}参数url缺失！", "zju_api.rollcallAnswerAPIFits.make_api_url")
+            return
+        
+        if api_name == "answer":
+            return base_api_url.replace("<placeholder>", str(self.rollcall_id))
+        
+        return super().make_api_url(api_config, api_name)

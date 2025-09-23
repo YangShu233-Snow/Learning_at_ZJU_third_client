@@ -1,5 +1,5 @@
 import time
-from load_config import load_config
+from ..load_config import load_config
 
 def print_log(log_type: str, log_message: str, log_from: str = None):
     return 

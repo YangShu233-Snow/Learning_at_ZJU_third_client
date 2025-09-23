@@ -7,9 +7,9 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, TaskProgressColum
 from datetime import datetime
 from pathlib import Path
 
-from zjuAPI import zju_api
-from upload import file_upload
-from printlog.print_log import print_log
+from ...zjuAPI import zju_api
+from ...upload import file_upload
+from ...printlog.print_log import print_log
 from ..state import state
 
 # resource 命令组

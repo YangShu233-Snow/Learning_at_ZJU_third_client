@@ -8,8 +8,9 @@ from urllib.parse import unquote
 from requests import Response
 from requests.exceptions import HTTPError, RequestException
 from typing_extensions import List
-from load_config import load_config
-from printlog.print_log import print_log
+
+from ..load_config import load_config
+from ..printlog.print_log import print_log
 
 DOWNLOAD_DIR = Path.home() / "Downloads"
 
@@ -91,7 +92,8 @@ class APIFits:
                 continue
 
             print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.post_api_data")
-            print_log("Info", f"载荷为 {self.data.items()}", "zju_api.APIFits.post_api_data")
+            if self.data:
+                print_log("Info", f"载荷为 {self.data.items()}", "zju_api.APIFits.post_api_data")
             api_respone = self.login_session.post(url = api_url, json = self.data)
             all_api_response.append(api_respone.json())
 

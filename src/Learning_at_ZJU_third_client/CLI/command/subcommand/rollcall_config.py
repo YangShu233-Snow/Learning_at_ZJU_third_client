@@ -1,7 +1,7 @@
 import typer
 from typing import List, Annotated, Optional
-from load_config import load_config
-from printlog.print_log import print_log
+from ....load_config import load_config
+from ....printlog.print_log import print_log
 
 app = typer.Typer(help="""
     签到定位配置相关命令组

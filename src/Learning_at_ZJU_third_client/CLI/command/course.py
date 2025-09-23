@@ -10,8 +10,8 @@ from rich.text import Text
 from rich.console import Group
 from datetime import datetime
 
-from printlog.print_log import print_log
-from zjuAPI import zju_api
+from ...printlog.print_log import print_log
+from ...zjuAPI import zju_api
 from ..state import state
 
 # course 命令组

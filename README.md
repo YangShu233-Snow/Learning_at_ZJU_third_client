@@ -8,6 +8,19 @@
 
 ## Installation
 
+### 直接从源码运行
+
+LAZY 支持直接从项目源码开始运行，你可以按照如下步骤进行操作。
+
+```bash
+# 进入LAZY根目录
+cd Learning_at_ZJU_third_client/
+pip install -e .
+
+# 可选，但是强烈推荐，这将为LAZY提供补全功能
+lazy --install-completion
+```
+
 ## Example Usage
 
 ## License

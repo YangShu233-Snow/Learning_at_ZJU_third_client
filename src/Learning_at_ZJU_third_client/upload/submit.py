@@ -1,8 +1,9 @@
 from requests import Response
 from requests import HTTPError
-from printlog.print_log import print_log
-from load_config import load_config, parse_config
-from zjuAPI import zju_api
+
+from ..printlog.print_log import print_log
+from ..load_config import load_config, parse_config
+from ..zjuAPI import zju_api
 
 QUERIES = {
     'data': ['resources_submission', 'apis_config', 'submissions', 'data']

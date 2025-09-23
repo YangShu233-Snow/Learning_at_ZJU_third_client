@@ -14,10 +14,10 @@ from pathlib import Path
 from lxml import html
 from lxml.html import HtmlElement
 
-from zjuAPI import zju_api
-from upload import submit
-from load_config import load_config
-from printlog.print_log import print_log
+from ...zjuAPI import zju_api
+from ...upload import submit
+from ...load_config import load_config
+from ...printlog.print_log import print_log
 from ..state import state
 
 # assignment 命令组
@@ -275,8 +275,8 @@ def view_activity(activity_id: int, type_map: dict):
 @app.command("view")
 def view_assignment(
     assignment_id: Annotated[int, typer.Argument(help="任务id")],
-    exam: Annotated[Optional[bool], typer.Option("--exam", "-e", help="启用此选项，将查询对应的考试")],
-    classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")]
+    exam: Annotated[Optional[bool], typer.Option("--exam", "-e", help="启用此选项，将查询对应的考试")] = False,
+    classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")] = False
 ):
     """
     浏览指定任务，显示任务基本信息，任务附件与任务提交记录

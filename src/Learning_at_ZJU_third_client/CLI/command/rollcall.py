@@ -5,9 +5,10 @@ from typing import Annotated, List, Dict
 from rich.table import Table
 from rich.text import Text
 from rich import print as rprint
-from zjuAPI import zju_api
-from load_config import load_config
-from printlog.print_log import print_log
+
+from ...zjuAPI import zju_api
+from ...load_config import load_config
+from ...printlog.print_log import print_log
 
 from .subcommand import rollcall_config
 from ..state import state

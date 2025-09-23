@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from printlog.print_log import print_log
+from ..printlog.print_log import print_log
 
 class BaseConfig:
     """基本的json加载逻辑，初始化接受一个`config_name`作为文件名字，默认需要带有.json

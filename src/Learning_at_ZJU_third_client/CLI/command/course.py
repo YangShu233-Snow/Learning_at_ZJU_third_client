@@ -94,93 +94,105 @@ def list_courses(
     并不建议将显示数量指定太大，这可能延长网络请求时间，并且大量输出会淹没你的显示窗口。实际上你可以通过 "--page" 参数实现翻页。
     """
     # 如果启用--all，则先获取有多少课程
-    if all:
-        pre_results = zju_api.coursesListAPIFits(state.client.session, keyword, 1, 1).get_api_data()[0]
-        totals = pre_results.get("total", 0)
-        page_index = 1
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="拉取课程信息中...", total=1)
+        if all:
+            pre_results = zju_api.coursesListAPIFits(state.client.session, keyword, 1, 1).get_api_data()[0]
+            amount = pre_results.get("total", 0)
+            page_index = 1
 
-    results = zju_api.coursesListAPIFits(state.client.session, keyword, page_index, amount).get_api_data()[0]
-    total_pages = results.get("pages", 0)
-    if page_index > total_pages and total_pages > 0:
-        print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
-        raise typer.Exit(code=1)
-
-    courses_list = results.get("courses", [])
-    total_results_amount = results.get("total", 0)
-
-    # 如果搜索没有结果，则直接退出
-    if total_results_amount == 0:
-        print("啊呀！没有找到课程呢。")
-        return
-    
-    # quiet 模式仅打印课程id，并且不换行
-    if quiet:
-        course_ids = [str(course.get("id", "")) for course in courses_list]
-        print(" ".join(course_ids))
-        return 
-    
-    courses_list_table = Table(
-        title=f"课程列表 (第 {page_index} / {total_pages} 页)",
-        caption=f"共找到 {total_results_amount} 个结果，本页显示 {len(courses_list)} 个。",
-        border_style="bright_black",
-        show_header=True,
-        header_style="bold magenta",
-        expand=True
-    )
-
-    # short模式仅显示课程ID与课程名称
-    if short:
-        courses_list_table.add_column("课程ID", style="cyan", no_wrap=True, width=8)
-        courses_list_table.add_column("课程名称", style="bright_yellow", ratio=1)
-    else:
-        courses_list_table.add_column("课程ID", style="cyan", no_wrap=True, width=6)
-        courses_list_table.add_column("课程名称", style="bright_yellow", ratio=6)
-        courses_list_table.add_column("授课教师", ratio=3)
-        courses_list_table.add_column("上课时间", ratio=3)
-        courses_list_table.add_column("开课院系", ratio=4)
-        courses_list_table.add_column("开课学年", style="white", width=9)
-
-    # short 模式仅按表单格式打印课程名与课程id
-    for course in courses_list:
-        course_id = str(course.get("id", "N/A"))
-        course_name = course.get("name", "N/A")
-
-        if short:
-            courses_list_table.add_row(course_id, course_name)
-            continue
-
-        course_attributes = course.get("course_attributes")
-        course_time = course_attributes.get("teaching_class_name", "N/A") if course_attributes.get("teaching_class_name", "N/A") else "N/A"
-
-        course_time = ", ".join(course_time.split(";"))
-
-        teachers = course.get("instructors", [])
-        teachers_name = ', '.join([t.get("name", "") for t in teachers]) or "N/A"
-
-        department = course.get("department")
-        course_department_name = department.get("name", "N/A") if department else "N/A"
-
-        if len(course_department_name) > 10:
-            if "与" in course_department_name:
-                course_department_name = course_department_name.split("与")[0] + "与\n" + course_department_name.split("与")[1]
-            else:
-                course_department_name = course_department_name[:11] + "\n" + course_department_name[11:]
-            
-
-        academic_year = course.get("academic_year")
-        course_academic_year_name = academic_year.get("name", "N/A") if academic_year else "N/A"
+        results = zju_api.coursesListAPIFits(state.client.session, keyword, page_index, amount).get_api_data()[0]
         
-        courses_list_table.add_row(
-            course_id,
-            course_name,
-            teachers_name,
-            course_time,
-            course_department_name,
-            course_academic_year_name
+        progress.advance(task, 1)
+        task = progress.add_task(description="渲染课程信息中...", total=1)
+
+        total_pages = results.get("pages", 0)
+        if page_index > total_pages and total_pages > 0:
+            print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
+            raise typer.Exit(code=1)
+
+        courses_list = results.get("courses", [])
+        total_results_amount = results.get("total", 0)
+
+        # 如果搜索没有结果，则直接退出
+        if total_results_amount == 0:
+            print("啊呀！没有找到课程呢。")
+            return
+        
+        # quiet 模式仅打印课程id，并且不换行
+        if quiet:
+            course_ids = [str(course.get("id", "")) for course in courses_list]
+            print(" ".join(course_ids))
+            return 
+        
+        courses_list_table = Table(
+            title=f"课程列表 (第 {page_index} / {total_pages} 页)",
+            caption=f"共找到 {total_results_amount} 个结果，本页显示 {len(courses_list)} 个。",
+            border_style="bright_black",
+            show_header=True,
+            header_style="bold magenta",
+            expand=True
         )
-        
-        if course != courses_list[-1]:
-            courses_list_table.add_row()
+
+        # short模式仅显示课程ID与课程名称
+        if short:
+            courses_list_table.add_column("课程ID", style="cyan", no_wrap=True, width=8)
+            courses_list_table.add_column("课程名称", style="bright_yellow", ratio=1)
+        else:
+            courses_list_table.add_column("课程ID", style="cyan", no_wrap=True, width=6)
+            courses_list_table.add_column("课程名称", style="bright_yellow", ratio=6)
+            courses_list_table.add_column("授课教师", ratio=3)
+            courses_list_table.add_column("上课时间", ratio=3)
+            courses_list_table.add_column("开课院系", ratio=4)
+            courses_list_table.add_column("开课学年", style="white", width=9)
+
+        # short 模式仅按表单格式打印课程名与课程id
+        for course in courses_list:
+            course_id = str(course.get("id", "N/A"))
+            course_name = course.get("name", "N/A")
+
+            if short:
+                courses_list_table.add_row(course_id, course_name)
+                continue
+
+            course_attributes = course.get("course_attributes")
+            course_time = course_attributes.get("teaching_class_name", "N/A") if course_attributes.get("teaching_class_name", "N/A") else "N/A"
+
+            course_time = ", ".join(course_time.split(";"))
+
+            teachers = course.get("instructors", [])
+            teachers_name = ', '.join([t.get("name", "") for t in teachers]) or "N/A"
+
+            department = course.get("department")
+            course_department_name = department.get("name", "N/A") if department else "N/A"
+
+            if len(course_department_name) > 10:
+                if "与" in course_department_name:
+                    course_department_name = course_department_name.split("与")[0] + "与\n" + course_department_name.split("与")[1]
+                else:
+                    course_department_name = course_department_name[:11] + "\n" + course_department_name[11:]
+                
+
+            academic_year = course.get("academic_year")
+            course_academic_year_name = academic_year.get("name", "N/A") if academic_year else "N/A"
+            
+            courses_list_table.add_row(
+                course_id,
+                course_name,
+                teachers_name,
+                course_time,
+                course_department_name,
+                course_academic_year_name
+            )
+            
+            if course != courses_list[-1]:
+                courses_list_table.add_row()
+
+        progress.advance(task, 1)
 
     rprint(courses_list_table)
 
@@ -242,7 +254,6 @@ def view_course(
 
         else:
             course_messages, raw_course_modules = zju_api.courseViewAPIFits(state.client.session, course_id, ["view", "modules"]).get_api_data()
-
             course_name = course_messages.get("name", "null")
             modules_list: List[dict] = raw_course_modules.get("modules", [])
         progress.advance(task)

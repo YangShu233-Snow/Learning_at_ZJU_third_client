@@ -103,82 +103,93 @@ def list_resources(
 
     并不建议将显示数量指定太大，这可能延长网络请求时间，并且大量输出会淹没你的显示窗口。实际上你可以通过 "--page" 参数实现翻页。
     """
-    # 如果启用--all，则先获取文件资源总数
-    if all:
-        pre_results = zju_api.resourcesListAPIFits(state.client.session, keyword, 1, 1, file_type).get_api_data(False)[0]
-        amount = pre_results.get("pages", 1)
-        page_index = 1
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="拉取资源信息中...", total=1)
+        # 如果启用--all，则先获取文件资源总数
+        if all:
+            pre_results = zju_api.resourcesListAPIFits(state.client.session, keyword, 1, 1, file_type).get_api_data(False)[0]
+            amount = pre_results.get("pages", 1)
+            page_index = 1
 
-    results = zju_api.resourcesListAPIFits(state.client.session, keyword, page_index, amount, file_type).get_api_data(False)[0]
-    total_pages = results.get("pages", 0)
-
-    if page_index > total_pages and total_pages > 0:
-        print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
-        raise typer.Exit(code=1)
-
-    resources_list = results.get("uploads", [])
-    current_results_amount = len(resources_list)
-
-    if current_results_amount == 0:
-        print("啊呀！没有找到文件呢。")
-        return
-    
-    if quiet:
-        resourse_ids = [str(resource.get('id', 'null')) for resource in resources_list]
-        print(" ".join(resourse_ids))
-        return
-
-    resources_list_table = Table(
-        title=f"资源列表 (第 {page_index} / {total_pages} 页)",
-        caption=f"本页显示 {len(resources_list)} 个。",
-        border_style="bright_black",
-        show_header=True,
-        header_style="bold magenta",
-        expand=True
-    )
-
-    if short:
-        resources_list_table.add_column("资源ID", style="cyan", no_wrap=True, width=10)
-        resources_list_table.add_column("资源名称", style="bright_yellow", ratio=1)
-    else:
-        resources_list_table.add_column("资源ID", style="cyan", no_wrap=True, width=8)
-        resources_list_table.add_column("资源名称", style="bright_yellow", ratio=3)
-        resources_list_table.add_column("上传时间", ratio=2)
-        resources_list_table.add_column("文件大小", ratio=1)
-        resources_list_table.add_column("下载状态", ratio=1)
-
-    
-    # quiet 模式仅打印文件id，并且不换行
-    # short 模式仅按表单格式打印文件名与文件id
-    for resource in resources_list:
-        resource_id = str(resource.get('id', 'null'))
-        resource_name = resource.get('name', 'null')
+        results = zju_api.resourcesListAPIFits(state.client.session, keyword, page_index, amount, file_type).get_api_data(False)[0]
         
-        if short:
-            resources_list_table.add_row(resource_id, resource_name)
-            
-            if resource != resources_list[-1]:
-                resources_list_table.add_row()
-            
-            continue
+        progress.advance(task, 1)
+        task = progress.add_task(description="渲染资源信息中...", total=1)
         
-        resource_size = transform_resource_size(resource.get('size', 0))
-        resource_download_status = "[green]可下载[/green]" if resource.get('allow_download', False) else "[red]不可下载[/red]"
-        resource_update_time = datetime.fromisoformat(resource.get("updated_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+        total_pages = results.get("pages", 0)
 
-        resources_list_table.add_row(
-            resource_id,
-            resource_name,
-            resource_update_time,
-            resource_size,
-            resource_download_status
+        if page_index > total_pages and total_pages > 0:
+            print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
+            raise typer.Exit(code=1)
+
+        resources_list = results.get("uploads", [])
+        current_results_amount = len(resources_list)
+
+        if current_results_amount == 0:
+            print("啊呀！没有找到文件呢。")
+            return
+        
+        if quiet:
+            resourse_ids = [str(resource.get('id', 'null')) for resource in resources_list]
+            print(" ".join(resourse_ids))
+            return
+
+        resources_list_table = Table(
+            title=f"资源列表 (第 {page_index} / {total_pages} 页)",
+            caption=f"本页显示 {len(resources_list)} 个。",
+            border_style="bright_black",
+            show_header=True,
+            header_style="bold magenta",
+            expand=True
         )
 
-        if resource != resources_list[-1]:
-            resources_list_table.add_row()
+        if short:
+            resources_list_table.add_column("资源ID", style="cyan", no_wrap=True, width=10)
+            resources_list_table.add_column("资源名称", style="bright_yellow", ratio=1)
+        else:
+            resources_list_table.add_column("资源ID", style="cyan", no_wrap=True, width=8)
+            resources_list_table.add_column("资源名称", style="bright_yellow", ratio=3)
+            resources_list_table.add_column("上传时间", ratio=2)
+            resources_list_table.add_column("文件大小", ratio=1)
+            resources_list_table.add_column("下载状态", ratio=1)
+
+        
+        # quiet 模式仅打印文件id，并且不换行
+        # short 模式仅按表单格式打印文件名与文件id
+        for resource in resources_list:
+            resource_id = str(resource.get('id', 'null'))
+            resource_name = resource.get('name', 'null')
+            
+            if short:
+                resources_list_table.add_row(resource_id, resource_name)
+                
+                if resource != resources_list[-1]:
+                    resources_list_table.add_row()
+                
+                continue
+            
+            resource_size = transform_resource_size(resource.get('size', 0))
+            resource_download_status = "[green]可下载[/green]" if resource.get('allow_download', False) else "[red]不可下载[/red]"
+            resource_update_time = datetime.fromisoformat(resource.get("updated_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+
+            resources_list_table.add_row(
+                resource_id,
+                resource_name,
+                resource_update_time,
+                resource_size,
+                resource_download_status
+            )
+
+            if resource != resources_list[-1]:
+                resources_list_table.add_row()
+
+        progress.advance(task, 1)
     
     rprint(resources_list_table)
-    return 
 
 # 注册资源上传命令
 @app.command(name="upload")
@@ -348,8 +359,6 @@ def download_resource(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         TaskProgressColumn(),
-        TextColumn(" | "),
-        TimeRemainingColumn(),
         transient=True
     ) as progress:
         task = progress.add_task(description="[green]正在下载文件中...[/green]", total=files_id_amount)

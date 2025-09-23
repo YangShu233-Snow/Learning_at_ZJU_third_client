@@ -1,6 +1,7 @@
 import typer
 import keyring
 from rich import print as rprint
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from typing_extensions import Annotated, Optional
 from login.login import ZjuClient
 from printlog.print_log import print_log
@@ -21,29 +22,43 @@ def main_callback(ctx: typer.Context):
     # 如果使用的是login命令，则无需检查登录状态
     if ctx.invoked_subcommand == "login":
         return 
-    
-    client = ZjuClient()
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="检查登录状态中...", total=2)
 
-    # 如果会话存在且有效，则无需登录
-    if client.load_session() and client.is_valid_session():
-        state.client = client
-        return 
+        client = ZjuClient()
 
-    print_log("Info", "会话已失效，尝试使用凭据登录...", "CLI.CLI_Typer.main_callback")
-    studentid = keyring.get_password("lazy", "studentid")
-    password = keyring.get_password("lazy", "password")
+        # 如果会话存在且有效，则无需登录
+        if client.load_session() and client.is_valid_session():
+            state.client = client
+            progress.update(task, description="登录有效", completed=2)
+            return 
 
-    if not studentid or not password:
-        print_log("Error", "未能找到登录凭据！", "CLI.CLI_Typer.main_callback")
-        print("未找到登录凭据，请重新登录")
-        raise typer.Exit(code=1)
-    
-    if client.login(studentid, password):
-        client.save_session()
-        state.client = client
-    else:
-        print("登录失败！请运行'login'命令尝试手动登录。")
-        raise typer.Exit(code=1)
+        print_log("Info", "会话已失效，尝试使用凭据登录...", "CLI.CLI_Typer.main_callback")
+        progress.advance(task)
+
+        progress.update(task, description="会话失效！重新登录中...")
+        
+        studentid = keyring.get_password("lazy", "studentid")
+        password = keyring.get_password("lazy", "password")
+
+        if not studentid or not password:
+            print_log("Error", "未能找到登录凭据！", "CLI.CLI_Typer.main_callback")
+            rprint("[red]未找到登录凭据，请重新登录[/red]")
+            progress.advance(task)
+            raise typer.Exit(code=1)
+        
+        if client.login(studentid, password):
+            client.save_session()
+            state.client = client
+            progress.advance(task)
+        else:
+            rprint("[red]登录失败！[/red]请运行'login'命令尝试手动登录。")
+            progress.advance(task)
+            raise typer.Exit(code=1)
 
 # --- 开发者检查测试 ---
 @app.command()

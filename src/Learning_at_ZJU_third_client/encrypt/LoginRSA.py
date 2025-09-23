@@ -1,4 +1,3 @@
-import math
 class RSAKeyPython:
     def __init__(self, public_exponent_hex: str, modulus_hex: str):
         """

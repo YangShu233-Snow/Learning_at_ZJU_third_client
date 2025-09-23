@@ -7,8 +7,25 @@ app = typer.Typer(help="""
     签到定位配置相关命令组
 """)
 
+def is_latitude_valid(latitude: float)->float:
+    if latitude > 90 or latitude < -90:
+        print(f"纬度数据 {latitude} 有误！")
+        raise typer.Exit(code=1)
+    
+    return latitude
+
+def is_longtitude_valid(longtitude: float)->float:
+    if longtitude > 180 or longtitude < -180:
+        print(f"经度数据 {longtitude} 有误！")
+        raise typer.Exit(code=1)
+    
+    return longtitude
+
 @app.command("list")
 def list_config():
+    """
+    列举配置项
+    """
     rollcall_site_config = load_config.rollcallSiteConfig().load_config()
     coordinates_config: dict = rollcall_site_config.get("coordinates", {})
 
@@ -22,10 +39,13 @@ def list_config():
 @app.command("add")
 def add_config(
     name: Annotated[str, typer.Option("--name", "-n", help="配置项名称")],
-    latitude: Annotated[float, typer.Option("--latitude", "-L", help="纬度")],
-    longtitude: Annotated[float, typer.Option("--longtitude", "-l", help="经度")],
+    latitude: Annotated[float, typer.Option("--latitude", "-L", help="纬度", callback=is_latitude_valid)],
+    longtitude: Annotated[float, typer.Option("--longtitude", "-l", help="经度", callback=is_longtitude_valid)],
     force: Annotated[Optional[bool], typer.Option("--force", "-f", help="启用此选项，强制替换对应配置项")] = False
 ):
+    """
+    添加配置项，配置项的名称不可重复，重复名称的新配置项会覆盖旧配置项
+    """
     rollcall_site_config = load_config.rollcallSiteConfig().load_config()
     coordinates_config: dict = rollcall_site_config.get("coordinates", {})
 
@@ -45,6 +65,9 @@ def remove_config(
     name: Annotated[str, typer.Argument(help="配置项名称")],
     force: Annotated[Optional[bool], typer.Option("--force", "-f", help="启用此选项，跳过二次确认")] = False
 ):
+    """
+    删除配置项
+    """
     rollcall_site_config = load_config.rollcallSiteConfig().load_config()
     coordinates_config: dict = rollcall_site_config.get("coordinates", {})
 

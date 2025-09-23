@@ -307,7 +307,8 @@ def view_assignment(
 def todo_assignment(
     amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示待办任务数量", callback=is_todo_show_amount_valid)] = 5,
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="待办任务页面索引")] = 1,
-    reverse: Annotated[Optional[bool], typer.Option("--reverse", "-r", help="以任务截止时间降序排列")] = False
+    reverse: Annotated[Optional[bool], typer.Option("--reverse", "-r", help="以任务截止时间降序排列")] = False,
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，输出所有待办事项")] = False
 ):
     """
     列举待办事项清单，默认以任务截止时间作为排序依据，越早截止，排序越靠前。
@@ -332,6 +333,7 @@ def todo_assignment(
         task = progress.add_task(description="获取待办事项信息中...", total=1)
         
         raw_todo_list: dict = zju_api.assignmentTodoListAPIFits(state.client.session).get_api_data()[0]
+        # raw_todo_list: dict = load_config.userIndexConfig("todo_list_config").load_config()
         progress.advance(task, advance=1)
 
         task = progress.add_task(description="加载内容中...", total=1)
@@ -345,18 +347,22 @@ def todo_assignment(
         
         # 总任务数量
         total = len(todo_list)
-
+        
         if total == 0:
             print("当前没有待办任务哦~")
             return 
         
-        total_pages = int(total / amount) + 1
-        if page_index > total_pages:
-            print(f"页面索引超限！共 {total} 页，你都索引到第 {page_index} 页啦！")
-            raise typer.Exit(code=1)
+        if not all:
+            total_pages = int(total / amount) + 1
+            if page_index > total_pages:
+                print(f"页面索引超限！共 {total} 页，你都索引到第 {page_index} 页啦！")
+                raise typer.Exit(code=1)
+        else:
+            amount = total
+            page_index = 1
 
         # 依照截止时间排序
-        todo_list = sorted(todo_list, key=lambda todo: datetime.fromisoformat(todo.get("end_time", "1900-01-01T00:00:00Z").replace('Z', '+00:00')), reverse=reverse)
+        todo_list = sorted(todo_list, key=lambda todo: datetime.fromisoformat(todo.get("end_time").replace('Z', '+00:00') if todo.get("end_time") else "3000-01-01T00:00:00+00:00"), reverse=reverse)
 
         start = amount * (page_index - 1)
         todo_list = todo_list[start:]
@@ -370,36 +376,52 @@ def todo_assignment(
             course_name = todo.get("course_name", "null")
             course_id = todo.get("course_id", "null")
             todo_id = todo.get("id", "null")
-            end_time = datetime.fromisoformat(todo.get("end_time", "1900-01-01T00:00:00Z").replace('Z', '+00:00'))
+            end_time = datetime.fromisoformat(todo.get("end_time").replace('Z', '+00:00')) if todo.get("end_time") else None
             todo_type = type_map.get(todo.get("type", "null"), todo.get("type", "null"))
 
             # 创建标题内容
             title_text = Text.assemble(
                 (title, "bold bright_magenta"),
+                (" [ID: ", "bright_white"),
+                (f"{todo_id}", "green"),
+                (f"]", "bright_white"),
                 "\n",
                 (f"{course_name} {course_id}", "dim")
             )
 
             # 创建时间描述文本
-            time_to_ddl = end_time - datetime.now(timezone.utc)
-            if time_to_ddl.days < 1:
-                remaining_time_text = f" ({time_to_ddl.seconds // 3600} 小时 {time_to_ddl.seconds % 3600 // 60} 分钟)"
-                style = "red"
-            elif time_to_ddl.days < 3:
-                remaining_time_text = f" ({time_to_ddl.days} 天 {time_to_ddl.seconds // 3600} 小时)"
-                style = "yellow"
-            elif time_to_ddl.days < 7:
-                remaining_time_text = f" ({time_to_ddl.days} 天 {time_to_ddl.seconds // 3600} 小时)"
-                style = "blue"
+            if end_time:
+                time_to_ddl = end_time - datetime.now(timezone.utc)
+                if time_to_ddl.days < 1:
+                    remaining_time_text = f" ({time_to_ddl.seconds // 3600} 小时 {time_to_ddl.seconds % 3600 // 60} 分钟)"
+                    style = "red"
+                elif time_to_ddl.days < 3:
+                    remaining_time_text = f" ({time_to_ddl.days} 天 {time_to_ddl.seconds // 3600} 小时)"
+                    style = "yellow"
+                elif time_to_ddl.days < 7:
+                    remaining_time_text = f" ({time_to_ddl.days} 天 {time_to_ddl.seconds // 3600} 小时)"
+                    style = "blue"
+                else:
+                    remaining_time_text = f" ({time_to_ddl.days} 天)"
+                    style = "green"
             else:
-                remaining_time_text = f" ({time_to_ddl.days} 天)"
-                style = "green"
+                remaining_time_text = "无截止日期"
+                style = "dim"
+                total_pages = 1
 
-            end_time_text = Text.assemble(
-                ("截止时间: ", "cyan"),
-                (end_time.strftime("%Y-%m-%d %H:%M:%S"), "bright_white"),
-                (remaining_time_text, style)
-            )
+            if end_time:
+                local_end_time = end_time.astimezone()
+
+                end_time_text = Text.assemble(
+                    ("截止时间: ", "cyan"),
+                    (local_end_time.strftime("%Y-%m-%d %H:%M:%S"), "bright_white"),
+                    (remaining_time_text, style)
+                )
+            else: 
+                end_time_text = Text.assemble(
+                    ("截止时间: ", "cyan"),
+                    (remaining_time_text, style)
+                )
 
             # 构建跳转链接文本
             url_jump = make_jump_url(course_id, todo_id, todo.get("type", "null"))
@@ -415,13 +437,16 @@ def todo_assignment(
             content_renderables.append(url_jump_text)
 
             panel_title = f"[white][{todo_type}][/white]"
-            panel_sub_title = f"[white][ID: {todo_id}][/white]"
+            
+            if style != "dim":
+                panel_border_style = "bright_" + style
+            else:
+                panel_border_style = "dim"
 
             todo_panel = Panel(
                 Group(*content_renderables),
                 title=panel_title,
-                subtitle=panel_sub_title,
-                border_style="bright_black",
+                border_style=panel_border_style,
                 expand=True,
                 padding=(1, 2)
             )

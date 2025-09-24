@@ -212,7 +212,10 @@
             "activity",
             "activity_read",
             "submission_list",
-            "todo"
+            "todo",
+            "exam",
+            "exam_submission_list",
+            "exam_subjects_summary"
         ],
         "apis_config": {
             "activity": {
@@ -231,7 +234,21 @@
             "todo": {
                 "url": "https://courses.zju.edu.cn/api/todos?no-intercept=true",
                 "params": {}
+                },
+            "exam": {
+                "url": "https://courses.zju.edu.cn/api/exams/<placeholder>",
+                "params": {}
+            },
+            "exam_submission_list": {
+                "url": "https://courses.zju.edu.cn/api/exams/<placeholder>/submissions",
+                "params": {}
+            },
+            "exam_subjects_summary": {
+                "url": "https://courses.zju.edu.cn/api/exams/<placeholder>/subjects-summary",
+                "params": {
+                    "forAllSubjects": false
                 }
+            }
         }
     },
     "rollcall": {

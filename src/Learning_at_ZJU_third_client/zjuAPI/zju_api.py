@@ -259,7 +259,11 @@ class assignmentAPIFits(APIFits):
                  apis_name = [
                     "activity",
                     "activity_read",
-                    "submission_list"
+                    "submission_list",
+                    "todo",
+                    "exam",
+                    "exam_submission_list",
+                    "exam_subjects_summary"
                  ], 
                  apis_config = None, 
                  parent_dir = "assignment", 
@@ -338,7 +342,32 @@ class assignmentTodoListAPIFits(assignmentAPIFits):
                  apis_name=["todo"], 
                  ):
         super().__init__(login_session, apis_name)
-    
+
+class assignmentExamViewAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 exam_id: int,
+                 apis_name=[
+                    "exam",
+                    "exam_submission_list",
+                    "exam_subjects_summary"
+                     ] 
+    ):
+        super().__init__(login_session, apis_name)
+        self.exam_id = exam_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+
+        if not base_api_url:
+            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentExamViewAPIFits.make_api_url")
+            return None
+        
+        if api_name in ["exam", "exam_submission_list", "exam_subjects_summary"]:
+            return base_api_url.replace("<placeholder>", f"{self.exam_id}")
+
+        return super().make_api_url(api_config, api_name)
+
 # --- Resource API ---
 class resourcesAPIFits(APIFits):
     def __init__(self, 

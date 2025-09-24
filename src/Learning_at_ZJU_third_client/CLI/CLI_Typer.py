@@ -17,11 +17,25 @@ KEYRING_PASSWORD_NAME = "password"
 app = typer.Typer(help="LAZY CLI - 学在浙大第三方客户端的命令行工具")
 
 # --- 全局回调，检验登录状态 ---
-@app.callback()
+@app.callback(invoke_without_command=True)
 def main_callback(ctx: typer.Context):
+    # 如果没有输入命令则提供帮助信息
+    if ctx.invoked_subcommand is None:
+        rprint("输入 [cyan]'--help'[/cyan] 以获取更多帮助")
+        return 
+    
     # 如果使用的是login命令，则无需检查登录状态
     if ctx.invoked_subcommand == "login":
         return 
+    
+    # 如果使用的是whoami命令，则无需检查登录状态
+    if ctx.invoked_subcommand == "whoami":
+        return 
+
+    # 如果是--help，则无需检查登录状态
+    if "--help" in ctx.args:
+        return
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -100,6 +114,20 @@ def login():
         print("登录失败，请检查你的学号与密码是否正确。")
         raise typer.Exit(code=1)
     
+# --- Who am I ? ---
+@app.command()
+def whoami():
+    """
+    Who am I ?
+    """
+    authorization_password = typer.prompt("请输入密码", hide_input=True)
+    
+    if authorization_password == keyring.get_password("lazy", "password"):
+        rprint(f"{keyring.get_password("lazy", "studentid")}")
+        return 
+    
+    rprint(f"[red]密码错误[/red]")
+
 # --- 注册命令组 ---
 # 课程命令组
 app.add_typer(course.app, name="course", help="学在浙大课程相关命令，支持列举，搜索与查看课程章节等功能。")

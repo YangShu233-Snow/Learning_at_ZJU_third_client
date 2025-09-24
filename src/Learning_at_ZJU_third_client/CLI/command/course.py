@@ -36,6 +36,13 @@ def transform_resource_size(resource_size: int)->str:
     
     return f"{resource_size:.2f}B"
 
+def transform_time(time: str|None)->str:
+    if time:
+        time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
+        return time_local.strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        return "null"
+
 def get_status_text(start_status: bool, close_status: bool)->Text:
     if close_status:
         return Text(f"🔴 已结束", style="red")
@@ -287,7 +294,7 @@ def view_course(
                 # 活动的start_time和end_time都可能是null值，必须多做一次判断
                 # is_started 和 is_closed 来判断活动是否开始或者截止
                 # 开放日期
-                activity_start_time = activity.get("start_time", "1900-01-01T00:00:00Z")
+                activity_start_time = transform_time(activity.get("start_time"))
                 if activity_start_time:
                     activity_start_time = datetime.fromisoformat(activity_start_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
                 else:
@@ -296,7 +303,7 @@ def view_course(
                 activity_is_started: bool = activity.get("is_started", False)
                 
                 # 截止日期
-                activity_end_time = activity.get("end_time", "1900-01-01T00:00:00Z")
+                activity_end_time = transform_time(activity.get("end_time"))
                 if activity_end_time:
                     activity_end_time = datetime.fromisoformat(activity_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
                 else:
@@ -383,16 +390,11 @@ def view_course(
 
                 # 理由同上
                 # 开放日期
-                exam_start_time = exam.get("start_time", "1900-01-01T00:00:00Z")
-                if exam_start_time:
-                    exam_start_time = datetime.fromisoformat(exam_start_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
-                else:
-                    exam_start_time = "null"
-                
+                exam_start_time = transform_time(exam.get("start_time"))
                 exam_is_started: bool = exam.get("is_started", False)
                 
                 # 截止日期
-                exam_end_time = exam.get("end_time", "1900-01-01T00:00:00Z")
+                exam_end_time = transform_time(exam.get("end_time"))
                 if exam_end_time:
                     exam_end_time = datetime.fromisoformat(exam_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
                 else:
@@ -453,7 +455,7 @@ def view_course(
                 classroom_status = classroom.get("status")
                 classroom_completeness_status = [classroom_completeness.get("completeness", "null") for classroom_completeness in classrooms_completeness if classroom_completeness.get("activity_id") == classroom_id][0]
 
-                classroom_start_time: str = classroom.get("start_at", "1900-01-01T00:00:00Z")
+                classroom_start_time: str = transform_time(classroom.get("start_at"))
                 if classroom_start_time:
                     classroom_start_time = datetime.fromisoformat(classroom_start_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
                 else:

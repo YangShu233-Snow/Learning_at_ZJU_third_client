@@ -59,6 +59,13 @@ def transform_resource_size(resource_size: int)->str:
     
     return f"{resource_size:.2f}B"
 
+def transform_time(time: str|None)->str:
+    if time:
+        time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
+        return time_local.strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        return "null"
+
 def extract_comment(raw_content: str)->str:
     if not raw_content or not raw_content.strip():
         return ""
@@ -90,8 +97,151 @@ def extract_uploads(uploads_list: List[dict])->List[Table]:
 
     return content_renderables
 
+def get_status_text(start_status: bool, close_status: bool)->Text:
+    if close_status:
+        return Text(f"🔴 已结束", style="red")
+    
+    if start_status:
+        return Text(f"🟢 进行中", style="green")
+    
+    return Text(f"⚪️ 未开始", style="dim")
+
 def view_exam(exam_id: int, type_map: dict):
-    pass
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="请求数据中...", total=2)
+
+        # --- 请求阶段 ---
+        raw_exam, raw_exam_submission_list, raw_exam_subjects_summary = zju_api.assignmentExamViewAPIFits(state.client.session, exam_id).get_api_data()
+        
+        progress.advance(task, 1)
+        progress.update(task, description="渲染数据中...")
+
+        # 解析返回内容
+        # 主体内容
+        exam_title: str = raw_exam.get("title", "null")
+        exam_total_points: int|str = raw_exam.get("total_points", "null")
+        exam_type: str = type_map.get(raw_exam.get("type", "null"), raw_exam.get("type", "null"))
+        exam_start_status: bool = raw_exam.get("is_started", False)
+        exam_close_status: bool = raw_exam.get("is_closed")
+        exam_description = extract_comment(raw_exam.get("description"))
+        exam_submit_times_limit: int|str = raw_exam.get("submit_times", "N/A")
+        exam_submitted_times: int = raw_exam.get("submitted_times", 0)
+
+        # 开放时间
+        exam_start_time: str = transform_time(raw_exam.get("start_time"))
+
+        # 结束时间
+        exam_end_time: str = transform_time(raw_exam.get("end_time"))
+
+        # 组装文本
+        title_line = Align.center(
+            Text.assemble(
+                (f"{exam_title}", "bold bright_magenta")
+            )
+        )
+
+        exam_status_text = get_status_text(exam_start_status, exam_close_status)
+
+        start_time_text = Text.assemble(
+            ("开放时间: ", "cyan"),
+            (exam_start_time, "bright_white")
+        )
+        end_time_text = Text.assemble(
+            ("截止时间: ", "cyan"),
+            (exam_end_time, "bright_white")
+        )
+
+        submitted_text = Text.assemble(
+            ("提交次数: ", "cyan"),
+            (f"{exam_submitted_times} / {exam_submit_times_limit}", "bright_white")
+        )
+
+        exam_description_text = Text.assemble(
+            (f"{exam_description}", "bright_white")
+        )
+
+        exam_description_block = Padding(
+            exam_description_text, (0, 0, 0, 2)
+        )
+
+        # --- 准备Panel内容 ---
+        content_renderables = []
+        content_renderables.append(title_line)
+        content_renderables.append(exam_status_text)
+        content_renderables.append(start_time_text)
+        content_renderables.append(end_time_text)
+        content_renderables.append(submitted_text)
+
+        if exam_description_text:
+            content_renderables.append("[cyan]任务描述: [/cyan]")
+            content_renderables.append(exam_description_block)
+            content_renderables.append("")
+
+        if raw_exam_submission_list:
+            exam_final_score: int|None = raw_exam_submission_list.get("exam_final_score")
+            if not exam_final_score:
+                exam_final_score: int|str = raw_exam_submission_list.get("exam_score") if raw_exam_submission_list.get("exam_score") else "null"
+            
+            submission_content_renderables = []
+            exam_submission_list: List[dict] = raw_exam_submission_list.get("submissions")
+            
+            for submission in exam_submission_list:
+                submission_submitted_time = submission.get("submitted_at")
+                submission_score = submission.get("score") if submission.get("score") else "未评分"
+
+                if submission_submitted_time:
+                    submission_submitted_time = datetime.fromisoformat(exam_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    submission_submitted_time = "null"
+
+                # --- 准备Panel内容 ---
+                submission_head_text = Text.assemble(
+                    (f"提交时间: ", "cyan"),
+                    (f"{submission_submitted_time}", "bright_white"),
+                    "\n",
+                    (f"测试得分: ", "bright_magenta"),
+                    (f"{submission_score} / {exam_total_points}", "bright_white")
+                )
+
+                submission_content_renderables.append(submission_head_text)
+
+                if submission != exam_submission_list[-1]:
+                    submission_content_renderables.append(Rule(style="dim white"))
+                    submission_content_renderables.append("")
+
+            # --- 组装 Exam Submission List Panel ---
+            exam_submission_list_panel = Panel(
+                Group(*submission_content_renderables),
+                title = "[white][交卷记录][/white]",
+                border_style="dim",
+                expand=True,
+                padding=(1, 2)
+            )
+
+            content_renderables.append("")
+            content_renderables.append(exam_submission_list_panel)
+        else:
+            content_renderables.append("")
+            content_renderables.append("无提交记录")
+
+        # --- 组装 Exam Panel ---
+        exam_panel = Panel(
+            Group(*content_renderables),
+            title=f"[white][{exam_type}][/white]",
+            subtitle=f"[white][ID: {exam_id}][/white]",
+            border_style="bright_black",
+            expand=True,
+            padding=(1, 2)
+        )
+
+        progress.update(task, description="渲染完成...")
+        progress.advance(task, 1)
+
+        rprint(exam_panel)
 
 def view_classroom(classroom_id: int, type_map: dict):
     pass
@@ -119,6 +269,7 @@ def view_activity(activity_id: int, type_map: dict):
         activity_highest_score: int = raw_activity.get("highest_score", 0) if raw_activity.get("highest_score", 0) is not None else "N/A"
         activity_description = extract_comment(raw_activity.get("data", {}).get("description", ""))
         activity_content = extract_comment(raw_activity.get("data", {}).get("content", ""))
+        activity_all_students_average_score: int|str = raw_activity.get("average_score", "N/A")
 
         activity_description_text = Text.assemble(
             activity_description
@@ -144,18 +295,10 @@ def view_activity(activity_id: int, type_map: dict):
         activity_type = type_map.get(raw_activity.get("type", "null"), raw_activity.get("type", "null"))
 
         # 开放时间
-        activity_start_time = raw_activity.get("start_time", "1900-01-01T00:00:00Z")
-        if activity_start_time:
-            activity_start_time = datetime.fromisoformat(activity_start_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
-        else:
-            activity_start_time = "null"
+        activity_start_time = transform_time(raw_activity.get("start_time"))
         
         # 截止日期
-        activity_end_time = raw_activity.get("end_time", "1900-01-01T00:00:00Z")
-        if activity_end_time:
-            activity_end_time = datetime.fromisoformat(activity_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
-        else:
-            activity_end_time = "null"
+        activity_end_time = transform_time(raw_activity.get("end_time"))
 
         start_time_text = Text.assemble(
             ("开放时间: ", "cyan"),
@@ -166,12 +309,19 @@ def view_activity(activity_id: int, type_map: dict):
             (activity_end_time, "bright_white")
         )
 
+        average_score_text = Text.assemble(
+            ("班级均分: ", "cyan"),
+            (f"{activity_all_students_average_score:0.2f}", "bright_white")
+        )
+
+
         # --- 准备Panel内容 ---
         content_renderables = []
         title_line = Align.center(Text.assemble((f"{activity_title}", "bold bright_magenta")))
         content_renderables.append(title_line)
         content_renderables.append(start_time_text)
         content_renderables.append(end_time_text)
+        content_renderables.append(average_score_text)
 
         if activity_description_text:
             content_renderables.append("[cyan]任务描述: [/cyan]")
@@ -179,7 +329,9 @@ def view_activity(activity_id: int, type_map: dict):
             content_renderables.append("")
             
         if activity_content:
-            content_renderables.append("")
+            if content_renderables[-1] != "":
+                content_renderables.append("")
+
             content_renderables.append(activity_content)
 
         # 读取附件（如果有的话）
@@ -199,7 +351,7 @@ def view_activity(activity_id: int, type_map: dict):
                 submission_created_time = datetime.fromisoformat(submission.get("created_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
                 submission_comment = extract_comment(submission.get("comment"))
                 submission_instructor_comment: str = submission.get("instructor_comment") or ""
-                submission_score: int|None = submission.get("score") if submission.get("score") is not None else "未评分"
+                submission_score: int|None = submission.get("score") if submission.get("score") else "未评分"
                 submission_uploads: List[dict]|list = submission.get("uploads", [])
 
                 # --- 准备Panel内容 --- 

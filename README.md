@@ -18,7 +18,12 @@ cd Learning_at_ZJU_third_client/
 
 # 建立虚拟环境，可选，但是强烈推荐
 python -m venv .venv
+
+# 在Linux/MacOS下
 source .venv/bin/activate
+
+# 在Windows下
+.venv\Scripts\activate
 
 # Conda也是非常推荐的选择
 # Python版本>=3.8均可，但3.12.3是一个比较稳妥的版本，因为LAZY就是在这个版本下开发的

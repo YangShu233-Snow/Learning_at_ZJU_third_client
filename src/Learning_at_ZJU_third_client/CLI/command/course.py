@@ -85,10 +85,15 @@ def make_jump_url(course_id: int, material_id: int, material_type: str):
 
     return f"https://courses.zju.edu.cn/course/{course_id}/learning-activity/full-screen#/{material_type}/{material_id}"
 
-def parse_indices(indices: List[str]|None)->List[int]:
+def parse_indices(indices: str|None)->List[int]:
     if not indices:
         return []
     
+    if ',' in indices:
+        indices = indices.split(',')
+    else:
+        indices = [indices]
+
     result = []
     for item in indices:
         if '-' in item:
@@ -255,7 +260,7 @@ def view_course(
     course_id: Annotated[int, typer.Argument(help="课程id")],
     modules_id: Annotated[Optional[List[int]], typer.Option("--module", "-m", help="章节id")] = None,
     last: Annotated[Optional[bool], typer.Option("--last", "-l", help="启用此选项，自动展示最新一章节")] = False,
-    indices: Annotated[Optional[List[str]], typer.Option("--index", "-i", help="通过索引号查看章节，索引从'1'开始，支持使用范围表示，如'1-5'。", callback=parse_indices)] = [],
+    indices: Annotated[Optional[str], typer.Option("--index", "-i", help="通过索引号查看章节，索引从'1'开始，支持使用范围表示，如'1-5'。", callback=parse_indices)] = "",
     all: Annotated[Optional[bool], typer.Option("--all", "-a", help="启用此选项，展示所有章节内容")] = False
 ):
     """

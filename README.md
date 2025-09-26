@@ -13,6 +13,9 @@
 LAZY 支持直接从项目源码开始运行，你可以按照如下步骤进行操作。
 
 ```bash
+# 克隆本仓库
+git clone https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client
+
 # 进入LAZY根目录
 cd Learning_at_ZJU_third_client/
 

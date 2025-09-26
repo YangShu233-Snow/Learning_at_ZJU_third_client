@@ -106,6 +106,24 @@ def get_status_text(start_status: bool, close_status: bool)->Text:
     
     return Text(f"⚪️ 未开始", style="dim")
 
+def parse_files_id(files_id: str)->List[int]:
+    if not files_id:
+        return []
+
+    if ',' in files_id:
+        files_id = files_id.replace(',', ' ')
+
+    try:
+        if ' ' in files_id:
+            files_id_list = list(map(int, files_id.split(' ')))
+        else:
+            files_id_list = [int(files_id)]
+    except ValueError as e:
+        typer.echo(f"文件ID格式有误！", err=True)
+        raise typer.Exit(code=1)
+    
+    return list(set(files_id_list))
+
 def view_exam(exam_id: int, type_map: dict):
     with Progress(
         SpinnerColumn(),
@@ -732,5 +750,12 @@ def todo_assignment(
     print(f"本页共 {amount} 个结果，第 {page_index}/{total_pages} 页")
 
 @app.command("submit")
-def submit_assignment():
-    pass
+def submit_assignment(
+    activity_id: Annotated[int, typer.Argument(help="待提交任务ID")],
+    text: Annotated[Optional[str], typer.Option("--text", "-t", help="待提交的文本内容")] = "",
+    files_id: Annotated[Optional[str], typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = ""
+):
+    if submit.submitAssignment(activity_id, text, files_id).submit(state.client.session):
+        rprint(f"[green]提交成功！[/green]")
+    else:
+        rprint(f"[red]提交失败！[/red]")

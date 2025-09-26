@@ -60,7 +60,15 @@ class APIFits:
             api_params = self.make_api_params(api_config = api_config, api_name=api_name)
             print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.get_api_data")
             print_log("Info", f"参数为 {api_config.items()}", "zju_api.APIFits.get_api_data")
-            api_respone = self.login_session.get(url = api_url, params = api_params)
+            
+            try:
+                api_respone = self.login_session.get(url = api_url, params = api_params)
+                api_respone.raise_for_status()
+            except HTTPError as e:
+                print_log("Error", f"请求{api_respone.url}时发生错误。{e}", "zju_api.APIFits.get_api_data")
+                results_json.append({})
+                continue
+            
             api_respone_json = api_respone.json()
 
             if auto_load:
@@ -94,7 +102,15 @@ class APIFits:
             print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.post_api_data")
             if self.data:
                 print_log("Info", f"载荷为 {self.data.items()}", "zju_api.APIFits.post_api_data")
-            api_respone = self.login_session.post(url = api_url, json = self.data)
+            
+            try:
+                api_respone = self.login_session.post(url = api_url, json = self.data)
+                api_respone.raise_for_status()
+            except HTTPError as e:
+                print_log("Error", f"请求{api_respone.url}时发生错误。{e}", "zju_api.APIFits.post_api_data")
+                all_api_response.append({})
+                continue
+
             all_api_response.append(api_respone.json())
 
         return all_api_response
@@ -226,13 +242,32 @@ class coursesListAPIFits(coursesAPIFits):
 
         return api_params
 
+class coursePreviewAPIFits(coursesAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 course_id: int,
+                 apis_name=[
+                     "view",
+                     "modules"
+                     ]
+                ):
+        super().__init__(login_session, apis_name)
+        self.course_id = course_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url", None)
+        if not base_api_url:
+            print_log("Error", f"{api_name}参数url缺失！", "zju_api.courseViewAPIFits.make_api_url")
+            return None
+        
+        api_url = base_api_url.replace("<placeholder>", str(self.course_id))
+        return api_url
+
 class courseViewAPIFits(coursesAPIFits):
     def __init__(self, 
                  login_session: requests.Session, 
                  course_id: int,
                  apis_name=[
-                    "view",
-                    "modules",
                     "activities",
                     "exams",
                     "completeness",
@@ -263,7 +298,9 @@ class assignmentAPIFits(APIFits):
                     "todo",
                     "exam",
                     "exam_submission_list",
-                    "exam_subjects_summary"
+                    "exam_subjects_summary",
+                    "classroom",
+                    "classroom_submissions"
                  ], 
                  apis_config = None, 
                  parent_dir = "assignment", 
@@ -332,8 +369,8 @@ class assignmentSubmissionListAPIFits(assignmentAPIFits):
             return None
         
         if api_name == "submission_list":
+            # return base_api_url.replace("<placeholder1>", str(self.activity_id)).replace("<placeholder2>", str(self.student_id))
             return base_api_url.replace("<placeholder1>", str(self.activity_id)).replace("<placeholder2>", str(self.student_id))
-
         return super().make_api_url(api_config, api_name)
 
 class assignmentTodoListAPIFits(assignmentAPIFits):
@@ -366,6 +403,29 @@ class assignmentExamViewAPIFits(assignmentAPIFits):
         if api_name in ["exam", "exam_submission_list", "exam_subjects_summary"]:
             return base_api_url.replace("<placeholder>", f"{self.exam_id}")
 
+        return super().make_api_url(api_config, api_name)
+
+class assignmentClassroomViewAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 classroom_id: int,
+                 apis_name=[
+                    "classroom",
+                    "classroom_submissions"
+                 ], 
+                 ):
+        super().__init__(login_session, apis_name)
+        self.classroom_id = classroom_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+
+        if not base_api_url:
+            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentClassroomViewAPIFits.make_api_url")
+
+        if api_name in ["classroom", "classroom_submissions"]:
+            return base_api_url.replace("<placeholder>", str(self.classroom_id))
+        
         return super().make_api_url(api_config, api_name)
 
 # --- Resource API ---

@@ -117,6 +117,10 @@ def view_exam(exam_id: int, type_map: dict):
         # --- 请求阶段 ---
         raw_exam, raw_exam_submission_list, raw_exam_subjects_summary = zju_api.assignmentExamViewAPIFits(state.client.session, exam_id).get_api_data()
         
+        if not raw_exam:
+            rprint(f"[red]请求测试 [green]{exam_id}[/green] 不存在！[/red]")
+            raise typer.Exit(code=1)
+
         progress.advance(task, 1)
         progress.update(task, description="渲染数据中...")
 
@@ -191,7 +195,7 @@ def view_exam(exam_id: int, type_map: dict):
             
             for submission in exam_submission_list:
                 submission_submitted_time = submission.get("submitted_at")
-                submission_score = submission.get("score") if submission.get("score") else "未评分"
+                submission_score = submission.get("score") if submission.get("score") else "未公布"
 
                 if submission_submitted_time:
                     submission_submitted_time = datetime.fromisoformat(exam_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
@@ -216,8 +220,8 @@ def view_exam(exam_id: int, type_map: dict):
             # --- 组装 Exam Submission List Panel ---
             exam_submission_list_panel = Panel(
                 Group(*submission_content_renderables),
-                title = "[white][交卷记录][/white]",
-                border_style="dim",
+                title = "[green][交卷记录][/green]",
+                border_style="yellow",
                 expand=True,
                 padding=(1, 2)
             )
@@ -244,7 +248,107 @@ def view_exam(exam_id: int, type_map: dict):
         rprint(exam_panel)
 
 def view_classroom(classroom_id: int, type_map: dict):
-    pass
+    classroom_status_map = {
+        "finish": Text(f"🔴 已结束", style="red")
+    }
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="请求数据中...", total=2)
+
+        # --- 请求阶段 ---
+        # 请求classroom与classroom submission数据
+        classroom_message = zju_api.assignmentClassroomViewAPIFits(state.client.session, classroom_id, ["classroom"]).get_api_data()[0]
+
+        if not classroom_message:
+            rprint(f"[red]请求课堂测试 [green]{classroom_id}[/green] 不存在！[/red]")
+            raise typer.Exit(code=1)
+        
+        # 当且仅当有提交记录的时候才会请求提交API
+        if classroom_message.get("subjects_count") > 0:
+            raw_classroom_submissions_list = zju_api.assignmentClassroomViewAPIFits(state.client.session, classroom_id, ["classroom_submissions"]).get_api_data()[0]
+            classroom_submissions_list: List[dict] = raw_classroom_submissions_list.get("submissions", [])
+        else: 
+            classroom_submissions_list = []
+        
+        progress.advance(task, 1)
+        progress.update(task, description="渲染数据中...")
+
+        # --- 渲染阶段 ---
+        classroom_title: str = classroom_message.get("title") if classroom_message.get("title") else "null"
+        classroom_type: str = type_map.get(classroom_message.get("type"), classroom_message.get("type"))
+        classroom_status: Text = classroom_status_map.get(classroom_message.get("status"), Text(f"{classroom_message.get("status")}", style="white"))
+        
+        classroom_start_time = transform_time(classroom_message.get("start_at"))
+        classroom_finish_time = transform_time(classroom_message.get("finish_at"))
+
+        classroom_start_time_text = Text.assemble(
+            ("开始时间: ", "cyan"),
+            (f"{classroom_start_time}", "bright_white")
+        )
+
+        if classroom_finish_time == "null":
+            classroom_finish_time_text = None
+        else:
+            classroom_finish_time_text = Text.assemble(
+                ("截止时间: ", "cyan"),
+                (f"{classroom_finish_time}", "bright_white")
+            )
+
+        # --- 准备Panle内容 ---
+        content_renderables = []
+        title_line = Align.center(f"{classroom_title}", "bold bright_magenta")
+        content_renderables.append(title_line)
+        content_renderables.append(classroom_start_time_text)
+        
+        if classroom_finish_time_text:
+            content_renderables.append(classroom_finish_time_text)
+
+        if classroom_submissions_list:
+            submissions_content_renderables = []
+            for submission in classroom_submissions_list:
+                submission_created_time = transform_time(submission.get("created_at"))
+                submission_score: int|str = submission.get("quiz_score") if submission.get("quiz_score") else "null"
+
+                submission_text = Text.assemble(
+                    ("提交时间: ", "cyan"),
+                    (f"{submission_created_time}", "bright_white"),
+                    "\n",
+                    ("最终得分: ", "cyan"),
+                    (f"{submission_score}", "bright_white")
+                )
+
+                submissions_content_renderables.append(submission_text)
+
+                if submission != classroom_submissions_list[-1]:
+                    submissions_content_renderables.append(Rule(style="dim white"))
+                    submissions_content_renderables.append("")
+
+            classroom_submissions_panel = Panel(
+                Group(*submissions_content_renderables),
+                title = "[green][提交记录][/green]",
+                border_style="yellow",
+                expand=True,
+                padding=(1, 2)
+            )
+
+            content_renderables.append(classroom_submissions_panel)
+
+        classroom_panel = Panel(
+            Group(*content_renderables),
+            title = f"[white][{classroom_type}][/white]",
+            border_style="dim",
+            expand=True,
+            padding=(1, 2)
+        )
+
+        progress.advance(task, 1)
+        progress.update(task, description="渲染完成")
+
+        rprint(classroom_panel)
 
 def view_activity(activity_id: int, type_map: dict):
     with Progress(
@@ -257,6 +361,15 @@ def view_activity(activity_id: int, type_map: dict):
         # --- 请求阶段 ---
         # 请求预览数据
         raw_activity_read: dict = zju_api.assignmentPreviewAPIFits(state.client.session, activity_id).post_api_data()[0]
+
+        if not raw_activity_read:
+            rprint(f"[red]请求作业 [green]{activity_id}[/green] 不存在！[/red]")
+            raise typer.Exit(code=1)
+
+        if not raw_activity_read.get("data"):
+            rprint(f"[red]请求作业 [green]{activity_id}[/green] 不存在！[/red]")
+            raise typer.Exit(code=1)
+        
         student_id = raw_activity_read.get("created_for_id")
         if not student_id:
             print_log("Error", f"{activity_id} 缺少'created_for_id'参数，请将此问题上报给开发者！", "CLI.command.assignment.view_assignment")
@@ -309,11 +422,16 @@ def view_activity(activity_id: int, type_map: dict):
             (activity_end_time, "bright_white")
         )
 
-        average_score_text = Text.assemble(
-            ("班级均分: ", "cyan"),
-            (f"{activity_all_students_average_score:0.2f}", "bright_white")
-        )
-
+        if type(activity_all_students_average_score) == float:
+            average_score_text = Text.assemble(
+                ("班级均分: ", "cyan"),
+                (f"{activity_all_students_average_score:0.2f}", "bright_white")
+            )
+        else:
+            average_score_text = Text.assemble(
+                ("班级均分: ", "cyan"),
+                (f"{activity_all_students_average_score}", "bright_white")
+            )
 
         # --- 准备Panel内容 ---
         content_renderables = []
@@ -399,8 +517,8 @@ def view_activity(activity_id: int, type_map: dict):
             # --- 装配Submission List Panel ---
             submission_list_panel = Panel(
                 Group(*submission_content_renderables),
-                title = "[white][提交内容][/white]",
-                border_style="dim",
+                title = "[green][提交记录][/green]",
+                border_style="yellow",
                 expand=True,
                 padding=(1, 2)
             )
@@ -417,7 +535,7 @@ def view_activity(activity_id: int, type_map: dict):
             subtitle = f"[white][ID: {activity_id}][/white]",
             border_style="bright_black",
             expand=True,
-            padding=(0, 2, 1, 2)
+            padding=(1, 2, 1, 2)
         )
         
         progress.advance(task, advance=1)

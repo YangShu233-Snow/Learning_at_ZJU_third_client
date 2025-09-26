@@ -1,9 +1,10 @@
 import mimetypes
 from requests import Session, Response
 from requests.exceptions import HTTPError
-from printlog.print_log import print_log
 from pathlib import Path
-from load_config import load_config, parse_config
+
+from ..printlog.print_log import print_log
+from ..load_config import load_config, parse_config
 
 QUERIES = {
     'data': ['resources_submission', 'apis_config', 'upload', 'data']
@@ -157,7 +158,7 @@ class uploadFile:
             files_id[file_name] = file_id
 
         return files_id
-            
+
     def get_file_size(self, file_path: Path)->int:
         """获得文件字节大小
 

@@ -4,10 +4,11 @@ import pickle
 from cryptography.fernet import Fernet, InvalidToken
 from lxml import etree
 from pathlib import Path
-from encrypt import LoginRSA
 from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
-from load_config import load_config
-from printlog.print_log import print_log
+
+from ..load_config import load_config
+from ..printlog.print_log import print_log
+from ..encrypt import LoginRSA
 
 CURRENT_SCRIPT_PATH = Path(__file__)
 USER_AVATAR_PATH = CURRENT_SCRIPT_PATH.parent.parent.parent.parent / "images/user_avatar.png"

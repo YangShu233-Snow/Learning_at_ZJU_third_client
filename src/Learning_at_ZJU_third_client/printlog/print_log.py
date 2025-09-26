@@ -1,8 +1,8 @@
 import time
-from load_config import load_config
+from ..load_config import load_config
 
 def print_log(log_type: str, log_message: str, log_from: str = None):
-    # pass
+    return 
     if log_from == None:
         print_log(log_type="Error", log_message="log_from不可为空！", log_from="print_log")
         return

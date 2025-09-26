@@ -8,8 +8,9 @@ from urllib.parse import unquote
 from requests import Response
 from requests.exceptions import HTTPError, RequestException
 from typing_extensions import List
-from load_config import load_config
-from printlog.print_log import print_log
+
+from ..load_config import load_config
+from ..printlog.print_log import print_log
 
 DOWNLOAD_DIR = Path.home() / "Downloads"
 
@@ -53,11 +54,21 @@ class APIFits:
             
             api_url = self.make_api_url(api_config, api_name)
             if api_url == None:
-                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.get_api_data")
+                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFits.get_api_data")
                 continue
 
             api_params = self.make_api_params(api_config = api_config, api_name=api_name)
-            api_respone = self.login_session.get(url = api_url, params = api_params)
+            print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.get_api_data")
+            print_log("Info", f"参数为 {api_config.items()}", "zju_api.APIFits.get_api_data")
+            
+            try:
+                api_respone = self.login_session.get(url = api_url, params = api_params)
+                api_respone.raise_for_status()
+            except HTTPError as e:
+                print_log("Error", f"请求{api_respone.url}时发生错误。{e}", "zju_api.APIFits.get_api_data")
+                results_json.append({})
+                continue
+            
             api_respone_json = api_respone.json()
 
             if auto_load:
@@ -68,7 +79,7 @@ class APIFits:
 
         return results_json
 
-    def post_api_data(self)->List[Response]:
+    def post_api_data(self)->List[dict]:
         all_api_response = []
         if self.apis_name == None or self.apis_config == None:
             self.load_api_config()
@@ -76,7 +87,7 @@ class APIFits:
         for api_name in self.apis_name:
             api_config: dict = self.apis_config.get(api_name, None)
             if api_config == None:
-                print_log("Error", f"{api_name}不存在！", "zju_api.post_api_data")
+                print_log("Error", f"{api_name}不存在！", "zju_api.APIFits.post_api_data")
                 continue
                 
             if not self.check_api_method(api_config, "POST"):
@@ -85,11 +96,55 @@ class APIFits:
 
             api_url = self.make_api_url(api_config, api_name)
             if api_url == None:
-                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.post_api_data")
+                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFits.post_api_data")
                 continue
 
-            api_respone = self.login_session.post(url = api_url, json = self.data)
-            all_api_response.append(api_respone)
+            print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.post_api_data")
+            if self.data:
+                print_log("Info", f"载荷为 {self.data.items()}", "zju_api.APIFits.post_api_data")
+            
+            try:
+                api_respone = self.login_session.post(url = api_url, json = self.data)
+                api_respone.raise_for_status()
+            except HTTPError as e:
+                print_log("Error", f"请求{api_respone.url}时发生错误。{e}", "zju_api.APIFits.post_api_data")
+                all_api_response.append({})
+                continue
+
+            all_api_response.append(api_respone.json())
+
+        return all_api_response
+    
+    def put_api_data(self)->List[dict|bool]:
+        all_api_response = []
+        if self.apis_name == None or self.apis_config == None:
+            self.load_api_config()
+
+        for api_name in self.apis_name:
+            api_config: dict = self.apis_config.get(api_name, None)
+            
+            if not api_config:
+                print_log("Error", f"{api_name}不存在！", "zju_api.APIFits.put_api_data")
+                continue
+
+            if not self.check_api_method(api_config, "PUT"):
+                print_log("Error", "该方法只适用PUT请求！", "zju_api.APIFits.put_api_data")
+                raise RuntimeError
+            
+            api_url = self.make_api_url(api_config, api_name)
+            if api_url == None:
+                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFits.put_api_data")
+                continue
+            
+            print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.put_api_data")
+            api_response = self.login_session.put(url = api_url, json = self.data)
+            try:
+                api_response.raise_for_status()
+            except HTTPError as e:
+                print_log("Error", f"Put请求失败！{api_response.url}: {e}", "zju_api.APIFits.put_api_data")
+                all_api_response.append(False)
+            else:
+                all_api_response.append(api_response.json())
 
         return all_api_response
 
@@ -117,39 +172,6 @@ class submissionAPIFits(APIFits):
     def make_api_url(self, apis_config, api_name):
         return apis_config.get("url", None) + f"/{self.activity_id}/submissions"
 
-class coursePageAPIFits(APIFits):
-    def __init__(self, login_session: requests.Response, course_id: str):
-        super().__init__(login_session, "course_page")
-        self.course_id = course_id
-
-    def make_api_url(self, api_config, api_name):
-        base_api_url = api_config.get("url", None)
-        if base_api_url == None:
-            print_log("Error", f"{api_name}参数url缺失！", "zju_api.courseContentAPIFits.make_api_url")
-            return None
-        
-        if api_name == "homework":
-            return base_api_url + f"/{self.course_id}/{api_name}/submission-status"
-
-        return base_api_url + f"/{self.course_id}/{api_name}"
-
-class coursesAPIFits(APIFits):
-    def __init__(self, login_session: requests.Response, parent_dir: str = "courses", keyword: str = ""):
-        super().__init__(login_session, "courses")
-        self.parent_dir = parent_dir
-        self.keyword = keyword
-
-    def make_api_params(self, api_config, api_name: str):
-        # 修改conditions中的keyword参数为搜索关键词
-        api_params: dict = api_config.get("params")
-        conditions: dict = api_params.get("conditions")
-        conditions["keyword"] = self.keyword
-        # 我的course查询 api 的 conditions 需要为字符串
-        api_params["conditions"] = json.dumps(conditions, separators=(',', ':'), ensure_ascii=True)
-
-        return api_params
-
-
 class userIndexAPIFits(APIFits):
     def __init__(self, login_session: requests.Session):
         super().__init__(login_session, "user_index")
@@ -175,8 +197,236 @@ class todoListLiteAPIFits(APIFits):
         super().__init__(login_session, "todo_list_lite", parent_dir="user_index")
 
 # --- Course API ---
+class coursesAPIFits(APIFits):
+    def __init__(self, 
+                 login_session: requests.Session, 
+                 apis_name = [
+                    "list",
+                    "view",
+                    "modules",
+                    "activities",
+                    "exams",
+                    "exam-scores",
+                    "completeness"
+                 ],
+                 apis_config = None,
+                 parent_dir: str = "course",
+                 data = None
+                 ):
+        super().__init__(login_session, "course", apis_name, apis_config, parent_dir, data)
+
+class coursesListAPIFits(coursesAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 keyword: str|None,
+                 page: int = 1,
+                 show_amount: int = 10,
+                 apis_name=["list"]
+                 ):
+        super().__init__(login_session, apis_name)
+        self.keyword = keyword
+        self.page = page
+        self.show_amount = show_amount
+
+    def make_api_params(self, api_config, api_name: str):
+        api_params: dict = api_config.get("params")
+
+        # 修改conditions中的keyword参数为搜索关键词
+        conditions: dict = api_params.get("conditions")
+        conditions["keyword"] = self.keyword
+        # 我的course查询 api 的 conditions 需要为字符串
+        api_params["conditions"] = json.dumps(conditions, separators=(',', ':'), ensure_ascii=True)
+
+        api_params["page"] = self.page
+        api_params["page_size"] = self.show_amount
+
+        return api_params
+
+class coursePreviewAPIFits(coursesAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 course_id: int,
+                 apis_name=[
+                     "view",
+                     "modules"
+                     ]
+                ):
+        super().__init__(login_session, apis_name)
+        self.course_id = course_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url", None)
+        if not base_api_url:
+            print_log("Error", f"{api_name}参数url缺失！", "zju_api.courseViewAPIFits.make_api_url")
+            return None
+        
+        api_url = base_api_url.replace("<placeholder>", str(self.course_id))
+        return api_url
+
+class courseViewAPIFits(coursesAPIFits):
+    def __init__(self, 
+                 login_session: requests.Session, 
+                 course_id: int,
+                 apis_name=[
+                    "activities",
+                    "exams",
+                    "completeness",
+                    "classrooms",
+                    "activities_reads"
+                ]
+                ):
+        super().__init__(login_session, apis_name)
+        self.course_id = course_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url", None)
+        if not base_api_url:
+            print_log("Error", f"{api_name}参数url缺失！", "zju_api.courseViewAPIFits.make_api_url")
+            return None
+        
+        api_url = base_api_url.replace("<placeholder>", str(self.course_id))
+        return api_url
 
 # --- Assignment API ---
+class assignmentAPIFits(APIFits):
+    def __init__(self, 
+                 login_session, 
+                 apis_name = [
+                    "activity",
+                    "activity_read",
+                    "submission_list",
+                    "todo",
+                    "exam",
+                    "exam_submission_list",
+                    "exam_subjects_summary",
+                    "classroom",
+                    "classroom_submissions"
+                 ], 
+                 apis_config = None, 
+                 parent_dir = "assignment", 
+                 data = None
+                 ):
+        super().__init__(login_session, "assignment", apis_name, apis_config, parent_dir, data)
+
+class assignmentPreviewAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 activity_id,
+                 apis_name=[
+                     "activity_read"
+                    ]
+                ):
+        super().__init__(login_session, apis_name)
+        self.activity_id = activity_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+        if not base_api_url:
+            print_log("Error", f"{api_name} 缺乏'url'参数", "zju_api.assignmentViewAPIFits.make_api_url")
+            return None
+        
+        api_url = base_api_url.replace("<placeholder>", str(self.activity_id))
+
+        return api_url
+
+class assignmentViewAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 activity_id,
+                 apis_name=[
+                     "activity"
+                     ]
+                 ):
+        super().__init__(login_session, apis_name)
+        self.activity_id = activity_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+        if not base_api_url:
+            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentSubmissionViewAPIFits.make_api_url")
+            return None
+        
+        if api_name == "activity":
+            return base_api_url.replace("<placeholder>", str(self.activity_id))
+
+        return super().make_api_url(api_config, api_name)
+
+class assignmentSubmissionListAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 activity_id,
+                 student_id,
+                 apis_name=["submission_list"]
+                 ):
+        super().__init__(login_session, apis_name)
+        self.activity_id = activity_id
+        self.student_id = student_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+        if not base_api_url:
+            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentSubmissionViewAPIFits.make_api_url")
+            return None
+        
+        if api_name == "submission_list":
+            # return base_api_url.replace("<placeholder1>", str(self.activity_id)).replace("<placeholder2>", str(self.student_id))
+            return base_api_url.replace("<placeholder1>", str(self.activity_id)).replace("<placeholder2>", str(self.student_id))
+        return super().make_api_url(api_config, api_name)
+
+class assignmentTodoListAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 apis_name=["todo"], 
+                 ):
+        super().__init__(login_session, apis_name)
+
+class assignmentExamViewAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 exam_id: int,
+                 apis_name=[
+                    "exam",
+                    "exam_submission_list",
+                    "exam_subjects_summary"
+                     ] 
+    ):
+        super().__init__(login_session, apis_name)
+        self.exam_id = exam_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+
+        if not base_api_url:
+            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentExamViewAPIFits.make_api_url")
+            return None
+        
+        if api_name in ["exam", "exam_submission_list", "exam_subjects_summary"]:
+            return base_api_url.replace("<placeholder>", f"{self.exam_id}")
+
+        return super().make_api_url(api_config, api_name)
+
+class assignmentClassroomViewAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 classroom_id: int,
+                 apis_name=[
+                    "classroom",
+                    "classroom_submissions"
+                 ], 
+                 ):
+        super().__init__(login_session, apis_name)
+        self.classroom_id = classroom_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+
+        if not base_api_url:
+            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentClassroomViewAPIFits.make_api_url")
+
+        if api_name in ["classroom", "classroom_submissions"]:
+            return base_api_url.replace("<placeholder>", str(self.classroom_id))
+        
+        return super().make_api_url(api_config, api_name)
 
 # --- Resource API ---
 class resourcesAPIFits(APIFits):
@@ -189,7 +439,7 @@ class resourcesAPIFits(APIFits):
                     "batch_remove"
                 ], 
                 apis_config=None, 
-                parent_dir=None, 
+                parent_dir="resources", 
                 data=None
                 ):
         super().__init__(login_session, "resource", apis_name, apis_config, parent_dir, data)
@@ -227,12 +477,18 @@ class resourcesListAPIFits(resourcesAPIFits):
 class resourcesDownloadAPIFits(resourcesAPIFits):
     def __init__(self, 
                  login_session, 
+                 output_path: Path,
                  resource_id: int|None = None,
                  resources_id: List[int]|None = None,
                  apis_name=["download", "batch_download"]
                 ):
         super().__init__(login_session, apis_name)
-        self.resources_id = resource_id
+        if output_path:
+            self.output_path = output_path
+        else:
+            self.output_path = DOWNLOAD_DIR
+
+        self.resource_id = resource_id
         self.resources_id = resources_id
 
     def make_api_url(self, api_config, api_name):    
@@ -262,8 +518,12 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         if self.apis_name == None or self.apis_config == None:
             self.load_api_config()
 
-        if not DOWNLOAD_DIR.exists():
-            Path(DOWNLOAD_DIR).mkdir()
+        if not self.output_path.exists():
+            Path(self.output_path).mkdir()
+
+        if not self.output_path.is_dir():
+            print_log("Error", f"{self.output_path} 不是一个文件夹路径！", "zju_api.resourcesDownloadAPIFits.download")
+            return False
 
         api_name = "download"
         api_config: dict = self.apis_config.get(api_name)
@@ -291,12 +551,15 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                 if not filename and 'name=' in response.url:
                     filename = unquote(response.url.split("name=")[-1])
 
+                if not filename and 'name=' not in response.url:
+                    filename = unquote(response.url.split('/')[-1])
+
                 if not filename:
                     filename = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
                 print_log("Info", f"获取到文件名: {filename}", "zju_api.resourcesDownloadAPIFits.download")
 
-                file_path = DOWNLOAD_DIR / filename
+                file_path = self.output_path / filename
 
                 print_log("Info", f"开始下载文件: {filename}", "zju_api.resourcesDownloadAPIFits.download")
                 # 分块读取
@@ -318,9 +581,13 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         if self.apis_name == None or self.apis_config == None:
             self.load_api_config()
 
-        if not DOWNLOAD_DIR.exists():
-            Path(DOWNLOAD_DIR).mkdir()
+        if not self.output_path.exists():
+            Path(self.output_path).mkdir()
 
+        if not self.output_path.is_dir():
+            print_log("Error", f"{self.output_path} 不是一个文件夹路径！", "zju_api.resourcesDownloadAPIFits.batch_download")
+            return False
+            
         api_name = "batch_download"
         api_config: dict = self.apis_config.get(api_name)
 
@@ -358,7 +625,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
                 print_log("Info", f"获取到文件名: {filename}", "zju_api.resourcesDownloadAPIFits.download")
 
-                file_path = DOWNLOAD_DIR / filename
+                file_path = self.output_path / filename
 
                 print_log("Info", f"开始下载文件: {filename}", "zju_api.resourcesDownloadAPIFits.download")
                 # 分块读取
@@ -481,3 +748,48 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
         except Exception as e:
             print_log("Error", f"未知错误！错误原因: {e}", "zju_api.resourcesRemoveAPIFits.delete_api_data")
             return False
+        
+# --- rollcall API ---
+class rollcallAPIFits(APIFits):
+    def __init__(self, 
+                 login_session, 
+                 apis_name = [
+                    "rollcall",
+                    "answer"
+                 ],
+                 apis_config = None, 
+                 parent_dir=None, 
+                 data=None
+                 ):
+        super().__init__(login_session, "rollcall", apis_name, apis_config, parent_dir, data)
+
+class rollcallListAPIFits(rollcallAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 apis_name = [
+                    "rollcall"
+                 ],
+                 ):
+        super().__init__(login_session, apis_name)
+
+class rollcallAnswerAPIFits(rollcallAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 rollcall_id: int,
+                 rollcall_data,
+                 apis_name = [
+                     "answer"
+                 ]):
+        super().__init__(login_session, apis_name, data=rollcall_data)
+        self.rollcall_id = rollcall_id
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+        if not base_api_url:
+            print_log("Error", f"{api_name}参数url缺失！", "zju_api.rollcallAnswerAPIFits.make_api_url")
+            return
+        
+        if api_name == "answer":
+            return base_api_url.replace("<placeholder>", str(self.rollcall_id))
+        
+        return super().make_api_url(api_config, api_name)

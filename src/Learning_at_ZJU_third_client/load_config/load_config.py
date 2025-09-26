@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from printlog.print_log import print_log
+from ..printlog.print_log import print_log
 
 class BaseConfig:
     """基本的json加载逻辑，初始化接受一个`config_name`作为文件名字，默认需要带有.json
@@ -108,3 +108,9 @@ class userIndexConfig(BaseConfig):
     def __init__(self, config_name: str):
         self.config_name = config_name + ".json"
         super().__init__("all_api_data/user_index",self.config_name)
+
+class rollcallSiteConfig(BaseConfig):
+    def __init__(self):
+        super().__init__("", "rollcall_site.json")
+        if not self.config_path.exists():
+            self.config_path.touch()

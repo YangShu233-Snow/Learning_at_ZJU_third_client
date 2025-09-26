@@ -2,13 +2,14 @@ import typer
 from typing_extensions import Optional, Annotated, List
 from requests.exceptions import HTTPError
 from rich import print as rprint
+from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn
 from datetime import datetime
 from pathlib import Path
 
-from zjuAPI import zju_api
-from upload import file_upload
-from printlog.print_log import print_log
+from ...zjuAPI import zju_api
+from ...upload import file_upload
+from ...printlog.print_log import print_log
 from ..state import state
 
 # resource 命令组
@@ -27,6 +28,22 @@ def is_list_resoureces_file_type_valid(file_type: str):
     print_log("Error", f"{file_type} 资源类型不存在！", "CLI.command.resource.is_list_resoureces_file_type_valid")
     print(f"{file_type} 资源类型不存在！")
     raise typer.Exit(code=1)
+
+def is_download_dest_dir(dest: Path):
+    if dest == Path().home() / "Downloads" and not dest.exists:
+        Path(dest).mkdir()
+
+    if not dest.exists():
+        print_log("Error", f"{dest} 不存在！", "CLI.command.resource.is_download_dest_dir")
+        print(f"{dest} 不存在！")
+        raise typer.Exit(code=1)
+    
+    if not dest.is_dir():
+        print_log("Error", f"{dest} 应是文件夹！", "CLI.command.resource.is_download_dest_dir")
+        print(f"{dest} 应是文件夹！")
+        raise typer.Exit(code=1)
+    
+    return dest
 
 # 文件大小换算
 def transform_resource_size(resource_size: int)->str:
@@ -71,74 +88,111 @@ def to_upload_dir_walker(dir: Path)->List[Path]:
     return to_upload_files
 
 # 注册资源列举命令
-@app.command("list", help="列举学在浙大云盘内的文件及其信息，支持指定文件名称与类型。")
+@app.command("list")
 def list_resources(
     keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="文件名称")] = "",
     amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示文件的数量")] = 10,
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="云盘文件页面索引")] = 1,
     file_type: Annotated[Optional[str], typer.Option("--type", "-t", help="文件类型", callback=is_list_resoureces_file_type_valid)] = None,
     short: Annotated[Optional[bool], typer.Option("--short", "-s", help="简化输出内容，仅显示文件名与文件id")] = False,
-    quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="仅输出文件id")] = False
+    quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="仅输出文件id")] = False,
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False
     ):
     """
     列举学在浙大云盘内的文件资源，允许指定文件名称，显示数量与文件类型。
 
     并不建议将显示数量指定太大，这可能延长网络请求时间，并且大量输出会淹没你的显示窗口。实际上你可以通过 "--page" 参数实现翻页。
     """
-    results = zju_api.resourcesListAPIFits(state.client.session, keyword, page_index, amount, file_type).get_api_data(False)[0]
-    total_pages = results.get("pages")
-    if page_index > total_pages:
-        print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
-        raise typer.Exit(code=1)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="拉取资源信息中...", total=1)
+        # 如果启用--all，则先获取文件资源总数
+        if all:
+            pre_results = zju_api.resourcesListAPIFits(state.client.session, keyword, 1, 1, file_type).get_api_data(False)[0]
+            amount = pre_results.get("pages", 1)
+            page_index = 1
 
-    resources_list = results.get("uploads", [])
-    current_results_amount = len(resources_list)
-
-    if current_results_amount == 0:
-        print("啊呀！没有找到文件呢。")
-        raise typer.Exit()
-    
-    # quiet 模式仅打印文件id，并且不换行
-    # short 模式仅按表单格式打印文件名与文件id
-    for resource in resources_list:
-        resource_id = resource.get('id', 'null')
-        if quiet:
-            print(resource_id, end=" ")
-            continue
-
-        resource_name = resource.get('name', 'null')
-        if short:
-            print("------------------------------")
-            rprint(f"[bright_yellow]{resource_name}[/bright_yellow]")
-            rprint(f"  [green]文件ID: [/green][cyan]{resource_id}[/cyan]")
-            continue
+        results = zju_api.resourcesListAPIFits(state.client.session, keyword, page_index, amount, file_type).get_api_data(False)[0]
         
-        resource_size = transform_resource_size(resource.get('size', 0))
-        resource_download_status = resource.get('allow_download', False)
-        resource_update_time = datetime.fromisoformat(resource.get("updated_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00'))    
+        progress.advance(task, 1)
+        task = progress.add_task(description="渲染资源信息中...", total=1)
+        
+        total_pages = results.get("pages", 0)
 
-        print("--------------------------------------------------")
-        rprint(f"[bright_yellow]{resource_name}[/bright_yellow]")
-        rprint(f"  [green]文件ID: [/green][cyan]{resource_id}[/cyan]")
-        rprint(f"  [green]文件是否可下载: [/green][cyan]{resource_download_status}[/cyan]")
-        rprint(f"  [green]文件上传时间: [/green][white]{resource_update_time}[/white]")
-        rprint(f"  [green]文件大小: [/green][bright_white]{resource_size}[/bright_white]")
+        if page_index > total_pages and total_pages > 0:
+            print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
+            raise typer.Exit(code=1)
 
-    # quiet 模式不需要结尾
-    if quiet:
-        print("\n")
-        return
+        resources_list = results.get("uploads", [])
+        current_results_amount = len(resources_list)
 
-    if short:
-        print("------------------------------")
-        return
+        if current_results_amount == 0:
+            print("啊呀！没有找到文件呢。")
+            return
+        
+        if quiet:
+            resourse_ids = [str(resource.get('id', 'null')) for resource in resources_list]
+            print(" ".join(resourse_ids))
+            return
 
-    print("--------------------------------------------------")
-    print(f"本页共 {current_results_amount} 个结果，第 {page_index}/{total_pages} 页。")
-    return 
+        resources_list_table = Table(
+            title=f"资源列表 (第 {page_index} / {total_pages} 页)",
+            caption=f"本页显示 {len(resources_list)} 个。",
+            border_style="bright_black",
+            show_header=True,
+            header_style="bold magenta",
+            expand=True
+        )
+
+        if short:
+            resources_list_table.add_column("资源ID", style="cyan", no_wrap=True, width=10)
+            resources_list_table.add_column("资源名称", style="bright_yellow", ratio=1)
+        else:
+            resources_list_table.add_column("资源ID", style="cyan", no_wrap=True, width=8)
+            resources_list_table.add_column("资源名称", style="bright_yellow", ratio=3)
+            resources_list_table.add_column("上传时间", ratio=2)
+            resources_list_table.add_column("文件大小", ratio=1)
+            resources_list_table.add_column("下载状态", ratio=1)
+
+        
+        # quiet 模式仅打印文件id，并且不换行
+        # short 模式仅按表单格式打印文件名与文件id
+        for resource in resources_list:
+            resource_id = str(resource.get('id', 'null'))
+            resource_name = resource.get('name', 'null')
+            
+            if short:
+                resources_list_table.add_row(resource_id, resource_name)
+                
+                if resource != resources_list[-1]:
+                    resources_list_table.add_row()
+                
+                continue
+            
+            resource_size = transform_resource_size(resource.get('size', 0))
+            resource_download_status = "[green]可下载[/green]" if resource.get('allow_download', False) else "[red]不可下载[/red]"
+            resource_update_time = datetime.fromisoformat(resource.get("updated_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+
+            resources_list_table.add_row(
+                resource_id,
+                resource_name,
+                resource_update_time,
+                resource_size,
+                resource_download_status
+            )
+
+            if resource != resources_list[-1]:
+                resources_list_table.add_row()
+
+        progress.advance(task, 1)
+    
+    rprint(resources_list_table)
 
 # 注册资源上传命令
-@app.command(name="upload", help="上传本地文件至云盘，启用 --recursion 以自动解包文件夹")
+@app.command(name="upload")
 def upload_resources(
     files: Annotated[List[Path], typer.Argument(help="一个或多个文件路径", callback=check_files_path)],
     recursion: Annotated[Optional[bool], typer.Option("--recursion", "-r", help="启用此参数以解析文件夹")] = False
@@ -183,7 +237,6 @@ def upload_resources(
             to_upload_files.append(file)
         progress.advance(task, advance=1)
 
-
         total_to_upload_files_amount = len(to_upload_files)
         print_log("Info", f"成功载入 {total_to_upload_files_amount} 个文件", "CLI.command.resource.upload_resources")    
         print(f"{total_to_upload_files_amount} 个文件被载入")
@@ -203,7 +256,7 @@ def upload_resources(
     return 
     
 # 注册资源删除命令
-@app.command(name="remove", help="删除云盘指定文件，支持多文件删除")
+@app.command(name="remove")
 def remove_resources(
     files_id: Annotated[List[int], typer.Argument(help="需删除文件的id")],
     force: Annotated[Optional[bool], typer.Option("--force", "-f", help="启用 --force 以关闭二次确认")] = False,
@@ -264,13 +317,14 @@ def remove_resources(
         rprint(f"删除完成，{success_delete_amount} 个文件被成功删除，{files_id_amount - success_delete_amount} 个文件删除失败。")
         return
 
-@app.command(name="download", help="下载云盘指定文件，支持多文件下载")
+@app.command(name="download")
 def download_resource(
     files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
+    dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = Path().home() / "Downloads",
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False
 ):
     """
-    下载学在浙大云盘内的指定文件，支持一次提供多个文件id批量下载。
+    下载学在浙大的文件，同时支持个人浙大云盘与课程资源下载，支持一次提供多个文件id批量下载。
 
     使用 --batch 选项以启用批量下载，最终下载文件打包为.zip
     """
@@ -286,7 +340,7 @@ def download_resource(
         ) as progress:
             task = progress.add_task(description="[green]正在下载文件中...[/green]", total=files_id_amount)
             
-            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, resources_id=files_id)
+            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resources_id=files_id)
             
             if resources_downloader.batch_download():
                 rprint(f"[green]下载成功！")
@@ -305,14 +359,12 @@ def download_resource(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         TaskProgressColumn(),
-        TextColumn(" | "),
-        TimeRemainingColumn(),
         transient=True
     ) as progress:
         task = progress.add_task(description="[green]正在下载文件中...[/green]", total=files_id_amount)
         
         if batch:
-            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, resources_id=files_id)
+            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resources_id=files_id)
             if resources_downloader.batch_download():
                 rprint(f"[green]下载成功！")
                 rprint(f"[green]下载完成！[/green]")
@@ -327,7 +379,7 @@ def download_resource(
             return
 
         for file_id in files_id:
-            resource_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, resource_id=file_id)
+            resource_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resource_id=file_id)
             if resource_downloader.download():
                 success_amount += 1
                 rprint(f"{file_id} [green]下载成功！")
@@ -341,4 +393,5 @@ def download_resource(
             )
 
         rprint(f"[green]下载完成！[/green]成功下载 {success_amount} 个文件，失败 {files_id_amount - success_amount} 个文件。")
+        rprint(f"[cyan]下载路径: [/cyan]{dest}")
         return

@@ -8,6 +8,41 @@
 
 ## Installation
 
+### 直接从源码运行
+
+LAZY 支持直接从项目源码开始运行，你可以按照如下步骤进行操作。
+
+```bash
+# 进入LAZY根目录
+cd Learning_at_ZJU_third_client/
+
+# 建立虚拟环境，可选，但是强烈推荐
+python -m venv .venv
+source .venv/bin/activate
+
+# Conda也是非常推荐的选择
+# Python版本>=3.8均可，但3.12.3是一个比较稳妥的版本，因为LAZY就是在这个版本下开发的
+conda create -n LAZY python=3.12.3
+conda activate LAZY
+
+# 将LAZY挂载到当前Python环境下
+pip install -e .
+
+# 可选，但是强烈推荐，这将为LAZY提供补全功能
+lazy --install-completion
+```
+
+完成以上步骤后，**请重启终端**以应用修改，重启终端后，如果你想要使用LAZY，需要启用对应的Python环境。
+
+```bash
+# 使用一下命令，检查LAZY是否安装成功
+lazy --help
+
+# 出现以下输出，说明LAZY安装成功
+# Usage: lazy [OPTIONS] COMMAND [ARGS]...
+# LAZY CLI - 学在浙大第三方客户端的命令行工具
+```
+
 ## Example Usage
 
 ## License

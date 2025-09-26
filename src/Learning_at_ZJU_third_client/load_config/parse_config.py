@@ -1,4 +1,4 @@
-from printlog.print_log import print_log
+from ..printlog.print_log import print_log
 
 class ConfigParser:
     def __init__(self, config:dict, queries: dict[str: list[str]]):

@@ -1,4 +1,4 @@
-from login.login import ZjuClient
+from ..login.login import ZjuClient
 
 # 维护全局登录状态
 class State:

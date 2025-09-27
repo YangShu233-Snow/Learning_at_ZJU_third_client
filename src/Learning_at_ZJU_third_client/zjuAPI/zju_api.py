@@ -7,7 +7,7 @@ from datetime import datetime
 from urllib.parse import unquote
 from requests import Response
 from requests.exceptions import HTTPError, RequestException
-from typing_extensions import List
+from typing_extensions import List, Optional, Callable
 
 from ..load_config import load_config
 from ..printlog.print_log import print_log
@@ -480,6 +480,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                  output_path: Path,
                  resource_id: int|None = None,
                  resources_id: List[int]|None = None,
+                 basename: str|None = None,
                  apis_name=["download", "batch_download"]
                 ):
         super().__init__(login_session, apis_name)
@@ -490,6 +491,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
         self.resource_id = resource_id
         self.resources_id = resources_id
+        self.basename = basename
 
     def make_api_url(self, api_config, api_name):    
         base_api_url: str = api_config.get("url", None)
@@ -514,7 +516,10 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         
         return super().make_api_params(api_config, api_name)
     
-    def download(self)->bool:
+    def download(self, 
+                 progress_callback: Optional[Callable[[int, int, str], None]] = None
+                 )->bool:
+        
         if self.apis_name == None or self.apis_config == None:
             self.load_api_config()
 
@@ -540,13 +545,14 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             with self.login_session.get(api_url, stream=True, timeout=10) as response:
                 response.raise_for_status()
 
+                # 获取文件名
                 filename = None
                 content_disposition = response.headers.get('Content-Disposition')
                 if content_disposition:
                     fn_match = re.search('filename="?(.+)"?', content_disposition)
                     if fn_match:
                         filename = fn_match.group(1).strip('"')
-                        filename = filename.encode("latin-1").decode("utf-8")
+                        filename = unquote(filename)
 
                 if not filename and 'name=' in response.url:
                     filename = unquote(response.url.split("name=")[-1])
@@ -556,16 +562,32 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
                 if not filename:
                     filename = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                
+                if self.basename:
+                    filename = f"{self.basename}_{filename}"
 
                 print_log("Info", f"获取到文件名: {filename}", "zju_api.resourcesDownloadAPIFits.download")
 
                 file_path = self.output_path / filename
 
+                # 获取文件大小
+                total_size = int(response.headers.get('content-length', 0))
+                download_size = 0
+
                 print_log("Info", f"开始下载文件: {filename}", "zju_api.resourcesDownloadAPIFits.download")
                 # 分块读取
                 with open(file_path, 'wb') as f:
                     for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
+                        if chunk:
+                            f.write(chunk)
+                            download_size += len(chunk)
+
+                            # 如果上层提供了进度回调，则通知状态
+                            if progress_callback:
+                                try:
+                                    progress_callback(download_size, total_size, filename)
+                                except Exception as e:
+                                    print_log("Warning", f"进度回调函数出错: {e}", "zju_api.resourcesDownloadAPIFits.download")
 
                 print_log("Info", f"{filename} 下载完成", "zju_api.resourcesDownloadAPIFits.download")
                 return True
@@ -577,7 +599,10 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             print_log("Error", f"请求过程中发生未知错误！错误原因: {e}", "zju_api.resourcesDownloadAPIFits.download")
             return False
             
-    def batch_download(self)->bool:
+    def batch_download(self,
+                       progress_callback: Optional[Callable[[int, int, str], None]]|None = None
+                       )->bool:
+        
         if self.apis_name == None or self.apis_config == None:
             self.load_api_config()
 
@@ -608,30 +633,50 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             with self.login_session.get(api_url, params=api_params, stream=True, timeout=10) as response:
                 response.raise_for_status()
 
+                # 获取文件名
                 filename = None
                 content_disposition = response.headers.get('Content-Disposition')
                 if content_disposition:
                     fn_match = re.search(r"filename\*\s*=\s*utf-?8''([^;]+)", content_disposition)
                     if fn_match:
                         filename = fn_match.group(1).strip('"')
-                        filename = filename.encode("utf-8").decode("unicode_escape")
+                        filename = unquote(filename)
 
                 if not filename and 'name=' in response.url:
                     filename = unquote(response.url.split("name=")[-1])
 
+                if not filename and 'name=' not in response.url:
+                    filename = unquote(response.url.split('/')[-1])
+
                 if not filename:
-                    # 默认打包文件的格式为.zip
-                    filename = datetime.now().strftime('%Y-%m-%d %H:%M:%S') + ".zip"
+                    filename = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+                if self.basename:
+                    filename = f"{self.basename}_{filename}"
 
                 print_log("Info", f"获取到文件名: {filename}", "zju_api.resourcesDownloadAPIFits.download")
 
                 file_path = self.output_path / filename
 
+                # 获取文件大小
+                total_size = int(response.headers.get('content-length', 0))
+                download_size = 0
+                
                 print_log("Info", f"开始下载文件: {filename}", "zju_api.resourcesDownloadAPIFits.download")
+                
                 # 分块读取
                 with open(file_path, 'wb') as f:
                     for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
+                        if chunk:
+                            f.write(chunk)
+                            download_size += len(chunk)
+
+                            # 如果上层传入进度回调，则通知状态
+                            if progress_callback:
+                                try:
+                                    progress_callback(download_size, total_size, filename)
+                                except Exception as e:
+                                    print_log("Warning", f"进度回调函数出错: {e}", "zju_api.resourcesDownloadAPIFits.batch_download")
 
                 print_log("Info", f"{filename} 下载完成", "zju_api.resourcesDownloadAPIFits.download")
                 return True

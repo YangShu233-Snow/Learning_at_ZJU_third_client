@@ -5,7 +5,9 @@ from ....printlog.print_log import print_log
 
 app = typer.Typer(help="""
     签到定位配置相关命令组
-""")
+    """,
+    no_args_is_help=True
+)
 
 def is_latitude_valid(latitude: float)->float:
     if latitude > 90 or latitude < -90:

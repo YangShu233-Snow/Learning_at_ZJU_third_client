@@ -1,9 +1,10 @@
 import typer
 from typing_extensions import Optional, Annotated, List
 from requests.exceptions import HTTPError
+from rich import filesize
 from rich import print as rprint
 from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn
+from rich.progress import Progress, SpinnerColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn, BarColumn, ProgressColumn, Text, Task
 from datetime import datetime
 from pathlib import Path
 
@@ -16,6 +17,28 @@ from ..state import state
 app = typer.Typer(help="学在浙大云盘资源相关命令，可以查看，搜索，上传或下载云盘文件。",
                   no_args_is_help=True
                   )
+
+class HumanReadableTransferColumn(ProgressColumn):
+    """
+    一个以人类可读格式（如 MB/s 或 KB/s）显示进度的列。
+    """
+    def render(self, task: "Task") -> Text:
+        """
+        渲染进度，将字节转换为可读格式。
+        """
+        # task.completed 是已完成的字节数
+        # task.total 是总字节数
+        completed_str = filesize.decimal(int(task.completed))
+        
+        if task.total is not None:
+            total_str = transform_resource_size(int(task.total))
+            # 最终显示的文本格式
+            display_text = f"{completed_str}/{total_str}"
+        else:
+            # 如果总大小未知
+            display_text = f"{completed_str}/?"
+
+        return Text(display_text, style="progress.percentage")
 
 # 资源列举file_type检验
 def is_list_resoureces_file_type_valid(file_type: str):
@@ -322,6 +345,7 @@ def remove_resources(
 @app.command(name="download")
 def download_resource(
     files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
+    basename: Annotated[List[int], typer.Option(help="文件的基本名，会附加在下载文件的开头")] = None,
     dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = Path().home() / "Downloads",
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False
 ):
@@ -336,63 +360,82 @@ def download_resource(
 
     if batch:
         with Progress(
-            SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
             transient=True   
         ) as progress:
-            task = progress.add_task(description="[green]正在下载文件中...[/green]", total=files_id_amount)
+            # 总任务，跟踪总体下载进度
+            main_task = progress.add_task(description="[green]正在下载文件中...[/green]", total=files_id_amount)
             
-            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resources_id=files_id)
-            
-            if resources_downloader.batch_download():
-                rprint(f"[green]下载成功！")
-                rprint(f"[green]下载完成！[/green]")
-            else:
-                rprint(f"[bold red]下载失败!")
+            with Progress(
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                HumanReadableTransferColumn(),
+                TimeRemainingColumn()
+            ) as sub_progress:
+                
+                resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resources_id=files_id, basename=basename)
+                
+                # 子任务，跟踪文件下载进度
+                download_task = sub_progress.add_task(description=f"下载文件中...", start=False)
+                
+                # 创建回调函数
+                def update_progress(downloaded: int, total_size: int, filename: int):
+                    # 首次回调，更新文件名和文件大小
+                    if not sub_progress.tasks[download_task].started:
+                        sub_progress.start_task(download_task)
+                        sub_progress.update(download_task, description=f"[cyan]下载: {filename}", total=total_size)
 
-            progress.update(
-                task,
-                advance=1
-            )
+                    sub_progress.update(download_task, completed=downloaded)
+                
+                if resources_downloader.batch_download(progress_callback=update_progress):
+                    rprint(f"[green]下载成功！")
+                    rprint(f"[green]下载完成！[/green]")
+                else:
+                    rprint(f"[bold red]下载失败!")
+
+                progress.update(main_task, advance=1)                
 
             return
 
     with Progress(
-        SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
         TaskProgressColumn(),
         transient=True
     ) as progress:
-        task = progress.add_task(description="[green]正在下载文件中...[/green]", total=files_id_amount)
-        
-        if batch:
-            resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resources_id=files_id)
-            if resources_downloader.batch_download():
-                rprint(f"[green]下载成功！")
-                rprint(f"[green]下载完成！[/green]")
-            else:
-                rprint(f"[bold red]下载失败!")
+        # 总任务，跟踪总体下载进度
+        main_task = progress.add_task(description="[green]总进度[/green]", total=files_id_amount)
 
-            progress.update(
-                task,
-                advance=1
-            )
+        with Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            HumanReadableTransferColumn(),
+            TimeRemainingColumn()
+        ) as sub_progress:
+            for file_id in files_id:
+                resource_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resource_id=file_id, basename=basename)
+                
+                # 单文件子任务，跟踪文件下载状态
+                download_task = sub_progress.add_task(description=f"文件ID: {file_id}", start=False)
 
-            return
+                # 创建回调函数
+                def update_progress(downloaded: int, total_size: int, filename: int):
+                    # 首次回调，更新文件名和文件大小
+                    if not sub_progress.tasks[download_task].started:
+                        sub_progress.start_task(download_task)
+                        sub_progress.update(download_task, description=f"[cyan]下载: {filename}", total=total_size)
 
-        for file_id in files_id:
-            resource_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resource_id=file_id)
-            if resource_downloader.download():
-                success_amount += 1
-                rprint(f"{file_id} [green]下载成功！")
-            else:
-                rprint(f"{file_id} [bold red]下载失败!")
+                    sub_progress.update(download_task, completed=downloaded)
 
-            progress.update(
-                task,
-                advance=1,
-                description="正在下载中..."
-            )
+                if resource_downloader.download(progress_callback=update_progress):
+                    success_amount += 1
+                    sub_progress.update(download_task, description=f"[green]√ {sub_progress.tasks[download_task].description}", completed=sub_progress.tasks[download_task].total)
+                else:
+                    sub_progress.update(download_task, description=f"[red]下载失败: {file_id} o(￣ヘ￣o＃)")
+
+                progress.update(main_task, advance=1)
 
         rprint(f"[green]下载完成！[/green]成功下载 {success_amount} 个文件，失败 {files_id_amount - success_amount} 个文件。")
         rprint(f"[cyan]下载路径: [/cyan]{dest}")

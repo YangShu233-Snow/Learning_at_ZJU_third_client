@@ -25,7 +25,9 @@ app = typer.Typer(help="""
                   学在浙大作业任务相关命令，可以查看待完成的任务，提交作业等。
 
                   暂时不支持对测试与考试的提交。
-                  """)
+                  """,
+                  no_args_is_help=True
+                  )
 
 def is_todo_show_amount_valid(amount: int):
     if amount <= 0:

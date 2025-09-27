@@ -16,8 +16,10 @@ from ..state import state
 
 # course 命令组
 app = typer.Typer(help="""
-学在浙大课程相关命令组，提供了对课程的查询与对课程章节查看的功能。
-""")
+                        学在浙大课程相关命令组，提供了对课程的查询与对课程章节查看的功能。
+                       """,
+                    no_args_is_help=True
+                  )
 
 # 文件大小换算
 def transform_resource_size(resource_size: int)->str:

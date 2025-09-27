@@ -14,16 +14,11 @@ KEYRING_STUDENTID_NAME = "studentid"
 KEYRING_PASSWORD_NAME = "password"
 
 # 初始化主app对象
-app = typer.Typer(help="LAZY CLI - 学在浙大第三方客户端的命令行工具")
+app = typer.Typer(help="LAZY CLI - 学在浙大第三方客户端的命令行工具", no_args_is_help=True)
 
 # --- 全局回调，检验登录状态 ---
-@app.callback(invoke_without_command=True)
+@app.callback()
 def main_callback(ctx: typer.Context):
-    # 如果没有输入命令则提供帮助信息
-    if ctx.invoked_subcommand is None:
-        rprint("输入 [cyan]'--help'[/cyan] 以获取更多帮助")
-        return 
-    
     # 如果使用的是login命令，则无需检查登录状态
     if ctx.invoked_subcommand == "login":
         return 

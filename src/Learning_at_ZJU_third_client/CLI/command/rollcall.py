@@ -15,7 +15,8 @@ from ..state import state
 
 app = typer.Typer(help="""
     学在浙大签到相关命令组
-    """
+    """,
+    no_args_is_help=True
 )
 
 def get_site_coordinate(site: str):

@@ -13,7 +13,9 @@ from ...printlog.print_log import print_log
 from ..state import state
 
 # resource 命令组
-app = typer.Typer(help="学在浙大云盘资源相关命令，可以查看，搜索，上传或下载云盘文件。")
+app = typer.Typer(help="学在浙大云盘资源相关命令，可以查看，搜索，上传或下载云盘文件。",
+                  no_args_is_help=True
+                  )
 
 # 资源列举file_type检验
 def is_list_resoureces_file_type_valid(file_type: str):

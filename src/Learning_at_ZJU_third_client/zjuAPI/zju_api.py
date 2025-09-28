@@ -241,7 +241,10 @@ class coursesAPIFits(APIFits):
                     "activities",
                     "exams",
                     "exam-scores",
-                    "completeness"
+                    "completeness",
+                    "classrooms",
+                    "activities_reads",
+                    "coursewares"
                  ],
                  apis_config = None,
                  parent_dir: str = "course",
@@ -320,6 +323,48 @@ class courseViewAPIFits(coursesAPIFits):
         
         api_url = base_api_url.replace("<placeholder>", str(self.course_id))
         return api_url
+
+class coursewaresViewAPIFits(coursesAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 course_id: int,
+                 page: int,
+                 page_size: int,
+                 apis_name=["coursewares"]
+                 ):
+        super().__init__(login_session, apis_name)
+        self.course_id = course_id
+        self.page = page
+        self.page_size = page_size
+
+    def make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+        
+        if not base_api_url:
+            print_log("Error", f"{api_name}参数url缺失！", "zju_api.coursewaresViewAPIFits.make_api_url")
+            return 
+
+        if api_name == "coursewares":
+            return base_api_url.replace("<placeholder>", str(self.course_id))
+
+        return super().make_api_url(api_config, api_name)
+    
+    def make_api_params(self, api_config, api_name):
+        api_params: dict = api_config.get("params")
+
+        if not api_params:
+            print_log("Error", f"{api_name}参数params缺失！", "zju_api.courseViewAPIFits.make_api_params")
+            return 
+        
+        if api_name == "coursewares":
+            conditions: dict         = api_params.get("conditions", {})
+            conditions["category"]   = "null"
+            api_params["conditions"] = json.dumps(conditions)
+            api_params["page"]       = self.page
+            api_params["page_size"]  = self.page_size
+            return api_params
+
+        return super().make_api_params(api_config, api_name)
 
 # --- Assignment API ---
 class assignmentAPIFits(APIFits):

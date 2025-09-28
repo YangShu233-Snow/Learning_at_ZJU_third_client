@@ -111,7 +111,16 @@
             "coursewares": {
                 "url": "https://courses.zju.edu.cn/api/course/<placeholder>/coursewares",
                 "params": {
-                    "conditions": "{\"category\":null,\"itemsSortBy\":{\"predicate\":\"chapter\",\"reverse\":false},\"ignore_activity_types\":[\"lesson\"]}",
+                    "conditions": {
+                        "category": null,
+                        "itemsSortBy": {
+                            "predicate": "chapter",
+                            "reverse": false
+                        },
+                        "ignore_activity_types": [
+                            "lesson"
+                        ]
+                    },
                     "page": 1,
                     "page_size": 20
                 }
@@ -252,7 +261,7 @@
             "todo": {
                 "url": "https://courses.zju.edu.cn/api/todos?no-intercept=true",
                 "params": {}
-                },
+            },
             "exam": {
                 "url": "https://courses.zju.edu.cn/api/exams/<placeholder>",
                 "params": {}

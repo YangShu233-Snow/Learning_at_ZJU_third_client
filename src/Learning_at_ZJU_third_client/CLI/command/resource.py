@@ -9,7 +9,6 @@ from datetime import datetime
 from pathlib import Path
 
 from ...zjuAPI import zju_api
-from ...upload import file_upload
 from ...printlog.print_log import print_log
 from ..state import state
 
@@ -31,7 +30,7 @@ class HumanReadableTransferColumn(ProgressColumn):
         completed_str = filesize.decimal(int(task.completed))
         
         if task.total is not None:
-            total_str = transform_resource_size(int(task.total))
+            total_str = filesize.decimal(int(task.total))
             # 最终显示的文本格式
             display_text = f"{completed_str}/{total_str}"
         else:
@@ -70,22 +69,13 @@ def is_download_dest_dir(dest: Path):
     
     return dest
 
-# 文件大小换算
-def transform_resource_size(resource_size: int)->str:
-    resource_size_KB = resource_size / 1024
-    resource_size_MB = resource_size_KB / 1024
-    resource_size_GB = resource_size_MB / 1024
-
-    if resource_size_GB >= 0.5:
-        return f"{resource_size_GB:.2f}GB"
-    
-    if resource_size_MB >= 0.5:
-        return f"{resource_size_MB:.2f}MB"
-    
-    if resource_size_KB >= 0.5:
-        return f"{resource_size_KB:.2f}KB"
-    
-    return f"{resource_size:.2f}B"
+# 转换时间
+def transform_time(time: str|None)->str:
+    if time:
+        time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
+        return time_local.strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        return "null"
 
 # 修整并检查文件路径
 def check_files_path(files: List[Path])->List[Path]:
@@ -178,12 +168,10 @@ def list_resources(
         else:
             resources_list_table.add_column("资源ID", style="cyan", no_wrap=True, width=8)
             resources_list_table.add_column("资源名称", style="bright_yellow", ratio=3)
-            resources_list_table.add_column("上传时间", ratio=2)
+            resources_list_table.add_column("上传时间", ratio=1)
             resources_list_table.add_column("文件大小", ratio=1)
-            resources_list_table.add_column("下载状态", ratio=1)
 
         
-        # quiet 模式仅打印文件id，并且不换行
         # short 模式仅按表单格式打印文件名与文件id
         for resource in resources_list:
             resource_id = str(resource.get('id', 'null'))
@@ -197,16 +185,13 @@ def list_resources(
                 
                 continue
             
-            resource_size = transform_resource_size(resource.get('size', 0))
-            resource_download_status = "[green]可下载[/green]" if resource.get('allow_download', False) else "[red]不可下载[/red]"
-            resource_update_time = datetime.fromisoformat(resource.get("updated_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
-
+            resource_size = filesize.decimal(resource.get('size', 0))
+            resource_update_time = transform_time(resource.get("updated_at", "1900-01-01T00:00:00Z"))
             resources_list_table.add_row(
                 resource_id,
                 resource_name,
                 resource_update_time,
-                resource_size,
-                resource_download_status
+                resource_size
             )
 
             if resource != resources_list[-1]:
@@ -238,7 +223,7 @@ def upload_resources(
 
     不属于其他类的文件格式的文件单文件大小限制在3GB以内，其他类文件格式的文件单文件大小限制在2GB以内，超出限定大小的文件将被自动忽略。
     """
-    to_upload_files = []
+    to_upload_files: List[Path] = []
 
     # 创建进度提示，开始载入并上传文件
     with Progress(
@@ -283,19 +268,19 @@ def upload_resources(
                 upload_task = sub_progress.add_task(description="创建上传任务...", start=False)
 
                 # 创建回调函数
-                def update_progress(uploaded: int, total: int, filename: str):
+                def update_progress(uploaded: int, total: int, filename: str, task_id: int = upload_task):
                     # 首次回调，更新文件名和进度
-                    if not sub_progress.tasks[upload_task].started:
-                        sub_progress.start_task(upload_task)
-                        sub_progress.update(upload_task, description=f"[cyan]上传: {filename}", total=total)
+                    if not sub_progress.tasks[task_id].started:
+                        sub_progress.start_task(task_id)
+                        sub_progress.update(task_id, description=f"[cyan]上传: {filename}", total=total)
 
-                    sub_progress.update(upload_task, completed=uploaded)
+                    sub_progress.update(task_id, completed=uploaded)
 
                 if files_uploader.upload(to_upload_file, update_progress):
                     success_amount += 1
                     sub_progress.update(upload_task, description=f"[green]√ {sub_progress.tasks[upload_task].description}[/green]", completed=sub_progress.tasks[upload_task].total)
                 else:
-                    sub_progress.update(upload_task, description=f"[red]上传失败: {file_upload} o(￣ヘ￣o＃)[/red]")
+                    sub_progress.update(upload_task, description=f"[red]上传失败: {str(to_upload_file)} o(￣ヘ￣o＃)[/red]")
 
                 progress.advance(main_task, advance=1)
             
@@ -404,13 +389,13 @@ def download_resource(
                 download_task = sub_progress.add_task(description=f"下载文件中...", start=False)
                 
                 # 创建回调函数
-                def update_progress(downloaded: int, total_size: int, filename: int):
+                def update_progress(downloaded: int, total_size: int, filename: int, task_id: int = download_task):
                     # 首次回调，更新文件名和文件大小
-                    if not sub_progress.tasks[download_task].started:
-                        sub_progress.start_task(download_task)
-                        sub_progress.update(download_task, description=f"[cyan]下载: {filename}", total=total_size)
+                    if not sub_progress.tasks[task_id].started:
+                        sub_progress.start_task(task_id)
+                        sub_progress.update(task_id, description=f"[cyan]下载: {filename}", total=total_size)
 
-                    sub_progress.update(download_task, completed=downloaded)
+                    sub_progress.update(task_id, completed=downloaded)
                 
                 if resources_downloader.batch_download(progress_callback=update_progress):
                     rprint(f"[green]下载成功！")
@@ -444,13 +429,13 @@ def download_resource(
                 download_task = sub_progress.add_task(description=f"文件ID: {file_id}", start=False)
 
                 # 创建回调函数
-                def update_progress(downloaded: int, total_size: int, filename: int):
+                def update_progress(downloaded: int, total_size: int, filename: int, task_id: int = download_task):
                     # 首次回调，更新文件名和文件大小
-                    if not sub_progress.tasks[download_task].started:
-                        sub_progress.start_task(download_task)
-                        sub_progress.update(download_task, description=f"[cyan]下载: {filename}", total=total_size)
+                    if not sub_progress.tasks[task_id].started:
+                        sub_progress.start_task(task_id)
+                        sub_progress.update(task_id, description=f"[cyan]下载: {filename}", total=total_size)
 
-                    sub_progress.update(download_task, completed=downloaded)
+                    sub_progress.update(task_id, completed=downloaded)
 
                 if resource_downloader.download(progress_callback=update_progress):
                     success_amount += 1

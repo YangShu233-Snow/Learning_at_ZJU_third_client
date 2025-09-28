@@ -1,6 +1,7 @@
 import typer
 from typing_extensions import Optional, Annotated, List, Tuple
 from requests import Session
+from rich import filesize
 from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.tree import Tree
@@ -20,6 +21,9 @@ app = typer.Typer(help="""
                        """,
                     no_args_is_help=True
                   )
+
+# view 子命令组
+view_app = typer.Typer(help="学在浙大课程查看相关命令组，支持对课程多维信息的查看。", no_args_is_help=True)
 
 # 文件大小换算
 def transform_resource_size(resource_size: int)->str:
@@ -257,8 +261,9 @@ def list_courses(
 
     rprint(courses_list_table)
 
-@app.command("view")
-def view_course(
+# 注册课程查看命令
+@view_app.command("syllabus")
+def view_syllabus(
     course_id: Annotated[int, typer.Argument(help="课程id")],
     modules_id: Annotated[Optional[List[int]], typer.Option("--module", "-m", help="章节id")] = None,
     last: Annotated[Optional[bool], typer.Option("--last", "-l", help="启用此选项，自动展示最新一章节")] = False,
@@ -570,3 +575,102 @@ def view_course(
         progress.advance(task)
 
     rprint(course_tree)
+
+@view_app.command("coursewares")
+def view_coursewares(
+    course_id: Annotated[int, typer.Argument(help="课程ID")],
+    page: Annotated[Optional[int], typer.Option("--page", "-p", help="页面索引")] = 1,
+    page_size: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示课件数量")] = 10,
+    short: Annotated[Optional[bool], typer.Option("--short", "-s", help="启用此选项，简化输出，仅显示文件名与文件ID")] = False,
+    quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="启用此选项，仅输出文件ID")] = False,
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，输出所有结果")] = False
+):
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="获取课程信息中...", total=2)
+
+        if all:
+            pre_raw_coursewares = zju_api.coursewaresViewAPIFits(state.client.session, course_id, 1, 1).get_api_data()[0]
+            page = 1
+            page_size = pre_raw_coursewares.get("total", 0)
+
+        raw_coursewares = zju_api.coursewaresViewAPIFits(state.client.session, course_id, page, page_size).get_api_data()[0]
+        progress.update(task, description="渲染任务信息中...", advance=1)
+        
+        # 检验返回结果
+        total: int = raw_coursewares.get("total", 0)
+        pages: int = raw_coursewares.get("pages", 0)
+
+        if total == 0:
+            rprint("当前还没有课件哦~\\( ^ ω ^ )/")
+
+        if page > pages:
+            rprint(f"当前仅有 {pages} 页，你都索引到 {page} 页啦！[○･｀Д´･ ○]")
+
+        # 提取并拼装所有文件
+        coursewares_list: List[dict] = raw_coursewares.get("activities", [])
+        coursewares_uploads: List[dict] = []
+        for courseware in coursewares_list:
+            coursewares_uploads.extend(courseware.get("uploads", []))
+
+        if quiet:
+            courseware_ids = [str(courseware_upload.get("id", "null")) for courseware_upload in coursewares_uploads]
+            print(" ".join(courseware_ids))
+            return
+
+        # --- 准备表格 ---
+        coursewares_table = Table(
+            title=f"资源列表 (第 {page} / {pages} 页)",
+            caption=f"本页显示 {len(coursewares_uploads)} 个，共 {total} 个结果。",
+            border_style="bright_black",
+            show_header=True,
+            header_style="bold magenta",
+            expand=True
+        )
+
+        if short:
+            coursewares_table.add_column("资源ID", style="cyan", no_wrap=True, width=10)
+            coursewares_table.add_column("资源名称", style="bright_yellow", ratio=1)
+        else:
+            coursewares_table.add_column("资源ID", style="cyan", no_wrap=True, width=8)
+            coursewares_table.add_column("资源名称", style="bright_yellow", ratio=3)
+            coursewares_table.add_column("上传时间", ratio=1)
+            coursewares_table.add_column("文件大小", ratio=1)
+
+        for courseware_upload in coursewares_uploads:
+            courseware_id   = str(courseware_upload.get("id", "null"))
+            courseware_name = courseware_upload.get("name", "null")
+
+            if short:
+                coursewares_table.add_row(
+                    courseware_id,
+                    courseware_name
+                )
+
+                if courseware_upload != coursewares_uploads[-1]:
+                    coursewares_table.add_row()
+
+                continue
+
+            courseware_size            = filesize.decimal(courseware_upload.get("size", 0))
+            courseware_update_time     = transform_time(courseware_upload.get("updated_at", "1900-01-01T00:00:00Z"))
+
+            coursewares_table.add_row(
+                courseware_id,
+                courseware_name,
+                courseware_update_time,
+                courseware_size
+            )
+
+            if courseware_upload != coursewares_uploads[-1]:
+                coursewares_table.add_row()
+
+        progress.update(task, description="渲染完成！", advance=1)
+
+    rprint(coursewares_table)
+
+# view 注册入课程命令组
+app.add_typer(view_app, name="view")

@@ -242,9 +242,9 @@ class ZjuClient:
         
         # 验证登录状态
         try:
-            response = self.session.get(url="https://courses.zju.edu.cn/api/announcement")
+            response = self.session.get(url="https://courses.zju.edu.cn/api/activities/is-locked", allow_redirects=False)
             response.raise_for_status()
-            if "announcements" in response.json():
+            if response.status_code == 200:
                 print_log("Info", "会话验证有效", "login.login.ZjuClient.is_valid_session")
                 return True
             

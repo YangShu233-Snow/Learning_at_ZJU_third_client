@@ -25,23 +25,6 @@ app = typer.Typer(help="""
 # view 子命令组
 view_app = typer.Typer(help="学在浙大课程查看相关命令组，支持对课程多维信息的查看。", no_args_is_help=True)
 
-# 文件大小换算
-def transform_resource_size(resource_size: int)->str:
-    resource_size_KB = resource_size / 1024
-    resource_size_MB = resource_size_KB / 1024
-    resource_size_GB = resource_size_MB / 1024
-
-    if resource_size_GB >= 0.5:
-        return f"{resource_size_GB:.2f}GB"
-    
-    if resource_size_MB >= 0.5:
-        return f"{resource_size_MB:.2f}MB"
-    
-    if resource_size_KB >= 0.5:
-        return f"{resource_size_KB:.2f}KB"
-    
-    return f"{resource_size:.2f}B"
-
 def transform_time(time: str|None)->str:
     if time:
         time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
@@ -424,7 +407,7 @@ def view_syllabus(
                     for upload in activity_uploads:
                         file_name = upload.get("name", "null")
                         file_id = upload.get("id", "null")
-                        file_size = transform_resource_size(upload.get("size", 0))
+                        file_size = filesize.decimal(upload.get("size", 0))
 
                         upload_table = Table(show_header=False, box=None, padding=(0, 1), show_edge=False, expand=True)
                         upload_table.add_column("Name", no_wrap=True)
@@ -437,14 +420,19 @@ def view_syllabus(
                         
                         content_renderables.append(upload_table)
 
-                    panel_title = f"[white][{activity_type}][/white]"
-                    panel_subtitle = f"[white]ID: {activity_id}[/white]"
+                    if activity_type == "作业":
+                        panel_title = f"[cyan][{activity_type}][/cyan]"
+                        panel_subtitle = f"[cyan]ID: {activity_id}[/cyan]"
+
+                    else:
+                        panel_title = f"[white][{activity_type}][/white]"
+                        panel_subtitle = f"[white]ID: {activity_id}[/white]"
 
                     activity_panel = Panel(
                         Group(*content_renderables),
                         title=panel_title,
                         subtitle=panel_subtitle,
-                        border_style="bright_black",
+                        border_style="bright_cyan" if activity_type == "作业" else "bright_black",
                         expand=True,
                         padding=(1, 2)
                     )

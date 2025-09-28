@@ -1,5 +1,6 @@
 import typer
-from typing_extensions import Optional, Annotated, List
+from typing_extensions import Optional, Annotated, List, Tuple
+from rich import filesize
 from rich import print as rprint
 from rich.align import Align
 from rich.table import Table
@@ -45,22 +46,6 @@ def make_jump_url(course_id: int, material_id: int, material_type: str)->str:
 
     return f"https://courses.zju.edu.cn/course/{course_id}/learning-activity/full-screen#/{material_type}/{material_id}"
 
-def transform_resource_size(resource_size: int)->str:
-    resource_size_KB = resource_size / 1024
-    resource_size_MB = resource_size_KB / 1024
-    resource_size_GB = resource_size_MB / 1024
-
-    if resource_size_GB >= 0.5:
-        return f"{resource_size_GB:.2f}GB"
-    
-    if resource_size_MB >= 0.5:
-        return f"{resource_size_MB:.2f}MB"
-    
-    if resource_size_KB >= 0.5:
-        return f"{resource_size_KB:.2f}KB"
-    
-    return f"{resource_size:.2f}B"
-
 def transform_time(time: str|None)->str:
     if time:
         time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
@@ -84,7 +69,7 @@ def extract_uploads(uploads_list: List[dict])->List[Table]:
     for upload in uploads_list:
         file_name = upload.get("name", "null")
         file_id = upload.get("id", "null")
-        file_size = transform_resource_size(upload.get("size", 0))
+        file_size = filesize.decimal(upload.get("size", 0))
 
         upload_table = Table(show_header=False, box=None, padding=(0, 1), show_edge=False, expand=True)
         upload_table.add_column("Name", no_wrap=True)
@@ -125,6 +110,30 @@ def parse_files_id(files_id: str)->List[int]:
         raise typer.Exit(code=1)
     
     return list(set(files_id_list))
+
+def guess_assignment_type(assignment_id: int)->Tuple[bool, bool, bool]:
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="正在猜测任务类型...",total=1)
+        raw_activity: dict = zju_api.assignmentPreviewAPIFits(state.client.session, assignment_id).post_api_data()[0]
+        if raw_activity and raw_activity.get("data"):
+            progress.update(task, description="猜测是作业!", completed=1)
+            return (True, False, False)
+        
+        raw_exam = zju_api.assignmentExamViewAPIFits(state.client.session, assignment_id, apis_name=["exam"]).get_api_data()[0]
+        if raw_exam:
+            progress.update(task, description="猜测是测试!", completed=1)
+            return (False, True, False)
+        
+        raw_classroom = zju_api.assignmentClassroomViewAPIFits(state.client.session, assignment_id, apis_name=["classroom"]).get_api_data()[0]
+        if raw_classroom:
+            progress.update(task, description="猜测是课堂任务!", completed=1)
+            return (False, False, True)
+    
+    return (False, False, False)
 
 def view_exam(exam_id: int, type_map: dict):
     with Progress(
@@ -240,7 +249,7 @@ def view_exam(exam_id: int, type_map: dict):
             # --- 组装 Exam Submission List Panel ---
             exam_submission_list_panel = Panel(
                 Group(*submission_content_renderables),
-                title = "[green][交卷记录][/green]",
+                title = "[yellow][交卷记录][/yellow]",
                 border_style="yellow",
                 expand=True,
                 padding=(1, 2)
@@ -268,10 +277,6 @@ def view_exam(exam_id: int, type_map: dict):
         rprint(exam_panel)
 
 def view_classroom(classroom_id: int, type_map: dict):
-    classroom_status_map = {
-        "finish": Text(f"🔴 已结束", style="red")
-    }
-
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -300,7 +305,6 @@ def view_classroom(classroom_id: int, type_map: dict):
         # --- 渲染阶段 ---
         classroom_title: str = classroom_message.get("title") if classroom_message.get("title") else "null"
         classroom_type: str = type_map.get(classroom_message.get("type"), classroom_message.get("type"))
-        classroom_status: Text = classroom_status_map.get(classroom_message.get("status"), Text(f"{classroom_message.get("status")}", style="white"))
         
         classroom_start_time = transform_time(classroom_message.get("start_at"))
         classroom_finish_time = transform_time(classroom_message.get("finish_at"))
@@ -349,7 +353,7 @@ def view_classroom(classroom_id: int, type_map: dict):
 
             classroom_submissions_panel = Panel(
                 Group(*submissions_content_renderables),
-                title = "[green][提交记录][/green]",
+                title = "[yellow][提交记录][/yellow]",
                 border_style="yellow",
                 expand=True,
                 padding=(1, 2)
@@ -537,7 +541,7 @@ def view_activity(activity_id: int, type_map: dict):
             # --- 装配Submission List Panel ---
             submission_list_panel = Panel(
                 Group(*submission_content_renderables),
-                title = "[green][提交记录][/green]",
+                title = "[yellow][提交记录][/yellow]",
                 border_style="yellow",
                 expand=True,
                 padding=(1, 2)
@@ -566,7 +570,8 @@ def view_activity(activity_id: int, type_map: dict):
 def view_assignment(
     assignment_id: Annotated[int, typer.Argument(help="任务id")],
     exam: Annotated[Optional[bool], typer.Option("--exam", "-e", help="启用此选项，将查询对应的考试")] = False,
-    classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")] = False
+    classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")] = False,
+    homework: Annotated[Optional[bool], typer.Option("--homework", "-H", help="启用此选项，将查询对应作业")] = False
 ):
     """
     浏览指定任务，显示任务基本信息，任务附件与任务提交记录
@@ -580,6 +585,14 @@ def view_assignment(
         "page": "页面",
         "classroom": "课堂任务"
     }
+    # 猜测任务类型
+    if not (homework or exam or classroom):
+        homework, exam, classroom = guess_assignment_type(assignment_id)
+
+    # 按照指定分配至相应任务
+    if homework:
+        view_activity(assignment_id, type_map)
+        return 
 
     if exam:
         view_exam(assignment_id, type_map)
@@ -588,8 +601,8 @@ def view_assignment(
     if classroom:
         view_classroom(assignment_id, type_map)
         return
-
-    view_activity(assignment_id, type_map)
+    
+    rprint(f"任务 {assignment_id} 不存在！")
     return 
 
 

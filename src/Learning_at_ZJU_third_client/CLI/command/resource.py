@@ -239,44 +239,67 @@ def upload_resources(
     不属于其他类的文件格式的文件单文件大小限制在3GB以内，其他类文件格式的文件单文件大小限制在2GB以内，超出限定大小的文件将被自动忽略。
     """
     to_upload_files = []
-    
-    print_log("Info", "载入目标路径", "CLI.command.resource.upload_resources")
 
     # 创建进度提示，开始载入并上传文件
     with Progress(
-        SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
-    ) as progress:
-        task = progress.add_task(description="载入文件中...", total=1)
+        BarColumn(),
+        TaskProgressColumn(),
+        transient=True   
+    ) as progress:        
+        pre_task = progress.add_task(description="[green]正在载入文件...[/green]", total=len(files))
+        
+        print_log("Info", "载入目标路径", "CLI.command.resource.upload_resources")
         for file in files:
             if Path.is_dir(file):
                 if not recursion:
                     print_log("Warning", f"{file} 为文件夹，但是 --recursion未启用", "CLI.command.resource.upload_resources")
                     print(f"{file} 是一个文件夹，但是你没有启用 --recursion，它不会被解包为文件上传！")
+                    progress.advance(pre_task)
                     continue
 
                 to_upload_files.extend(to_upload_dir_walker(file))
-                continue
+            else:
+                to_upload_files.append(file)
             
-            to_upload_files.append(file)
-        progress.advance(task, advance=1)
-
-        total_to_upload_files_amount = len(to_upload_files)
-        print_log("Info", f"成功载入 {total_to_upload_files_amount} 个文件", "CLI.command.resource.upload_resources")    
-        print(f"{total_to_upload_files_amount} 个文件被载入")
-
-        task = progress.add_task(description="文件上传中...")
-        try:
-            files_uploader = file_upload.uploadFile(to_upload_files)
-            files_uploader.upload(state.client.session)
-        except HTTPError as e:
-            print_log("Error", f"上传发生网络错误！错误原因: {e}", "CLI.command.resource.upload_resources")
-            print("上传发生错误！")
-            raise typer.Exit(code=1)
+            progress.advance(pre_task)
         
-        print("文件上传完成！")
-        progress.advance(task, advance=1)
+        success_amount  = 0
+        total_amount    = len(to_upload_files)
+        print_log("Info", f"成功载入 {total_amount} 个文件", "CLI.command.resource.upload_resources")    
+        main_task = progress.add_task(description="[green]正在上传文件...[/green]", total=total_amount)
+
+        with Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            HumanReadableTransferColumn(),
+            TimeRemainingColumn()
+        ) as sub_progress:
+            
+            files_uploader = zju_api.resourceUploadAPIFits(state.client.session)
+                
+            for to_upload_file in to_upload_files:
+                # 文件子任务，跟踪单文件上传进度
+                upload_task = sub_progress.add_task(description="创建上传任务...", start=False)
+
+                # 创建回调函数
+                def update_progress(uploaded: int, total: int, filename: str):
+                    # 首次回调，更新文件名和进度
+                    if not sub_progress.tasks[upload_task].started:
+                        sub_progress.start_task(upload_task)
+                        sub_progress.update(upload_task, description=f"[cyan]上传: {filename}", total=total)
+
+                    sub_progress.update(upload_task, completed=uploaded)
+
+                if files_uploader.upload(to_upload_file, update_progress):
+                    success_amount += 1
+                    sub_progress.update(upload_task, description=f"[green]√ {sub_progress.tasks[upload_task].description}[/green]", completed=sub_progress.tasks[upload_task].total)
+                else:
+                    sub_progress.update(upload_task, description=f"[red]上传失败: {file_upload} o(￣ヘ￣o＃)[/red]")
+
+                progress.advance(main_task, advance=1)
+            
+        rprint(f"[green]文件上传完成！[/green]成功上传 {success_amount} 个文件，失败 {total_amount - success_amount} 个文件。")
     
     return 
     
@@ -433,7 +456,7 @@ def download_resource(
                     success_amount += 1
                     sub_progress.update(download_task, description=f"[green]√ {sub_progress.tasks[download_task].description}", completed=sub_progress.tasks[download_task].total)
                 else:
-                    sub_progress.update(download_task, description=f"[red]下载失败: {file_id} o(￣ヘ￣o＃)")
+                    sub_progress.update(download_task, description=f"[red]下载失败: {file_id} o(￣ヘ￣o＃)[/red]")
 
                 progress.update(main_task, advance=1)
 

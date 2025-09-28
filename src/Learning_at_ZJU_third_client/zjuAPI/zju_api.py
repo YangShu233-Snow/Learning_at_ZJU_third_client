@@ -1,18 +1,52 @@
+import os
 import requests
 import json
-import rich
 import re
+import asyncio
+import httpx
+import mimetypes
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import unquote
-from requests import Response
-from requests.exceptions import HTTPError, RequestException
+from requests.exceptions import HTTPError
 from typing_extensions import List, Optional, Callable
 
 from ..load_config import load_config
 from ..printlog.print_log import print_log
 
 DOWNLOAD_DIR = Path.home() / "Downloads"
+
+class fileUploadProgressWrapper:
+    def __init__(self,
+                 file,
+                 progress_callback: Optional[Callable[[int, int], None]] = None):
+        self._file = file
+        self._callback = progress_callback
+        self._total_size = os.fstat(self._file.fileno()).st_size
+        self._bytes_read = 0
+
+    def read(self, size=-1):
+        """request库会调用这个方法流式读取
+        """
+        chunk = self._file.read(size)
+        if chunk:
+            self._bytes_read += len(chunk)
+            # 如果给出了回调函数
+            if self._callback:
+                # 向上报告进度
+                try:
+                    self._callback(self._bytes_read, self._total_size)
+                except Exception as e:
+                    print_log("Error", f"{e}", "zju_api.fileUploadProgressWrapper.read")
+
+        return chunk
+    
+    def __len__(self):
+        """request库通过这个方法获知文件大小
+        """
+
+        return self._total_size
+
 
 class APIFits:
     def __init__(self, login_session: requests.Session, name, apis_name: List[str]|None = None, apis_config: dict|None = None, parent_dir = None, data = None):
@@ -436,7 +470,8 @@ class resourcesAPIFits(APIFits):
                     "list",
                     "download",
                     "remove",
-                    "batch_remove"
+                    "batch_remove",
+                    "upload"
                 ], 
                 apis_config=None, 
                 parent_dir="resources", 
@@ -551,8 +586,8 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                 if content_disposition:
                     fn_match = re.search('filename="?(.+)"?', content_disposition)
                     if fn_match:
-                        filename = fn_match.group(1).strip('"')
-                        filename = unquote(filename)
+                        potential_filename = fn_match.group(1).strip('"')
+                        filename = unquote(potential_filename).encode('latin').decode('utf-8')
 
                 if not filename and 'name=' in response.url:
                     filename = unquote(response.url.split("name=")[-1])
@@ -793,7 +828,154 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
         except Exception as e:
             print_log("Error", f"未知错误！错误原因: {e}", "zju_api.resourcesRemoveAPIFits.delete_api_data")
             return False
+
+class resourceUploadAPIFits(resourcesAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 apis_name=["upload"]):
+        super().__init__(login_session, apis_name)
+        self.upload_headers = {
+            'Accept': 'application/json, text/plain, */*',
+            'Origin': 'https://courses.zju.edu.cn',
+            'Referer': 'https://courses.zju.edu.cn/user/resources/files',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
+        }
+    
+    def upload(self, 
+               file_path: Path,
+               progress_callback: Optional[Callable[[int, int, str], None]] = None
+               )->bool:
+        self.file_path = self._check_file_paths(file_path)
+
+        # --- 准备阶段 ---
+        if not self.file_path:
+            print_log("Error", f"加载 {file_path} 的时候发生错误！", "zju_api.resourceUploadAPIFits.upload")
+            return False
         
+        if not self.apis_name or not self.apis_config:
+            self.load_api_config()
+
+        api_name   = "upload"
+        api_config = self.apis_config.get(api_name)
+        api_url    = self.make_api_url(api_config, api_name)
+
+        if not api_config:
+            print_log("Error", f"{api_name}不存在！", "zju_api.resourceUploadAPIFits.upload")
+            return False
+
+        self.file_name = self.file_path.name
+        self.file_size = self.file_path.stat().st_size
+        upload_data    = self.make_api_data(api_config, api_name)
+
+        print_log("Info", f"请求上传文件 {self.file_name} 中...", "zju_api.resourceUploadAPIFits.upload")
+
+        # --- 申请阶段 ---
+        # POST文件上传请求，以获得文件上传的实际位置
+        try:
+            upload_response = self.login_session.post(
+                url     = api_url,
+                json    = upload_data,
+                headers = self.upload_headers
+            )
+
+            upload_response.raise_for_status()
+        except Exception as e:
+            print_log("Error", f"向服务器申请上传文件 {self.file_name} 时候发生错误！{e}", "zju_api.resourceUploadAPIFits.upload")
+            return False
+        
+        print_log("Info", f"文件 {self.file_name} 请求上传文件成功！", "zju_api.resourceUploadAPIFits.upload")
+        print_log("Info", f"文件 {self.file_name} 开始上传...", "zju_api.resourceUploadAPIFits.upload")
+
+        # --- 上传阶段 ---
+        upload_url    = upload_response.json().get("upload_url")
+        file_mimetype = mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
+        
+        # 适配上层需求文件名
+        def sub_progress_callback(uploaded: int, total: int):
+            progress_callback(uploaded, total, self.file_name)
+
+        try:
+            with open(file_path, 'rb') as f:
+                # 包装文件
+                uploader = fileUploadProgressWrapper(f, sub_progress_callback)
+
+                # 构建payload
+                file_payload = {
+                    "file": (self.file_name, uploader, file_mimetype)
+                }
+
+                response = self.login_session.put(
+                    url = upload_url,
+                    files = file_payload
+                )
+
+            response.raise_for_status()
+        except Exception as e:
+            print_log("Error", f"向服务器上传文件 {self.file_name} 时候发生错误！{e}", "zju_api.resourceUploadAPIFits.upload")
+            return False
+        
+        print_log("Info", f"文件 {self.file_name} 上传成功！", "zju_api.resourceUploadAPIFits.upload")
+        return True
+
+    def make_api_data(self, api_config, api_name):
+        api_data = api_config.get("params", {})
+
+        if api_name == "upload":
+            api_data["name"] = self.file_name
+            api_data["size"] = self.file_size
+            return api_data
+        
+        return super().make_api_params(api_config, api_name)
+
+
+    def _check_file_paths(self, file_path: Path)->Path|None:
+        """检查文件路径的有效性与待上传文件的合法性
+        """
+
+        # 定义合法文件类型
+        video_formats    = ["avi", "flv", "m4v", "mkv", "mov", "mp4", "3gp", "3gpp", "mpg", "rm", "rmvb", "swf", "webm", "wmv"]
+        audio_formats    = ["mp3", "m4a", "wav", "wma"]
+        image_formats    = ["jpeg", "jpg", "png", "gif", "bmp", "heic", "webp"]
+        document_formats = ["txt", "pdf", "csv", "xls", "xlsx", "doc", "ppt", "pptx", "docx", "odp", "ods", "odt", "rtf"]
+        archive_formats  = ["zip", "rar", "tar"]
+
+        main_formats     = video_formats + audio_formats + image_formats + document_formats + archive_formats
+        other_formats    = ["mat", "dwg", "m", "mlapp", "slx", "mlx"]
+
+        # 定义合法文件大小，主要文件类型为3GB，其他为2GB
+        legal_file_max_size = (3*1024**3, 2*1024**3)
+  
+        # 检查路径合法性
+        if not isinstance(file_path, Path):
+            print_log("Error", f"{file_path} 不是一个 Path 类型对象！", "zju_api.resourceUploadAPIFits._check_file_paths")
+            return None
+
+        if not Path(file_path).exists():
+            print_log("Error", f"{file_path} 不存在！", "zju_api.resourceUploadAPIFits._check_file_paths")
+            return None
+        
+        if not Path(file_path).is_file():
+            print_log("Error", f"{file_path} 不是一个文件！", "zju_api.resourceUploadAPIFits._check_file_paths")
+            return None
+        
+        # 检查文件合法性
+        file_size = file_path.stat().st_size
+        file_type = file_path.suffix.replace('.', '')
+
+        if file_type in main_formats:
+            if file_size > legal_file_max_size[0]:
+                print_log("Error", f"{file_path.name} 大小超出上限3GB！", "zju_api.resourceUploadAPIFits._check_file_paths")
+                return None
+        elif file_type in other_formats:
+            if file_size > legal_file_max_size[1]:
+                print_log("Error", f"{file_path.name} 大小超出上限2GB！", "zju_api.resourceUploadAPIFits._check_file_paths")
+                return None
+        else:
+            print_log("Error", f"{file_path.name} 的文件类型 {file_type} 暂不支持上传！", "zju_api.resourceUploadAPIFits._check_file_paths")
+            return None
+            
+        return file_path
+
 # --- rollcall API ---
 class rollcallAPIFits(APIFits):
     def __init__(self, 

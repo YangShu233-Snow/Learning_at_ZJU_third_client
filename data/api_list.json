@@ -160,7 +160,8 @@
             "download",
             "batch_download",
             "remove",
-            "batch_remove"
+            "batch_remove",
+            "upload"
         ],
         "apis_config": {
             "list": {
@@ -203,6 +204,21 @@
                 "method": "DELETE",
                 "params": {
                     "upload_ids": []
+                }
+            },
+            "upload": {
+                "url": "https://courses.zju.edu.cn/api/uploads",
+                "method": "POST",
+                "data": {
+                    "name": "Default_name",
+                    "size": 1,
+                    "parent_type": null,
+                    "parent_id": 0,
+                    "is_scorm": false,
+                    "is_wmpkg": false,
+                    "source": "",
+                    "is_marked_attachment": false,
+                    "embed_material_type": ""
                 }
             }
         }

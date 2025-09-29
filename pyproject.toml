@@ -35,9 +35,6 @@ gui = [
 
 # 开发时需要的工具 (用于格式化、检查、测试等)
 dev = [
-    "pytest",  # 测试框架
-    "ruff",    # 高性能的代码检查和格式化工具 (可替代black, isort, flake8)
-    "black",   # 如果你更喜欢用black
     "pyinstaller==6.16.0"
 ]
 

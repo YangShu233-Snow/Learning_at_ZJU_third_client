@@ -435,7 +435,7 @@ async def view_activity(activity_id: int, type_map: dict):
         # 判断是否获取提交列表（必须是提交完成的任务且有提交记录）
         if activity_completion_criterion_key == "submitted":
             if raw_activity.get("user_submit_count") and raw_activity.get("user_submit_count") > 0:
-                raw_submission_list = await zju_api.assignmentSubmissionListAPIFits(client.session, activity_id, student_id).get_api_data()[0]
+                raw_submission_list = (await zju_api.assignmentSubmissionListAPIFits(client.session, activity_id, student_id).get_api_data())[0]
             else:
                 raw_submission_list = {}
         else:

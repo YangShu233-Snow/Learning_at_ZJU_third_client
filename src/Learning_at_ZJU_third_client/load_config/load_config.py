@@ -1,17 +1,27 @@
 import json
 import os
+import sys
 from pathlib import Path
 from ..printlog.print_log import print_log
+
+def resource_path(relative_path: str) -> Path:
+    """获取资源的绝对路径，兼容源码和 PyInstaller 打包后环境"""
+    try:
+        # PyInstaller 创建的临时路径
+        base_path = Path(sys._MEIPASS)
+    except Exception:
+        # 不在 PyInstaller 环境中，使用普通路径
+        base_path = Path(__file__).resolve().parent.parent.parent
+    
+    return base_path / relative_path
 
 class BaseConfig:
     """基本的json加载逻辑，初始化接受一个`config_name`作为文件名字，默认需要带有.json
     """    
     def __init__(self, parent_dir: str ,config_name: str):
         self.config_name:str = config_name
-        self.current_script_path = Path(__file__).resolve()
-        self.project_root = self.current_script_path.parent.parent.parent.parent
-        self.config_parent_dir_path  = self.project_root / "data" / parent_dir
-        self.config_path:Path = self.config_parent_dir_path / config_name
+        self.config_parent_dir_path  = resource_path("data") / parent_dir
+        self.config_path:Path = self.config_parent_dir_path / self.config_name
 
     def load_config(self)->dict:
         """加载并读取配置

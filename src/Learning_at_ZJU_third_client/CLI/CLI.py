@@ -1,12 +1,15 @@
 import typer
 import keyring
+import httpx
+import asyncio
+from asyncer import syncify
+from functools import partial
 from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from typing_extensions import Annotated, Optional
-from ..login.login import ZjuClient
+from ..login.login import ZjuAsyncClient
 from ..printlog.print_log import print_log
 
-from .state import state
 from .command import course, resource, assignment, rollcall
 
 KEYRING_SERVICE_NAME = "lazy"
@@ -18,69 +21,63 @@ app = typer.Typer(help="LAZY CLI - 学在浙大第三方客户端的命令行工
 
 # --- 全局回调，检验登录状态 ---
 @app.callback()
-def main_callback(ctx: typer.Context):
-    # 如果使用的是login命令，则无需检查登录状态
-    if ctx.invoked_subcommand == "login":
-        return 
-    
-    # 如果使用的是whoami命令，则无需检查登录状态
-    if ctx.invoked_subcommand == "whoami":
-        return 
-
-    # 如果是--help，则无需检查登录状态
-    if "--help" in ctx.args:
+@partial(syncify, raise_sync_error=False)
+async def main_callback(ctx: typer.Context):
+    # 如果是login，whoami子命令，或查询--help时候，无需检查登录状态
+    if ctx.invoked_subcommand in ["login", "whoami"] or "--help" in ctx.args:
         return
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        transient=True
-    ) as progress:
-        task = progress.add_task(description="检查登录状态中...", total=2)
+    async with ZjuAsyncClient() as client:
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True
+        ) as progress:
+            task = progress.add_task(description="检查登录状态中...", total=2)
+            # 如果会话存在且有效，则无需登录
+            if client.load_session() and await client.is_valid_session():
+                progress.update(task, description="登录有效", completed=2)
+                return 
 
-        client = ZjuClient()
-
-        # 如果会话存在且有效，则无需登录
-        if client.load_session() and client.is_valid_session():
-            state.client = client
-            progress.update(task, description="登录有效", completed=2)
-            return 
-
-        print_log("Info", "会话已失效，尝试使用凭据登录...", "CLI.CLI_Typer.main_callback")
-        progress.advance(task)
-
-        progress.update(task, description="会话失效！重新登录中...")
-        
-        studentid = keyring.get_password("lazy", "studentid")
-        password = keyring.get_password("lazy", "password")
-
-        if not studentid or not password:
-            print_log("Error", "未能找到登录凭据！", "CLI.CLI_Typer.main_callback")
-            rprint("[red]未找到登录凭据，请重新登录[/red]")
+            print_log("Info", "会话已失效，尝试使用凭据登录...", "CLI.CLI_Typer.main_callback")
             progress.advance(task)
-            raise typer.Exit(code=1)
-        
-        if client.login(studentid, password):
-            client.save_session()
-            state.client = client
-            progress.advance(task)
-        else:
-            rprint("[red]登录失败！[/red]请运行'login'命令尝试手动登录。")
-            progress.advance(task)
-            raise typer.Exit(code=1)
+
+            progress.update(task, description="会话失效！重新登录中...")
+            
+            studentid = keyring.get_password("lazy", "studentid")
+            password = keyring.get_password("lazy", "password")
+
+            if not studentid or not password:
+                print_log("Error", "未能找到登录凭据！", "CLI.CLI_Typer.main_callback")
+                rprint("[red]未找到登录凭据，请重新登录[/red]")
+                progress.advance(task)
+                raise typer.Exit(code=1)
+            
+            if await client.login(studentid, password):
+                client.save_session()
+                progress.advance(task)
+            else:
+                rprint("[red]登录失败！[/red]请运行'login'命令尝试手动登录。")
+                progress.advance(task)
+                raise typer.Exit(code=1)
 
 # --- 开发者检查测试 ---
 @app.command()
-def check(
+@partial(syncify, raise_sync_error=False)
+async def check(
     url: Annotated[str, typer.Argument()]
 ):
     """
     开发者网址测试检查工具，检验网页返回。
     """
-    session = state.client.session
+    temp_client = ZjuAsyncClient()
+    cookies = temp_client.load_cookies()
+
+    client = ZjuAsyncClient(cookies=cookies)
+    session = client.session
 
     try:
-        response = session.get(url)
+        response = await session.get(url)
         response.raise_for_status()
     except Exception as e:
         rprint(f"{e}")
@@ -90,15 +87,16 @@ def check(
 
 # --- 手动登录 --- 
 @app.command()
-def login():
+@partial(syncify, raise_sync_error=False)
+async def login():
     """引导手动登录并自动更新登录凭据和本地会话。
     """    
     studentid = typer.prompt("请输入学号")
     password = typer.prompt("请输入密码", hide_input=True)
 
-    client = ZjuClient()
+    client = ZjuAsyncClient()
 
-    if client.login(studentid, password):
+    if await client.login(studentid, password):
         client.save_session()
         keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_STUDENTID_NAME, studentid)
         keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_PASSWORD_NAME, password)

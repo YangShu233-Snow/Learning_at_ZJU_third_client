@@ -15,10 +15,11 @@ license = { text = "LGPLv3.0" }
 # --- 核心依赖 (CLI版本 和 后端逻辑所必需) ---
 dependencies = [
     "typer[all]>=0.9.0",  # [all] 会自动包含 rich 等，让CLI体验更好
-    "requests>=2.30.0",
     "lxml>=5.0.0",
     "keyring>=24.0.0",
     "cryptography>=42.0.0",
+    "asyncer==0.0.8",
+    "httpx==0.28.1"
 ]
 
 # --- 可选依赖 (Extras) ---
@@ -37,10 +38,6 @@ dev = [
 
 # --- 命令行入口配置 ---
 [project.scripts]
-# 当用户安装后，就可以使用 lazy-cli 这个命令了
-# 请将 "your_project_package_name.main_CLI:app" 替换为你的实际路径
-# 比如，如果你的Typer app对象`app`在`src/Learning_at_ZJU_third_client/main_CLI.py`里，
-# 那么这里应该写成 "Learning_at_ZJU_third_client.main_CLI:app"
 lazy = "Learning_at_ZJU_third_client.main_CLI:app"
 
 # --- 项目构建工具配置 ---

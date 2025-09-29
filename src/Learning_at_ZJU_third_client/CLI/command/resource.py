@@ -1,4 +1,6 @@
 import typer
+from asyncer import syncify
+from functools import partial
 from typing_extensions import Optional, Annotated, List
 from requests.exceptions import HTTPError
 from rich import filesize
@@ -10,7 +12,7 @@ from pathlib import Path
 
 from ...zjuAPI import zju_api
 from ...printlog.print_log import print_log
-from ..state import state
+from ...login.login import ZjuAsyncClient
 
 # resource 命令组
 app = typer.Typer(help="学在浙大云盘资源相关命令，可以查看，搜索，上传或下载云盘文件。",
@@ -104,7 +106,8 @@ def to_upload_dir_walker(dir: Path)->List[Path]:
 
 # 注册资源列举命令
 @app.command("list")
-def list_resources(
+@partial(syncify, raise_sync_error=False)
+async def list_resources(
     keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="文件名称")] = "",
     amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示文件的数量")] = 10,
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="云盘文件页面索引")] = 1,
@@ -124,13 +127,17 @@ def list_resources(
         transient=True
     ) as progress:
         task = progress.add_task(description="拉取资源信息中...", total=1)
-        # 如果启用--all，则先获取文件资源总数
-        if all:
-            pre_results = zju_api.resourcesListAPIFits(state.client.session, keyword, 1, 1, file_type).get_api_data(False)[0]
-            amount = pre_results.get("pages", 1)
-            page_index = 1
 
-        results = zju_api.resourcesListAPIFits(state.client.session, keyword, page_index, amount, file_type).get_api_data(False)[0]
+        cookies = ZjuAsyncClient().load_cookies()
+
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            # 如果启用--all，则先获取文件资源总数
+            if all:
+                pre_results = (await zju_api.resourcesListAPIFits(client.session, keyword, 1, 1, file_type).get_api_data(False))[0]
+                amount = pre_results.get("pages", 1)
+                page_index = 1
+
+            results = (await zju_api.resourcesListAPIFits(client.session, keyword, page_index, amount, file_type).get_api_data(False))[0]
         
         progress.advance(task, 1)
         task = progress.add_task(description="渲染资源信息中...", total=1)
@@ -203,7 +210,8 @@ def list_resources(
 
 # 注册资源上传命令
 @app.command(name="upload")
-def upload_resources(
+@partial(syncify, raise_sync_error=False)
+async def upload_resources(
     files: Annotated[List[Path], typer.Argument(help="一个或多个文件路径", callback=check_files_path)],
     recursion: Annotated[Optional[bool], typer.Option("--recursion", "-r", help="启用此参数以解析文件夹")] = False
 ):
@@ -260,8 +268,10 @@ def upload_resources(
             HumanReadableTransferColumn(),
             TimeRemainingColumn()
         ) as sub_progress:
-            
-            files_uploader = zju_api.resourceUploadAPIFits(state.client.session)
+            cookies = ZjuAsyncClient().load_cookies()
+
+            async with ZjuAsyncClient(cookies=cookies) as client:
+                files_uploader = zju_api.resourceUploadAPIFits(client.session)
                 
             for to_upload_file in to_upload_files:
                 # 文件子任务，跟踪单文件上传进度
@@ -276,7 +286,7 @@ def upload_resources(
 
                     sub_progress.update(task_id, completed=uploaded)
 
-                if files_uploader.upload(to_upload_file, update_progress):
+                if await files_uploader.upload(to_upload_file, update_progress):
                     success_amount += 1
                     sub_progress.update(upload_task, description=f"[green]√ {sub_progress.tasks[upload_task].description}[/green]", completed=sub_progress.tasks[upload_task].total)
                 else:
@@ -290,7 +300,8 @@ def upload_resources(
     
 # 注册资源删除命令
 @app.command(name="remove")
-def remove_resources(
+@partial(syncify, raise_sync_error=False)
+async def remove_resources(
     files_id: Annotated[List[int], typer.Argument(help="需删除文件的id")],
     force: Annotated[Optional[bool], typer.Option("--force", "-f", help="启用 --force 以关闭二次确认")] = False,
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用 --batch 则使用快速批量模式，但此模式存在缺陷，服务端不会对文件id做任何校验，倘若你输入一个不存在的文件id也会返回删除成功")] = False
@@ -318,11 +329,14 @@ def remove_resources(
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
+        cookies = ZjuAsyncClient().load_cookies()
         if batch:
             task = progress.add_task(description="删除文件中...", total=1)
-            file_deleter = zju_api.resourcesRemoveAPIFits(state.client.session, resources_id=files_id)
+
+            async with ZjuAsyncClient(cookies=cookies) as client:
+                file_deleter = zju_api.resourcesRemoveAPIFits(client.session, resources_id=files_id)
             
-            if file_deleter.batch_delete():
+            if await file_deleter.batch_delete():
                 progress.advance(task, 1)
                 print_log("Info","删除成功", "CLI.command.resource.remove_resources")
                 rprint(f"删除完成，共删除 {files_id_amount} 个文件")
@@ -335,23 +349,25 @@ def remove_resources(
         
         task = progress.add_task(description="删除文件中...", total=files_id_amount)
         
-        for file_id in files_id:
-            file_deleter = zju_api.resourcesRemoveAPIFits(state.client.session, resource_id=file_id)
-            
-            if file_deleter.delete():
-                progress.advance(task, 1)
-                success_delete_amount += 1
-                continue
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            for file_id in files_id:
+                file_deleter = zju_api.resourcesRemoveAPIFits(client.session, resource_id=file_id)
+                
+                if await file_deleter.delete():
+                    progress.advance(task, 1)
+                    success_delete_amount += 1
+                    continue
 
-            print_log("Error", f"{file_id} 删除失败", "CLI.command.resource.remove_resources")
-            rprint(f"{file_id} 删除失败")
+                print_log("Error", f"{file_id} 删除失败", "CLI.command.resource.remove_resources")
+                rprint(f"{file_id} 删除失败")
 
         print_log("Info", f"删除完成", "CLI.command.resource.remove_resources")
         rprint(f"删除完成，{success_delete_amount} 个文件被成功删除，{files_id_amount - success_delete_amount} 个文件删除失败。")
         return
 
 @app.command(name="download")
-def download_resource(
+@partial(syncify, raise_sync_error=False)
+async def download_resource(
     files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
     basename: Annotated[List[int], typer.Option(help="文件的基本名，会附加在下载文件的开头")] = None,
     dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = Path().home() / "Downloads",
@@ -382,8 +398,10 @@ def download_resource(
                 HumanReadableTransferColumn(),
                 TimeRemainingColumn()
             ) as sub_progress:
-                
-                resources_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resources_id=files_id, basename=basename)
+                cookies = ZjuAsyncClient().load_cookies()
+
+                async with ZjuAsyncClient(cookies=cookies) as client:
+                    resources_downloader = zju_api.resourcesDownloadAPIFits(client.session, output_path=dest, resources_id=files_id, basename=basename)
                 
                 # 子任务，跟踪文件下载进度
                 download_task = sub_progress.add_task(description=f"下载文件中...", start=False)
@@ -397,7 +415,7 @@ def download_resource(
 
                     sub_progress.update(task_id, completed=downloaded)
                 
-                if resources_downloader.batch_download(progress_callback=update_progress):
+                if await resources_downloader.batch_download(progress_callback=update_progress):
                     rprint(f"[green]下载成功！")
                     rprint(f"[green]下载完成！[/green]")
                 else:
@@ -422,28 +440,31 @@ def download_resource(
             HumanReadableTransferColumn(),
             TimeRemainingColumn()
         ) as sub_progress:
-            for file_id in files_id:
-                resource_downloader = zju_api.resourcesDownloadAPIFits(state.client.session, output_path=dest, resource_id=file_id, basename=basename)
-                
-                # 单文件子任务，跟踪文件下载状态
-                download_task = sub_progress.add_task(description=f"文件ID: {file_id}", start=False)
+            cookies = ZjuAsyncClient().load_cookies()
 
-                # 创建回调函数
-                def update_progress(downloaded: int, total_size: int, filename: int, task_id: int = download_task):
-                    # 首次回调，更新文件名和文件大小
-                    if not sub_progress.tasks[task_id].started:
-                        sub_progress.start_task(task_id)
-                        sub_progress.update(task_id, description=f"[cyan]下载: {filename}", total=total_size)
+            async with ZjuAsyncClient(cookies=cookies) as client:
+                for file_id in files_id:
+                    resource_downloader = zju_api.resourcesDownloadAPIFits(client.session, output_path=dest, resource_id=file_id, basename=basename)
+                    
+                    # 单文件子任务，跟踪文件下载状态
+                    download_task = sub_progress.add_task(description=f"文件ID: {file_id}", start=False)
 
-                    sub_progress.update(task_id, completed=downloaded)
+                    # 创建回调函数
+                    def update_progress(downloaded: int, total_size: int, filename: int, task_id: int = download_task):
+                        # 首次回调，更新文件名和文件大小
+                        if not sub_progress.tasks[task_id].started:
+                            sub_progress.start_task(task_id)
+                            sub_progress.update(task_id, description=f"[cyan]下载: {filename}", total=total_size)
 
-                if resource_downloader.download(progress_callback=update_progress):
-                    success_amount += 1
-                    sub_progress.update(download_task, description=f"[green]√ {sub_progress.tasks[download_task].description}", completed=sub_progress.tasks[download_task].total)
-                else:
-                    sub_progress.update(download_task, description=f"[red]下载失败: {file_id} o(￣ヘ￣o＃)[/red]")
+                        sub_progress.update(task_id, completed=downloaded)
 
-                progress.update(main_task, advance=1)
+                    if await resource_downloader.download(progress_callback=update_progress):
+                        success_amount += 1
+                        sub_progress.update(download_task, description=f"[green]√ {sub_progress.tasks[download_task].description}", completed=sub_progress.tasks[download_task].total)
+                    else:
+                        sub_progress.update(download_task, description=f"[red]下载失败: {file_id} o(￣ヘ￣o＃)[/red]")
+
+                    progress.update(main_task, advance=1)
 
         rprint(f"[green]下载完成！[/green]成功下载 {success_amount} 个文件，失败 {files_id_amount - success_amount} 个文件。")
         rprint(f"[cyan]下载路径: [/cyan]{dest}")

@@ -1,3 +1,6 @@
+from asyncer import syncify
+import asyncio
+from functools import partial
 import typer
 from typing_extensions import Optional, Annotated, List, Tuple
 from rich import filesize
@@ -19,7 +22,7 @@ from ...zjuAPI import zju_api
 from ...upload import submit
 from ...load_config import load_config
 from ...printlog.print_log import print_log
-from ..state import state
+from ...login.login import ZjuAsyncClient
 
 # assignment 命令组
 app = typer.Typer(help="""
@@ -111,40 +114,50 @@ def parse_files_id(files_id: str)->List[int]:
     
     return list(set(files_id_list))
 
-def guess_assignment_type(assignment_id: int)->Tuple[bool, bool, bool]:
+async def guess_assignment_type(assignment_id: int)->Tuple[bool, bool, bool]:
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
+        cookies = ZjuAsyncClient().load_cookies()
         task = progress.add_task(description="正在猜测任务类型...",total=1)
-        raw_activity: dict = zju_api.assignmentPreviewAPIFits(state.client.session, assignment_id).post_api_data()[0]
-        if raw_activity and raw_activity.get("data"):
+
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            raw_activity, raw_exam, raw_classroom = await asyncio.gather(*[
+                zju_api.assignmentPreviewAPIFits(client.session, assignment_id).post_api_data(),
+                zju_api.assignmentExamViewAPIFits(client.session, assignment_id, apis_name=["exam"]).get_api_data(),
+                zju_api.assignmentClassroomViewAPIFits(client.session, assignment_id, apis_name=["classroom"]).get_api_data()
+            ], return_exceptions=True)
+
+        if isinstance(raw_activity, list) and raw_activity and raw_activity[0].get("data"):
             progress.update(task, description="猜测是作业!", completed=1)
             return (True, False, False)
         
-        raw_exam = zju_api.assignmentExamViewAPIFits(state.client.session, assignment_id, apis_name=["exam"]).get_api_data()[0]
-        if raw_exam:
+        
+        if isinstance(raw_exam, list) and raw_exam and raw_exam[0]:
             progress.update(task, description="猜测是测试!", completed=1)
             return (False, True, False)
         
-        raw_classroom = zju_api.assignmentClassroomViewAPIFits(state.client.session, assignment_id, apis_name=["classroom"]).get_api_data()[0]
-        if raw_classroom:
+        
+        if isinstance(raw_classroom, list) and raw_classroom and raw_classroom[0]:
             progress.update(task, description="猜测是课堂任务!", completed=1)
             return (False, False, True)
     
     return (False, False, False)
 
-def view_exam(exam_id: int, type_map: dict):
+async def view_exam(exam_id: int, type_map: dict):
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
         task = progress.add_task(description="请求数据中...", total=2)
+        cookies = ZjuAsyncClient().load_cookies()
 
-        # --- 请求阶段 ---
-        raw_exam, raw_exam_submission_list, raw_exam_subjects_summary = zju_api.assignmentExamViewAPIFits(state.client.session, exam_id).get_api_data()
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            # --- 请求阶段 ---
+            raw_exam, raw_exam_submission_list, raw_exam_subjects_summary = await zju_api.assignmentExamViewAPIFits(client.session, exam_id).get_api_data()
         
         if not raw_exam:
             rprint(f"[red]请求测试 [green]{exam_id}[/green] 不存在！[/red]")
@@ -276,7 +289,7 @@ def view_exam(exam_id: int, type_map: dict):
 
         rprint(exam_panel)
 
-def view_classroom(classroom_id: int, type_map: dict):
+async def view_classroom(classroom_id: int, type_map: dict):
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -284,20 +297,21 @@ def view_classroom(classroom_id: int, type_map: dict):
     ) as progress:
         task = progress.add_task(description="请求数据中...", total=2)
 
-        # --- 请求阶段 ---
-        # 请求classroom与classroom submission数据
-        classroom_message = zju_api.assignmentClassroomViewAPIFits(state.client.session, classroom_id, ["classroom"]).get_api_data()[0]
+        cookies = ZjuAsyncClient().load_cookies()
 
-        if not classroom_message:
-            rprint(f"[red]请求课堂测试 [green]{classroom_id}[/green] 不存在！[/red]")
-            raise typer.Exit(code=1)
-        
-        # 当且仅当有提交记录的时候才会请求提交API
-        if classroom_message.get("subjects_count") > 0:
-            raw_classroom_submissions_list = zju_api.assignmentClassroomViewAPIFits(state.client.session, classroom_id, ["classroom_submissions"]).get_api_data()[0]
-            classroom_submissions_list: List[dict] = raw_classroom_submissions_list.get("submissions", [])
-        else: 
-            classroom_submissions_list = []
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            # --- 请求阶段 ---
+            # 请求classroom与classroom submission数据
+            classroom_message, raw_classroom_submissions_list = await zju_api.assignmentClassroomViewAPIFits(client.session, classroom_id).get_api_data()
+
+            if not classroom_message:
+                rprint(f"[red]请求课堂测试 [green]{classroom_id}[/green] 不存在！[/red]")
+                raise typer.Exit(code=1)
+            
+            if classroom_message.get("subjects_count") > 0:
+                classroom_submissions_list: List[dict] = raw_classroom_submissions_list.get("submissions", [])
+            else: 
+                classroom_submissions_list = []
         
         progress.advance(task, 1)
         progress.update(task, description="渲染数据中...")
@@ -374,7 +388,7 @@ def view_classroom(classroom_id: int, type_map: dict):
 
         rprint(classroom_panel)
 
-def view_activity(activity_id: int, type_map: dict):
+async def view_activity(activity_id: int, type_map: dict):
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -382,30 +396,35 @@ def view_activity(activity_id: int, type_map: dict):
     ) as progress:
         
         task = progress.add_task(description="请求数据中...", total=1)
-        # --- 请求阶段 ---
-        # 请求预览数据
-        raw_activity_read: dict = zju_api.assignmentPreviewAPIFits(state.client.session, activity_id).post_api_data()[0]
 
-        if not raw_activity_read:
-            rprint(f"[red]请求作业 [green]{activity_id}[/green] 不存在！[/red]")
-            raise typer.Exit(code=1)
+        cookies = ZjuAsyncClient().load_cookies()
 
-        if not raw_activity_read.get("data"):
-            rprint(f"[red]请求作业 [green]{activity_id}[/green] 不存在！[/red]")
-            raise typer.Exit(code=1)
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            # --- 请求阶段 ---
+            # 请求预览数据
+            raw_activity_read: dict = (await zju_api.assignmentPreviewAPIFits(client.session, activity_id).post_api_data())[0]
+
+            if not raw_activity_read:
+                rprint(f"[red]请求作业 [green]{activity_id}[/green] 不存在！[/red]")
+                raise typer.Exit(code=1)
+
+            if not raw_activity_read.get("data"):
+                rprint(f"[red]请求作业 [green]{activity_id}[/green] 不存在！[/red]")
+                raise typer.Exit(code=1)
+            
+            student_id = raw_activity_read.get("created_for_id")
+            if not student_id:
+                print_log("Error", f"{activity_id} 缺少'created_for_id'参数，请将此问题上报给开发者！", "CLI.command.assignment.view_assignment")
+                print(f"{activity_id} 返回存在问题！")
+                raise typer.Exit(code=1)
+
+            # 请求主体数据
+            raw_activity = (await zju_api.assignmentViewAPIFits(client.session, activity_id).get_api_data())[0]
         
-        student_id = raw_activity_read.get("created_for_id")
-        if not student_id:
-            print_log("Error", f"{activity_id} 缺少'created_for_id'参数，请将此问题上报给开发者！", "CLI.command.assignment.view_assignment")
-            print(f"{activity_id} 返回存在问题！")
-            raise typer.Exit(code=1)
-
-        # 请求主体数据
-        raw_activity = zju_api.assignmentViewAPIFits(state.client.session, activity_id).get_api_data()[0]
-        activity_completion_criterion_key: str = raw_activity.get("completion_criterion_key", "none")
-        activity_highest_score: int = raw_activity.get("highest_score", 0) if raw_activity.get("highest_score", 0) is not None else "N/A"
-        activity_description = extract_comment(raw_activity.get("data", {}).get("description", ""))
-        activity_content = extract_comment(raw_activity.get("data", {}).get("content", ""))
+        activity_completion_criterion_key: str       = raw_activity.get("completion_criterion_key", "none")
+        activity_highest_score: int                  = raw_activity.get("highest_score", 0) if raw_activity.get("highest_score", 0) is not None else "N/A"
+        activity_description: str                    = extract_comment(raw_activity.get("data", {}).get("description", ""))
+        activity_content: str                        = extract_comment(raw_activity.get("data", {}).get("content", ""))
         activity_all_students_average_score: int|str = raw_activity.get("average_score", "N/A")
 
         activity_description_text = Text.assemble(
@@ -416,7 +435,7 @@ def view_activity(activity_id: int, type_map: dict):
         # 判断是否获取提交列表（必须是提交完成的任务且有提交记录）
         if activity_completion_criterion_key == "submitted":
             if raw_activity.get("user_submit_count") and raw_activity.get("user_submit_count") > 0:
-                raw_submission_list = zju_api.assignmentSubmissionListAPIFits(state.client.session, activity_id, student_id).get_api_data()[0]
+                raw_submission_list = await zju_api.assignmentSubmissionListAPIFits(client.session, activity_id, student_id).get_api_data()[0]
             else:
                 raw_submission_list = {}
         else:
@@ -567,7 +586,8 @@ def view_activity(activity_id: int, type_map: dict):
     rprint(activity_panel)
 
 @app.command("view")
-def view_assignment(
+@partial(syncify, raise_sync_error=False)
+async def view_assignment(
     assignment_id: Annotated[int, typer.Argument(help="任务id")],
     exam: Annotated[Optional[bool], typer.Option("--exam", "-e", help="启用此选项，将查询对应的考试")] = False,
     classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")] = False,
@@ -587,19 +607,19 @@ def view_assignment(
     }
     # 猜测任务类型
     if not (homework or exam or classroom):
-        homework, exam, classroom = guess_assignment_type(assignment_id)
+        homework, exam, classroom = await guess_assignment_type(assignment_id)
 
     # 按照指定分配至相应任务
     if homework:
-        view_activity(assignment_id, type_map)
+        await view_activity(assignment_id, type_map)
         return 
 
     if exam:
-        view_exam(assignment_id, type_map)
+        await view_exam(assignment_id, type_map)
         return 
     
     if classroom:
-        view_classroom(assignment_id, type_map)
+        await view_classroom(assignment_id, type_map)
         return
     
     rprint(f"任务 {assignment_id} 不存在！")
@@ -607,7 +627,8 @@ def view_assignment(
 
 
 @app.command("todo")
-def todo_assignment(
+@partial(syncify, raise_sync_error=False)
+async def todo_assignment(
     amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示待办任务数量", callback=is_todo_show_amount_valid)] = 5,
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="待办任务页面索引")] = 1,
     reverse: Annotated[Optional[bool], typer.Option("--reverse", "-r", help="以任务截止时间降序排列")] = False,
@@ -635,8 +656,10 @@ def todo_assignment(
         
         task = progress.add_task(description="获取待办事项信息中...", total=1)
         
-        raw_todo_list: dict = zju_api.assignmentTodoListAPIFits(state.client.session).get_api_data()[0]
-        # raw_todo_list: dict = load_config.userIndexConfig("todo_list_config").load_config()
+        cookies = ZjuAsyncClient().load_cookies()
+
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            raw_todo_list: dict = zju_api.assignmentTodoListAPIFits(client.session).get_api_data()[0]
         progress.advance(task, advance=1)
 
         task = progress.add_task(description="加载内容中...", total=1)
@@ -765,12 +788,16 @@ def todo_assignment(
     print(f"本页共 {amount} 个结果，第 {page_index}/{total_pages} 页")
 
 @app.command("submit")
-def submit_assignment(
+@partial(syncify, raise_sync_error=False)
+async def submit_assignment(
     activity_id: Annotated[int, typer.Argument(help="待提交任务ID")],
     text: Annotated[Optional[str], typer.Option("--text", "-t", help="待提交的文本内容")] = "",
     files_id: Annotated[Optional[str], typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = ""
 ):
-    if submit.submitAssignment(activity_id, text, files_id).submit(state.client.session):
-        rprint(f"[green]提交成功！[/green]")
-    else:
-        rprint(f"[red]提交失败！[/red]")
+    cookies = ZjuAsyncClient().load_cookies()
+
+    async with ZjuAsyncClient(cookies=cookies) as client:
+        if submit.submitAssignment(activity_id, text, files_id).submit(client.session):
+            rprint(f"[green]提交成功！[/green]")
+        else:
+            rprint(f"[red]提交失败！[/red]")

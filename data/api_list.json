@@ -47,7 +47,9 @@
             "completeness",
             "classrooms",
             "activities_reads",
-            "coursewares"
+            "coursewares",
+            "homework-completeness",
+            "exam-completeness"
         ],
         "apis_config": {
             "list": {
@@ -124,7 +126,20 @@
                     "page": 1,
                     "page_size": 20
                 }
+            },
+            "homework-completeness": {
+                "url": "https://courses.zju.edu.cn/api/course/<palceholder>/homework/submission-status",
+                "params": {
+                    "no-intercept": true
+                }
+            },
+            "exam-completeness": {
+                "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/submitted-exams",
+                "params": {
+                    "no-intercept": true
+                }
             }
+                
         }
     },
     "resources_submission": {

@@ -1,4 +1,8 @@
+import asyncio
+import httpx
 import typer
+from asyncer import syncify
+from functools import partial
 from typing_extensions import Optional, Annotated, List, Tuple
 from requests import Session
 from rich import filesize
@@ -13,8 +17,7 @@ from datetime import datetime
 
 from ...printlog.print_log import print_log
 from ...zjuAPI import zju_api
-from ..state import state
-
+from ...login.login import ZjuAsyncClient
 # course 命令组
 app = typer.Typer(help="""
                         学在浙大课程相关命令组，提供了对课程的查询与对课程章节查看的功能。
@@ -128,7 +131,8 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
 
 # 注册课程列举命令
 @app.command("list")
-def list_courses(
+@partial(syncify, raise_sync_error=False)
+async def list_courses(
     keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="课程搜索关键字")] = None,
     amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示课程的数量")] = 10,
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="课程页面索引")] = 1,
@@ -147,14 +151,19 @@ def list_courses(
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
-        task = progress.add_task(description="拉取课程信息中...", total=1)
-        if all:
-            pre_results = zju_api.coursesListAPIFits(state.client.session, keyword, 1, 1).get_api_data()[0]
-            amount = pre_results.get("total", 0)
-            page_index = 1
-
-        results = zju_api.coursesListAPIFits(state.client.session, keyword, page_index, amount).get_api_data()[0]
         
+        cookies = ZjuAsyncClient().load_cookies()
+
+        task = progress.add_task(description="拉取课程信息中...", total=1)
+
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            if all:
+                pre_results = (await zju_api.coursesListAPIFits(client.session, keyword, 1, 1).get_api_data())[0]
+                amount = pre_results.get("total", 0)
+                page_index = 1
+
+            results = (await zju_api.coursesListAPIFits(client.session, keyword, page_index, amount).get_api_data())[0]
+
         progress.advance(task, 1)
         task = progress.add_task(description="渲染课程信息中...", total=1)
 
@@ -246,12 +255,13 @@ def list_courses(
 
 # 注册课程查看命令
 @view_app.command("syllabus")
-def view_syllabus(
+@partial(syncify, raise_sync_error=False)
+async def view_syllabus(
     course_id: Annotated[int, typer.Argument(help="课程id")],
     modules_id: Annotated[Optional[List[int]], typer.Option("--module", "-m", help="章节id")] = None,
     last: Annotated[Optional[bool], typer.Option("--last", "-l", help="启用此选项，自动展示最新一章节")] = False,
     indices: Annotated[Optional[str], typer.Option("--index", "-i", help="通过索引号查看章节，索引从'1'开始，支持使用范围表示，如'1-5'。", callback=parse_indices)] = "",
-    all: Annotated[Optional[bool], typer.Option("--all", "-a", help="启用此选项，展示所有章节内容")] = False
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，展示所有章节内容")] = False
 ):
     """
     浏览指定课程的目录，默认对章节进行折叠，使用'--module'选项指定展开特定章节，使用'--index'展开对应索引号的章节，启用'--last'自动展开最新章节。
@@ -262,10 +272,14 @@ def view_syllabus(
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
+        cookies = ZjuAsyncClient().load_cookies()
+
         task = progress.add_task(description="获取课程信息中...", total=1)
     
         # --- 加载预备课程信息 ---
-        course_messages, raw_course_modules = zju_api.coursePreviewAPIFits(state.client.session, course_id).get_api_data()
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            course_messages, raw_course_modules = await zju_api.coursePreviewAPIFits(client.session, course_id).get_api_data()
+        
         course_name = course_messages.get("name", "null")
         course_modules: List[dict] = raw_course_modules.get("modules", [])
 
@@ -286,14 +300,15 @@ def view_syllabus(
                 rprint(f"未找到章节！")
                 return 
 
-            raw_course_activities, raw_course_exams, raw_course_completeness, raw_course_classrooms, raw_course_activities_reads = zju_api.courseViewAPIFits(state.client.session, course_id).get_api_data()
+            async with ZjuAsyncClient(cookies=cookies) as client:
+                raw_course_activities, raw_course_exams, raw_course_classrooms, raw_course_activities_reads, raw_homework_completeness, raw_exam_completeness = await zju_api.courseViewAPIFits(client.session, course_id).get_api_data()
 
             for module_id, module in modules_list:
                 course_activities: List[dict] = raw_course_activities.get("activities", [])
                 course_exams: List[dict] = raw_course_exams.get("exams", [])
                 course_classrooms: List[dict] = raw_course_classrooms.get("classrooms", [])
-                exams_completeness: List[int] = raw_course_completeness.get("completed_result", {}).get("completed", {}).get("exam_activity", [])
-                activities_completeness: List[int] = raw_course_completeness.get("completed_result", {}).get("completed", {}).get("learning_activity", [])
+                exams_completeness: List[int] = raw_exam_completeness.get("exam_ids", [])
+                activities_completeness: List[int] = [homework_activitie.get("id") for homework_activitie in raw_homework_completeness.get("homework_activities", {}) if homework_activitie.get("status") == "已交"]
                 classrooms_completeness: List[dict] = [activity_read for activity_read in raw_course_activities_reads.get("activity_reads") if activity_read.get("activity_type") == "classroom_activity"]
 
                 # 筛选目标activities, exams 和 classrooms
@@ -565,7 +580,8 @@ def view_syllabus(
     rprint(course_tree)
 
 @view_app.command("coursewares")
-def view_coursewares(
+@partial(syncify, raise_sync_error=False)
+async def view_coursewares(
     course_id: Annotated[int, typer.Argument(help="课程ID")],
     page: Annotated[Optional[int], typer.Option("--page", "-p", help="页面索引")] = 1,
     page_size: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示课件数量")] = 10,
@@ -578,14 +594,18 @@ def view_coursewares(
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
+        cookies = ZjuAsyncClient().load_cookies()
+
         task = progress.add_task(description="获取课程信息中...", total=2)
 
-        if all:
-            pre_raw_coursewares = zju_api.coursewaresViewAPIFits(state.client.session, course_id, 1, 1).get_api_data()[0]
-            page = 1
-            page_size = pre_raw_coursewares.get("total", 0)
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            if all:
+                pre_raw_coursewares = (await zju_api.coursewaresViewAPIFits(client.session, course_id, 1, 1).get_api_data())[0]
+                page = 1
+                page_size = pre_raw_coursewares.get("total", 0)
 
-        raw_coursewares = zju_api.coursewaresViewAPIFits(state.client.session, course_id, page, page_size).get_api_data()[0]
+            raw_coursewares = (await zju_api.coursewaresViewAPIFits(client.session, course_id, page, page_size).get_api_data())[0]
+        
         progress.update(task, description="渲染任务信息中...", advance=1)
         
         # 检验返回结果
@@ -643,8 +663,8 @@ def view_coursewares(
 
                 continue
 
-            courseware_size            = filesize.decimal(courseware_upload.get("size", 0))
-            courseware_update_time     = transform_time(courseware_upload.get("updated_at", "1900-01-01T00:00:00Z"))
+            courseware_size        = filesize.decimal(courseware_upload.get("size", 0))
+            courseware_update_time = transform_time(courseware_upload.get("updated_at", "1900-01-01T00:00:00Z"))
 
             coursewares_table.add_row(
                 courseware_id,

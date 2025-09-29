@@ -659,7 +659,7 @@ async def todo_assignment(
         cookies = ZjuAsyncClient().load_cookies()
 
         async with ZjuAsyncClient(cookies=cookies) as client:
-            raw_todo_list: dict = zju_api.assignmentTodoListAPIFits(client.session).get_api_data()[0]
+            raw_todo_list: dict = (await zju_api.assignmentTodoListAPIFits(client.session).get_api_data())[0]
         progress.advance(task, advance=1)
 
         task = progress.add_task(description="加载内容中...", total=1)

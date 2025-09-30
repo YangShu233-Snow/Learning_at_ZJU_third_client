@@ -1,7 +1,9 @@
 import typer
+import logging
 from typing import List, Annotated, Optional
 from ....load_config import load_config
-from ....printlog.print_log import print_log
+
+logger = logging.getLogger(__name__)
 
 app = typer.Typer(help="""
     签到定位配置相关命令组
@@ -90,7 +92,7 @@ def remove_config(
     try:
         del coordinates_config[name]
     except Exception as e:
-        print_log("Error", f"{e}", "CLI.command.subcommand.rollcall_config.remove_config")
+        logger.error(f"{e}")
         print("删除失败！")
         raise typer.Exit(code=1)
     

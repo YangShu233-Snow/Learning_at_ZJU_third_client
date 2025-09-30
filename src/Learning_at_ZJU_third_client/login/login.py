@@ -3,13 +3,13 @@ import keyring
 import pickle
 import httpx
 import asyncio
+import logging
 from cryptography.fernet import Fernet, InvalidToken
 from lxml import etree
 from pathlib import Path
 from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
 
 from ..load_config import load_config
-from ..printlog.print_log import print_log
 from ..encrypt import LoginRSA
 
 CURRENT_SCRIPT_PATH = Path(__file__)
@@ -18,6 +18,8 @@ USER_AVATAR_PATH = CURRENT_SCRIPT_PATH.parent.parent.parent.parent / "images/use
 KEYRING_SERVICE_NAME = "lazy"
 ENCRYPTION_KEY_NAME = "session_encryption_key"
 SESSION_FILE = Path.home() / ".lazy_cli_session.enc"
+
+logger = logging.getLogger(__name__)
 
 def generate_encryption_key()->bytes:
     """提取已有的会话加密密钥，如果不存在则创建并保存
@@ -48,7 +50,7 @@ class ZjuAsyncClient:
             _description_, by default None
         """
         # 初始化会话    
-        print_log("Info", "初始化会话中...", "login.login.ZjuAsyncClient.__init__")
+        logger.info("初始化会话中...")
         self.session = httpx.AsyncClient()
 
         if headers is None:
@@ -64,13 +66,13 @@ class ZjuAsyncClient:
             self.session.cookies.update(cookies)
             
         self.studentid = None
-        print_log("Info", "初始化会话成功", "login.login.ZjuAsyncClient.__init__")
+        logger.info("初始化会话成功")
 
         # 初始化加密器
-        print_log("Info", "初始化加密器中...", "login.login.ZjuAsyncClient.__init__")
+        logger.info("初始化加密器中...")
         self._encryption_key = generate_encryption_key()
         self._fernet = Fernet(self._encryption_key)
-        print_log("Info", "初始化加密器成功", "login.login.ZjuAsyncClient.__init__")
+        logger.info("初始化加密器成功")
     
     async def __aenter__(self):
         return self
@@ -112,35 +114,35 @@ class ZjuAsyncClient:
             modulus = data.get("modulus")
 
             if exponent is None or modulus is None:
-                print_log("Error", "PubKey API调用存在问题，请将此问题报告给开发者！", "login.login.ZjuAsyncClient.login")
+                logger.error("PubKey API调用存在问题，请将此问题报告给开发者！")
 
         except HTTPError as errh:
-            print_log("Error", f"HTTP错误: {errh}", "login.login.ZjuAsyncClient.login")
+            logger.error(f"HTTP错误: {errh}")
 
         except ConnectionError as errc:
-            print_log("Error", f"连接错误: {errc}", "login.login.ZjuAsyncClient.login")
+            logger.error(f"连接错误: {errc}")
 
         except Timeout as errt:
-            print_log("Error", f"超时错误: {errt}", "login.login.ZjuAsyncClient.login")
+            logger.error(f"超时错误: {errt}")
 
         except RequestException as err:
-            print_log("Error", f"发生了其他请求错误: {err}", "login.login.ZjuAsyncClient.login")
+            logger.error(f"发生了其他请求错误: {err}")
 
         except ValueError as e: # 当响应不是有效JSON时，.json()会抛出json.JSONDecodeError，它是ValueError的子类
-            print_log("Error", f"无法解析JSON数据: {e}", "login.login.ZjuAsyncClient.login")
+            logger.error(f"无法解析JSON数据: {e}")
 
         # 加密password
         try:
             encrypted_password = self._encrypt_password(password=password, exponent=exponent, modulus=modulus)
         
         except ValueError as e:
-            print_log("Error", f"密码值错误！发生在RSA加密时。", "login.login.ZjuAsyncClient.login")
+            logger.error(f"密码值错误！发生在RSA加密时。")
 
         # 获取execution
         execution = self._get_execution(response=login_response)
 
         # 构建POST表单
-        print_log("Info", f"构建POST表单中...", "login.login.ZjuAsyncClient.login")
+        logger.info(f"构建POST表单中...")
         data = {
             'username': self.studentid,
             'password': encrypted_password,
@@ -149,7 +151,7 @@ class ZjuAsyncClient:
             '_eventId': 'submit'
         }
 
-        print_log("Info", f"POST登录请求中...", "login.login.ZjuAsyncClient.login")
+        logger.info(f"POST登录请求中...")
         response = await self.session.post(
             url=login_response.url, 
             data=data,
@@ -157,10 +159,10 @@ class ZjuAsyncClient:
             )
         
         if "学在浙大" in response.text:
-            print_log("Info", f"登录成功！学号: {self.studentid}", "login.login.ZjuAsyncClient.login")
+            logger.info(f"登录成功！学号: {self.studentid}")
             return True
         else:
-            print_log("Error", f"登录失败，请检查学号与密码是否正确！", "login.login.ZjuAsyncClient.login")
+            logger.error(f"登录失败，请检查学号与密码是否正确！")
             return False
 
     def _encrypt_password(self, password: str, exponent: str, modulus: str)->str:
@@ -217,7 +219,7 @@ class ZjuAsyncClient:
     def save_session(self):
         """以序列化和加密的方式保存会话Cookies至本地家目录
         """        
-        print_log("Info", "会话保存中...", "login.login.ZjuAsyncClient.save_session")
+        logger.info("会话保存中...")
         try:
             # 序列化
             pickled_session = pickle.dumps(dict(self.session.cookies))
@@ -225,14 +227,14 @@ class ZjuAsyncClient:
             encrypted_pickled_session = self._fernet.encrypt(pickled_session)
             with open(SESSION_FILE, 'wb') as f:
                 f.write(encrypted_pickled_session)
-            print_log("Info", "会话保存成功！", "login.login.ZjuAsyncClient.save_session")
+            logger.info("会话保存成功！")
         except Exception as e:
-            print_log("Error", f"会话保存未成功！错误信息: {e}", "login.login.ZjuAsyncClient.save_session")
+            logger.error(f"会话保存未成功！错误信息: {e}")
 
     def load_session(self)->bool:
-        print_log("Info", "会话加载中...", "login.login.ZjuAsyncClient.load_session")
+        logger.info("会话加载中...")
         if not SESSION_FILE.exists():
-            print_log("Error", "会话文件不存在！", "login.login.ZjuAsyncClient.load_session")
+            logger.error("会话文件不存在！")
             return False
 
         # 读取文件，解密并反序列化        
@@ -243,17 +245,17 @@ class ZjuAsyncClient:
             decrypted_pickled_session = self._fernet.decrypt(encrypted_pickled_session)
             cookies = pickle.loads(decrypted_pickled_session)
             self.session.cookies.update(cookies)
-            print_log("Info", "会话加载成功！", "login.login.ZjuAsyncClient.load_session")
+            logger.info("会话加载成功！")
             return True
         except (InvalidToken, pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
-            print_log("Error", f"会话加载失败！错误原因: {e}", "login.login.ZjuAsyncClient.load_session")
-            print_log("Info", f"会话加载未成功，请检查会话文件是否损坏或密钥已更改", "login.login.ZjuAsyncClient.load_session")
+            logger.error(f"会话加载失败！错误原因: {e}")
+            logger.info(f"会话加载未成功，请检查会话文件是否损坏或密钥已更改")
             return False
         
     def load_cookies(self)->dict|None:
-        print_log("Info", "Cookies加载中...", "login.login.ZjuAsyncClient.load_cookies")
+        logger.info("Cookies加载中...")
         if not SESSION_FILE.exists():
-            print_log("Error", "Cookies文件不存在！", "login.login.ZjuAsyncClient.load_cookies")
+            logger.error("Cookies文件不存在！")
             return None
 
         # 读取文件，解密并反序列化        
@@ -263,16 +265,16 @@ class ZjuAsyncClient:
             
             decrypted_pickled_session = self._fernet.decrypt(encrypted_pickled_session)
             cookies = pickle.loads(decrypted_pickled_session)
-            print_log("Info", "Cookies加载成功！", "login.login.ZjuAsyncClient.load_cookies")
+            logger.info("Cookies加载成功！")
             return cookies
         except (InvalidToken, pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
-            print_log("Error", f"Cookies加载失败！错误原因: {e}", "login.login.ZjuAsyncClient.load_cookies")
-            print_log("Info", f"Cookies加载未成功，请检查会话文件是否损坏或密钥已更改", "login.login.ZjuAsyncClient.load_cookies")
+            logger.error(f"Cookies加载失败！错误原因: {e}")
+            logger.info(f"Cookies加载未成功，请检查会话文件是否损坏或密钥已更改")
             return None
 
     async def is_valid_session(self)->bool:
         if not self.session.cookies:
-            print_log("Warning", "Session.Cookies不存在，需手动登录", "login.login.ZjuAsyncClient.is_valid_session")
+            logger.warning("Session.Cookies不存在，需手动登录")
             return False
         
         # 验证登录状态
@@ -280,12 +282,12 @@ class ZjuAsyncClient:
             response = await self.session.get(url="https://courses.zju.edu.cn/api/activities/is-locked", follow_redirects=True)
             response.raise_for_status()
             if response.status_code == 200:
-                print_log("Info", "会话验证有效", "login.login.ZjuAsyncClient.is_valid_session")
+                logger.info("会话验证有效")
                 return True
             
             return False
         except RequestException:
-            print_log("Warning", "会话已过期失效！", "login.login.ZjuAsyncClient.is_valid_session")
+            logger.warning("会话已过期失效！")
             return False
 
 # 新版Client类
@@ -299,7 +301,7 @@ class ZjuClient:
             _description_, by default None
         """
         # 初始化会话    
-        print_log("Info", "初始化会话中...", "login.login.ZjuClient.__init__")
+        logger.info("初始化会话中...")
         self.session = requests.Session()
         if headers is None:
             headers = {
@@ -310,13 +312,13 @@ class ZjuClient:
 
         self.session.headers.update(headers)
         self.studentid = None
-        print_log("Info", "初始化会话成功", "login.login.ZjuClient.__init__")
+        logger.info("初始化会话成功")
 
         # 初始化加密器
-        print_log("Info", "初始化加密器中...", "login.login.ZjuClient.__init__")
+        logger.info("初始化加密器中...")
         self._encryption_key = generate_encryption_key()
         self._fernet = Fernet(self._encryption_key)
-        print_log("Info", "初始化加密器成功", "login.login.ZjuClient.__init__")
+        logger.info("初始化加密器成功")
     
     def login(self, studentid: str, password: str)->bool:
         """学在浙大登录逻辑，返回bool值表示登录结果是否成功。
@@ -352,35 +354,35 @@ class ZjuClient:
             modulus = data.get("modulus")
 
             if exponent is None or modulus is None:
-                print_log("Error", "PubKey API调用存在问题，请将此问题报告给开发者！", "login.login.ZjuClient.login")
+                logger.error("PubKey API调用存在问题，请将此问题报告给开发者！")
 
         except HTTPError as errh:
-            print_log("Error", f"HTTP错误: {errh}", "login.login.ZjuClient.login")
+            logger.error(f"HTTP错误: {errh}")
 
         except ConnectionError as errc:
-            print_log("Error", f"连接错误: {errc}", "login.login.ZjuClient.login")
+            logger.error(f"连接错误: {errc}")
 
         except Timeout as errt:
-            print_log("Error", f"超时错误: {errt}", "login.login.ZjuClient.login")
+            logger.error(f"超时错误: {errt}")
 
         except RequestException as err:
-            print_log("Error", f"发生了其他请求错误: {err}", "login.login.ZjuClient.login")
+            logger.error(f"发生了其他请求错误: {err}")
 
         except ValueError as e: # 当响应不是有效JSON时，.json()会抛出json.JSONDecodeError，它是ValueError的子类
-            print_log("Error", f"无法解析JSON数据: {e}", "login.login.ZjuClient.login")
+            logger.error(f"无法解析JSON数据: {e}")
 
         # 加密password
         try:
             encrypted_password = self._encrypt_password(password=password, exponent=exponent, modulus=modulus)
         
         except ValueError as e:
-            print_log("Error", f"密码值错误！发生在RSA加密时。", "login.login.ZjuClient.login")
+            logger.error(f"密码值错误！发生在RSA加密时。")
 
         # 获取execution
         execution = self._get_execution(response=login_response)
 
         # 构建POST表单
-        print_log("Info", f"构建POST表单中...", "login.login.ZjuClient.login")
+        logger.info(f"构建POST表单中...")
         data = {
             'username': self.studentid,
             'password': encrypted_password,
@@ -389,16 +391,16 @@ class ZjuClient:
             '_eventId': 'submit'
         }
 
-        print_log("Info", f"POST登录请求中...", "login.login.ZjuClient.login")
+        logger.info(f"POST登录请求中...")
         response = self.session.post(
             url=login_response.url, 
             data=data)
         
         if "学在浙大" in response.text:
-            print_log("Info", f"登录成功！学号: {self.studentid}", "login.login.ZjuClient.login")
+            logger.info(f"登录成功！学号: {self.studentid}")
             return True
         else:
-            print_log("Error", f"登录失败，请检查学号与密码是否正确！", "login.login.ZjuClient.login")
+            logger.error(f"登录失败，请检查学号与密码是否正确！")
             return False
 
     def _encrypt_password(self, password: str, exponent: str, modulus: str)->str:
@@ -456,7 +458,7 @@ class ZjuClient:
     def save_session(self):
         """以序列化和加密的方式保存会话至本地家目录
         """        
-        print_log("Info", "会话保存中...", "login.login.ZjuClient.save_session")
+        logger.info("会话保存中...")
         try:
             # 序列化
             pickled_session = pickle.dumps(self.session)
@@ -464,14 +466,14 @@ class ZjuClient:
             encrypted_pickled_session = self._fernet.encrypt(pickled_session)
             with open(SESSION_FILE, 'wb') as f:
                 f.write(encrypted_pickled_session)
-            print_log("Info", "会话保存成功！", "login.login.ZjuClient.save_session")
+            logger.info("会话保存成功！")
         except Exception as e:
-            print_log("Error", f"会话保存未成功！错误信息: {e}", "login.login.ZjuClient.save_session")
+            logger.error(f"会话保存未成功！错误信息: {e}")
 
     def load_session(self)->bool:
-        print_log("Info", "会话加载中...", "login.login.ZjuClient.load_session")
+        logger.info("会话加载中...")
         if not SESSION_FILE.exists():
-            print_log("Error", "会话文件不存在！", "login.login.ZjuClient.load_session")
+            logger.error("会话文件不存在！")
             return False
 
         # 读取文件，解密并反序列化        
@@ -483,13 +485,13 @@ class ZjuClient:
             self.session = pickle.loads(decrypted_pickled_session)
             return True
         except (InvalidToken, pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
-            print_log("Error", f"会话加载失败！错误原因: {e}", "login.login.ZjuClient.load_session")
-            print_log("Info", f"会话加载未成功，请检查会话文件是否损坏或密钥已更改", "login.login.ZjuClient.load_session")
+            logger.error(f"会话加载失败！错误原因: {e}")
+            logger.info(f"会话加载未成功，请检查会话文件是否损坏或密钥已更改")
             return False
 
     def is_valid_session(self)->bool:
         if not self.session.cookies:
-            print_log("Warning", "Session.Cookies不存在，需手动登录", "login.login.ZjuClient.is_valid_session")
+            logger.warning("Session.Cookies不存在，需手动登录")
             return False
         
         # 验证登录状态
@@ -497,12 +499,12 @@ class ZjuClient:
             response = self.session.get(url="https://courses.zju.edu.cn/api/activities/is-locked", follow_redirects=False)
             response.raise_for_status()
             if response.status_code == 200:
-                print_log("Info", "会话验证有效", "login.login.ZjuClient.is_valid_session")
+                logger.info("会话验证有效")
                 return True
             
             return False
         except RequestException:
-            print_log("Warning", "会话已过期失效！", "login.login.ZjuClient.is_valid_session")
+            logger.warning("会话已过期失效！")
             return False
 
 # 旧版Login类
@@ -519,14 +521,14 @@ class LoginFit:
         while self.studentid == None:
             self.studentid = input("请输入学号：")
             if self.studentid == None:
-                print_log("Error", "学号不能为空！", "login.LoginFit.__init__")
+                logger.error("学号不能为空！")
             else:
                 keyring.set_password("lazy", "studentid", self.studentid)
 
         while self.password == None:
             self.password = input("请输入密码：")
             if self.password == None:
-                print_log("Error", "密码不能为空！", "login.LoginFit.__init__")
+                logger.error("密码不能为空！")
             else:
                 keyring.set_password("lazy", "password", self.password)
 
@@ -575,13 +577,13 @@ class LoginFit:
             encrypted_password = self.encrypt_password(exponent=exponent, modulus=modulus)
         
         except ValueError as e:
-            print_log("Error", f"密码值错误！发生在RSA加密时。", "login.LoginFit.login")
+            logger.error(f"密码值错误！发生在RSA加密时。")
 
         # 获取execution
         execution = self.get_execution(response=login_response)
 
         # 构建POST表单
-        print_log("Info", f"构建POST表单中...", "login.LoginFit.login")
+        logger.info(f"构建POST表单中...")
         data = {
             'username': self.studentid,
             'password': encrypted_password,
@@ -590,20 +592,20 @@ class LoginFit:
             '_eventId': 'submit'
         }
         
-        print_log("Info", f"构建成功！", "login.LoginFit.login")
+        logger.info(f"构建成功！")
         
         # POST登录
-        print_log("Info", f"POST登录请求中...", "login.LoginFit.login")
+        logger.info(f"POST登录请求中...")
         login_response = self.login_session.post(url=login_response.url, headers=self.headers, data=data)
         
         if "学在浙大" in login_response.text:
-            print_log("Info", f"登录成功！学号: {self.studentid}", "login.LoginFit.login")
+            logger.info(f"登录成功！学号: {self.studentid}")
             self.update_user_config(login_response)
-            print_log("Info", "User Config配置更新成功", "login.LoginFit.login")
+            logger.info("User Config配置更新成功")
             self.get_user_avatar(login_response)
-            print_log("Info", "用户头像更新成功", "login.LoginFit.login")
+            logger.info("用户头像更新成功")
         else:
-            print_log("Error", f"登录失败！", "login.LoginFit.login")
+            logger.error(f"登录失败！")
 
         return self.login_session
     
@@ -712,9 +714,9 @@ def creat_login_session(headers=None)->requests.Session:
     login_session = requests.session()
 
     if headers == None:
-        print_log("Info", f"未检测到登录需求headers，启用默认headers", "login.creat_login_session")
+        logger.info(f"未检测到登录需求headers，启用默认headers")
         headers = default_headers
-        print_log("Info", f"已启用默认headers", "login.creat_login_session")
+        logger.info(f"已启用默认headers")
 
     login_session.headers.update(headers)
     

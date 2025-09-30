@@ -1,4 +1,5 @@
 import typer
+import logging
 from asyncer import syncify
 from functools import partial
 from typing_extensions import Optional, Annotated, List
@@ -11,13 +12,14 @@ from datetime import datetime
 from pathlib import Path
 
 from ...zjuAPI import zju_api
-from ...printlog.print_log import print_log
 from ...login.login import ZjuAsyncClient
 
 # resource 命令组
 app = typer.Typer(help="学在浙大云盘资源相关命令，可以查看，搜索，上传或下载云盘文件。",
                   no_args_is_help=True
                   )
+
+logger = logging.getLogger(__name__)
 
 class HumanReadableTransferColumn(ProgressColumn):
     """
@@ -51,7 +53,7 @@ def is_list_resoureces_file_type_valid(file_type: str):
     if file_type in valid_file_type:
         return file_type
     
-    print_log("Error", f"{file_type} 资源类型不存在！", "CLI.command.resource.is_list_resoureces_file_type_valid")
+    logger.error(f"{file_type} 资源类型不存在！")
     print(f"{file_type} 资源类型不存在！")
     raise typer.Exit(code=1)
 
@@ -60,12 +62,12 @@ def is_download_dest_dir(dest: Path):
         Path(dest).mkdir()
 
     if not dest.exists():
-        print_log("Error", f"{dest} 不存在！", "CLI.command.resource.is_download_dest_dir")
+        logger.error(f"{dest} 不存在！")
         print(f"{dest} 不存在！")
         raise typer.Exit(code=1)
     
     if not dest.is_dir():
-        print_log("Error", f"{dest} 应是文件夹！", "CLI.command.resource.is_download_dest_dir")
+        logger.error(f"{dest} 应是文件夹！")
         print(f"{dest} 应是文件夹！")
         raise typer.Exit(code=1)
     
@@ -242,11 +244,11 @@ async def upload_resources(
     ) as progress:        
         pre_task = progress.add_task(description="[green]正在载入文件...[/green]", total=len(files))
         
-        print_log("Info", "载入目标路径", "CLI.command.resource.upload_resources")
+        logger.info("载入目标路径")
         for file in files:
             if Path.is_dir(file):
                 if not recursion:
-                    print_log("Warning", f"{file} 为文件夹，但是 --recursion未启用", "CLI.command.resource.upload_resources")
+                    logger.warning(f"{file} 为文件夹，但是 --recursion未启用")
                     print(f"{file} 是一个文件夹，但是你没有启用 --recursion，它不会被解包为文件上传！")
                     progress.advance(pre_task)
                     continue
@@ -259,7 +261,7 @@ async def upload_resources(
         
         success_amount  = 0
         total_amount    = len(to_upload_files)
-        print_log("Info", f"成功载入 {total_amount} 个文件", "CLI.command.resource.upload_resources")    
+        logger.info(f"成功载入 {total_amount} 个文件")
         main_task = progress.add_task(description="[green]正在上传文件...[/green]", total=total_amount)
 
         with Progress(
@@ -338,11 +340,11 @@ async def remove_resources(
             
             if await file_deleter.batch_delete():
                 progress.advance(task, 1)
-                print_log("Info","删除成功", "CLI.command.resource.remove_resources")
+                logger.info("删除成功")
                 rprint(f"删除完成，共删除 {files_id_amount} 个文件")
                 return 
             
-            print_log("Error", f"删除失败", "CLI.command.resource.remove_resources")
+            logger.error(f"删除失败")
             rprint(f"[blod red]删除失败[/blod red]")
             progress.advance(task, 1)
             raise typer.Exit(code=1)
@@ -358,10 +360,10 @@ async def remove_resources(
                     success_delete_amount += 1
                     continue
 
-                print_log("Error", f"{file_id} 删除失败", "CLI.command.resource.remove_resources")
+                logger.error(f"{file_id} 删除失败")
                 rprint(f"{file_id} 删除失败")
 
-        print_log("Info", f"删除完成", "CLI.command.resource.remove_resources")
+        logger.info(f"删除完成")
         rprint(f"删除完成，{success_delete_amount} 个文件被成功删除，{files_id_amount - success_delete_amount} 个文件删除失败。")
         return
 

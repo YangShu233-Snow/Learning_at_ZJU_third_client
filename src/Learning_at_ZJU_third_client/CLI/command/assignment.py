@@ -2,6 +2,7 @@ from asyncer import syncify
 import asyncio
 from functools import partial
 import typer
+import logging
 from typing_extensions import Optional, Annotated, List, Tuple
 from rich import filesize
 from rich import print as rprint
@@ -14,14 +15,10 @@ from rich.console import Group
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.rule import Rule
 from datetime import datetime, timezone
-from pathlib import Path
 from lxml import html
 from lxml.html import HtmlElement
 
 from ...zjuAPI import zju_api
-from ...upload import submit
-from ...load_config import load_config
-from ...printlog.print_log import print_log
 from ...login.login import ZjuAsyncClient
 
 # assignment 命令组
@@ -32,6 +29,8 @@ app = typer.Typer(help="""
                   """,
                   no_args_is_help=True
                   )
+
+logger = logging.getLogger(__name__)
 
 def is_todo_show_amount_valid(amount: int):
     if amount <= 0:
@@ -414,7 +413,7 @@ async def view_activity(activity_id: int, type_map: dict):
             
             student_id = raw_activity_read.get("created_for_id")
             if not student_id:
-                print_log("Error", f"{activity_id} 缺少'created_for_id'参数，请将此问题上报给开发者！", "CLI.command.assignment.view_assignment")
+                logger.error(f"{activity_id} 缺少'created_for_id'参数，请将此问题上报给开发者！")
                 print(f"{activity_id} 返回存在问题！")
                 raise typer.Exit(code=1)
 
@@ -594,7 +593,7 @@ async def view_assignment(
     homework: Annotated[Optional[bool], typer.Option("--homework", "-H", help="启用此选项，将查询对应作业")] = False
 ):
     """
-    浏览指定任务，显示任务基本信息，任务附件与任务提交记录
+    浏览指定任务，显示任务基本信息，任务附件与任务提交记录，启用'--homework', '--exam', '--classroom'以指定访问的任务类型。如果不提供，LAZY会自行猜测任务类型。
     """
     type_map = {
         "material": "资料",
@@ -667,7 +666,7 @@ async def todo_assignment(
         todo_list: List[dict] = raw_todo_list.get("todo_list", [])
         
         if type(todo_list) != list:
-            print_log("Error", f"todo_list存在错误，请将此日志上报给开发者！", "CLI.command.assignment.todo_assignment")
+            logger.error(f"todo_list存在错误，请将此日志上报给开发者！")
             print("待办事项清单解析存在异常！")
             raise typer.Exit(code=1)
         
@@ -794,10 +793,13 @@ async def submit_assignment(
     text: Annotated[Optional[str], typer.Option("--text", "-t", help="待提交的文本内容")] = "",
     files_id: Annotated[Optional[str], typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = ""
 ):
+    """
+    提交 Homework 类型的作业，支持传入文本内容（等价于学在浙大提交内容里的文本框输入内容）与携带附件（请使用浙大云盘内的文件ID），与在学在浙大上提交任务相似，你必须先将附件上传至浙大云盘，后再提交作业。
+    """
     cookies = ZjuAsyncClient().load_cookies()
 
     async with ZjuAsyncClient(cookies=cookies) as client:
-        if submit.submitAssignment(activity_id, text, files_id).submit(client.session):
+        if await zju_api.assignmentSubmitAPIFits(client.session, activity_id, text, files_id).submit():
             rprint(f"[green]提交成功！[/green]")
         else:
             rprint(f"[red]提交失败！[/red]")

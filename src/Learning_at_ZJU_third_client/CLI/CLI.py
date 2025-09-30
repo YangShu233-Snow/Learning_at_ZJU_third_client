@@ -2,19 +2,21 @@ import typer
 import keyring
 import httpx
 import asyncio
+import logging
 from asyncer import syncify
 from functools import partial
 from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from typing_extensions import Annotated, Optional
 from ..login.login import ZjuAsyncClient
-from ..printlog.print_log import print_log
 
 from .command import course, resource, assignment, rollcall
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_STUDENTID_NAME = "studentid"
 KEYRING_PASSWORD_NAME = "password"
+
+logger = logging.getLogger(__name__)
 
 # 初始化主app对象
 app = typer.Typer(help="LAZY CLI - 学在浙大第三方客户端的命令行工具", no_args_is_help=True)
@@ -39,7 +41,7 @@ async def main_callback(ctx: typer.Context):
                 progress.update(task, description="登录有效", completed=2)
                 return 
 
-            print_log("Info", "会话已失效，尝试使用凭据登录...", "CLI.CLI_Typer.main_callback")
+            logger.info("会话已失效，尝试使用凭据登录...")
             progress.advance(task)
 
             progress.update(task, description="会话失效！重新登录中...")
@@ -48,7 +50,7 @@ async def main_callback(ctx: typer.Context):
             password = keyring.get_password("lazy", "password")
 
             if not studentid or not password:
-                print_log("Error", "未能找到登录凭据！", "CLI.CLI_Typer.main_callback")
+                logger.error("未能找到登录凭据！")
                 rprint("[red]未找到登录凭据，请重新登录[/red]")
                 progress.advance(task)
                 raise typer.Exit(code=1)
@@ -100,7 +102,7 @@ async def login():
         client.save_session()
         keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_STUDENTID_NAME, studentid)
         keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_PASSWORD_NAME, password)
-        print_log("Info", "已更新凭据与本地会话", "CLI.CLI_Typer.login")
+        logger.info("已更新凭据与本地会话")
         print("登录成功，凭据和会话已更新")
 
     else:

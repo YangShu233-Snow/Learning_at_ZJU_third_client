@@ -1,8 +1,9 @@
 import json
-import os
+import logging
 import sys
 from pathlib import Path
-from ..printlog.print_log import print_log
+
+logger = logging.getLogger(__name__)
 
 def resource_path(relative_path: str) -> Path:
     """获取资源的绝对路径，兼容源码和 PyInstaller 打包后环境"""
@@ -37,13 +38,13 @@ class BaseConfig:
         try:
             with open(self.config_path, "r") as f:
                 config = json.load(f)
-            print_log("Info", f"配置文件 '{self.config_name}'加载成功", "load_config.load_config")
+            logger.info(f"配置文件 '{self.config_name}'加载成功",)
         except FileNotFoundError:
-            print_log("Warning", f"配置文件 '{self.config_name}' 未找到！", "load_config.load_config")
+            logger.warning(f"配置文件 '{self.config_name}' 未找到！",)
         except json.JSONDecodeError: # 处理 JSON 格式错误
-            print_log("Warning", f"配置文件 '{self.config_name}' 可能为空！", "load_config.load_config")
+            logger.warning(f"配置文件 '{self.config_name}' 可能为空！",)
         except IOError as e: # 捕获其他 IO 错误
-            print_log("Warning", f"配置读取失败，IO错误: {e}", "load_config.load_config")
+            logger.warning(f"配置读取失败，IO错误: {e}",)
 
         if config == None:
             return {}
@@ -66,15 +67,15 @@ class BaseConfig:
 
         # pathlib自动处理文件夹存在问题
         self.config_parent_dir_path.mkdir(parents = True, exist_ok = True)
-        print_log("Info", f"配置文件{self.config_name}更新中中...", "load_config.update_config")
+        logger.info(f"配置文件{self.config_name}更新中中...",)
         try:
             with open(self.config_path, "w", encoding='utf-8') as f: # 推荐添加 encoding
                 json.dump(config_data, f, indent=4, ensure_ascii=False)
             
-            print_log("Info", f"{self.config_name}配置更新成功，路径{self.config_path}", "load_config.update_config")
+            logger.info(f"{self.config_name}配置更新成功，路径{self.config_path}",)
 
         except IOError:
-            print_log("Warning", f"配置更新失败！", "load_config.update_config")
+            logger.warning(f"配置更新失败！",)
             raise IOError
 
 class userConfig(BaseConfig):

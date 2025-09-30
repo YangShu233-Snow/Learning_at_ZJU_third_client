@@ -6,6 +6,7 @@ import asyncio
 import aiofiles
 import httpx
 import mimetypes
+import logging
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import unquote
@@ -14,9 +15,10 @@ from httpx import HTTPStatusError
 from typing_extensions import List, Optional, Callable
 
 from ..load_config import load_config
-from ..printlog.print_log import print_log
 
 DOWNLOAD_DIR = Path.home() / "Downloads"
+
+logger = logging.getLogger(__name__)
 
 class fileUploadProgressWrapper:
     def __init__(self,
@@ -39,7 +41,7 @@ class fileUploadProgressWrapper:
                 try:
                     self._callback(self._bytes_read, self._total_size)
                 except Exception as e:
-                    print_log("Error", f"{e}", "zju_api.fileUploadProgressWrapper.read")
+                    logger.error(f"{e}")
 
         return chunk
     
@@ -48,7 +50,6 @@ class fileUploadProgressWrapper:
         """
 
         return self._total_size
-
 
 class APIFits:
     def __init__(self, login_session: requests.Session, name, apis_name: List[str]|None = None, apis_config: dict|None = None, parent_dir = None, data = None):
@@ -60,9 +61,9 @@ class APIFits:
         self.parent_dir = parent_dir if parent_dir else name
         self.data = data
     
-    def load_api_config(self):
+    def _load_api_config(self):
         if self.config == None:
-            print_log("Error", f"{self.name}配置项不存在！", "zju_api.load_api_config")
+            logger.error(f"{self.name}配置项不存在！")
         else:
             if self.apis_name == None:
                 self.apis_name = self.config.get("apis_name", None)
@@ -71,37 +72,37 @@ class APIFits:
                 self.apis_config = self.config.get("apis_config", None)
 
         if self.apis_name == None:
-            print_log("Error", f"{self.name}配置项\"apis_name\"不存在！", "zju_api.load_api_config")
+            logger.error(f"{self.name}配置项\"apis_name\"不存在！")
         
         if self.apis_config == None:
-            print_log("Error", f"{self.name}配置项\"apis_config\"不存在！", "zju_api.load_api_config")
+            logger.error(f"{self.name}配置项\"apis_config\"不存在！")
 
     def get_api_data(self, auto_load: bool = False)->List[dict]:
         results_json = []
         
         if self.apis_name == None or self.apis_config == None:
-            self.load_api_config()
+            self._load_api_config()
 
         for api_name in self.apis_name:
             api_config: dict = self.apis_config.get(api_name, None)
             if api_config == None:
-                print_log("Error", f"{api_name}不存在！", "zju_api.get_api_data")
+                logger.error(f"{api_name}不存在！")
                 continue
             
-            api_url = self.make_api_url(api_config, api_name)
+            api_url = self._make_api_url(api_config, api_name)
             if api_url == None:
-                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFits.get_api_data")
+                logger.error(f"{api_name}的{api_url}不存在！")
                 continue
 
-            api_params = self.make_api_params(api_config = api_config, api_name=api_name)
-            print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.get_api_data")
-            print_log("Info", f"参数为 {api_config.items()}", "zju_api.APIFits.get_api_data")
+            api_params = self._make_api_params(api_config = api_config, api_name=api_name)
+            logger.info(f"请求 {api_url} 中...")
+            logger.info(f"参数为 {api_config.items()}")
             
             try:
                 api_respone = self.login_session.get(url = api_url, params = api_params)
                 api_respone.raise_for_status()
             except HTTPError as e:
-                print_log("Error", f"请求{api_respone.url}时发生错误。{e}", "zju_api.APIFits.get_api_data")
+                logger.error(f"请求{api_respone.url}时发生错误。{e}")
                 results_json.append({})
                 continue
             
@@ -118,32 +119,32 @@ class APIFits:
     def post_api_data(self)->List[dict]:
         all_api_response = []
         if self.apis_name == None or self.apis_config == None:
-            self.load_api_config()
+            self._load_api_config()
         
         for api_name in self.apis_name:
             api_config: dict = self.apis_config.get(api_name, None)
             if api_config == None:
-                print_log("Error", f"{api_name}不存在！", "zju_api.APIFits.post_api_data")
+                logger.error(f"{api_name}不存在！")
                 continue
                 
             if not self.check_api_method(api_config, "POST"):
-                print_log("Error", "该方法只适用POST请求！", "zju_api.APIFits.post_api_data")
+                logger.error("该方法只适用POST请求！")
                 raise RuntimeError
 
-            api_url = self.make_api_url(api_config, api_name)
+            api_url = self._make_api_url(api_config, api_name)
             if api_url == None:
-                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFits.post_api_data")
+                logger.error(f"{api_name}的{api_url}不存在！")
                 continue
 
-            print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.post_api_data")
+            logger.info(f"请求 {api_url} 中...")
             if self.data:
-                print_log("Info", f"载荷为 {self.data.items()}", "zju_api.APIFits.post_api_data")
+                logger.info(f"载荷为 {self.data.items()}")
             
             try:
                 api_respone = self.login_session.post(url = api_url, json = self.data)
                 api_respone.raise_for_status()
             except HTTPError as e:
-                print_log("Error", f"请求{api_respone.url}时发生错误。{e}", "zju_api.APIFits.post_api_data")
+                logger.error(f"请求{api_respone.url}时发生错误。{e}")
                 all_api_response.append({})
                 continue
 
@@ -154,40 +155,40 @@ class APIFits:
     def put_api_data(self)->List[dict|bool]:
         all_api_response = []
         if self.apis_name == None or self.apis_config == None:
-            self.load_api_config()
+            self._load_api_config()
 
         for api_name in self.apis_name:
             api_config: dict = self.apis_config.get(api_name, None)
             
             if not api_config:
-                print_log("Error", f"{api_name}不存在！", "zju_api.APIFits.put_api_data")
+                logger.error(f"{api_name}不存在！")
                 continue
 
             if not self.check_api_method(api_config, "PUT"):
-                print_log("Error", "该方法只适用PUT请求！", "zju_api.APIFits.put_api_data")
+                logger.error("该方法只适用PUT请求！")
                 raise RuntimeError
             
-            api_url = self.make_api_url(api_config, api_name)
+            api_url = self._make_api_url(api_config, api_name)
             if api_url == None:
-                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFits.put_api_data")
+                logger.error(f"{api_name}的{api_url}不存在！")
                 continue
             
-            print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.put_api_data")
+            logger.info(f"请求 {api_url} 中...")
             api_response = self.login_session.put(url = api_url, json = self.data)
             try:
                 api_response.raise_for_status()
             except HTTPError as e:
-                print_log("Error", f"Put请求失败！{api_response.url}: {e}", "zju_api.APIFits.put_api_data")
+                logger.error(f"Put请求失败！{api_response.url}: {e}")
                 all_api_response.append(False)
             else:
                 all_api_response.append(api_response.json())
 
         return all_api_response
 
-    def make_api_url(self, api_config: dict, api_name):
+    def _make_api_url(self, api_config: dict, api_name):
         return api_config.get("url", None)
     
-    def make_api_params(self, api_config: dict, api_name: str):
+    def _make_api_params(self, api_config: dict, api_name: str):
         return api_config.get("params", None)
     
     def check_api_method(self, apis_config: dict, method: str)->bool:
@@ -210,9 +211,9 @@ class APIFitsAsync:
         self.parent_dir = parent_dir if parent_dir else name
         self.data = data
     
-    def load_api_config(self):
+    def _load_api_config(self):
         if self.config == None:
-            print_log("Error", f"{self.name}配置项不存在！", "zju_api.load_api_config")
+            logger.error(f"{self.name}配置项不存在！")
         else:
             if self.apis_name == None:
                 self.apis_name = self.config.get("apis_name", None)
@@ -221,40 +222,40 @@ class APIFitsAsync:
                 self.apis_config = self.config.get("apis_config", None)
 
         if self.apis_name == None:
-            print_log("Error", f"{self.name}配置项\"apis_name\"不存在！", "zju_api.load_api_config")
+            logger.error(f"{self.name}配置项\"apis_name\"不存在！")
         
         if self.apis_config == None:
-            print_log("Error", f"{self.name}配置项\"apis_config\"不存在！", "zju_api.load_api_config")
+            logger.error(f"{self.name}配置项\"apis_config\"不存在！")
 
     async def get_api_data(self, auto_load: bool = False)->List[dict]:
         if self.apis_name == None or self.apis_config == None:
-            self.load_api_config()
+            self._load_api_config()
 
         tasks = []
         api_urls = []
         for api_name in self.apis_name:
             api_config: dict = self.apis_config.get(api_name, None)
             if api_config == None:
-                print_log("Error", f"{api_name}不存在！", "zju_api.APIFitsAsync.get_api_data")
+                logger.error(f"{api_name}不存在！")
                 continue
             
-            api_url    = self.make_api_url(api_config, api_name)
-            api_params = self.make_api_params(api_config = api_config, api_name=api_name)
+            api_url    = self._make_api_url(api_config, api_name)
+            api_params = self._make_api_params(api_config = api_config, api_name=api_name)
 
             if api_url == None:
-                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFitsAsync.get_api_data")
+                logger.error(f"{api_name}的{api_url}不存在！")
                 continue
 
             tasks.append(self.login_session.get(url=api_url, params=api_params, follow_redirects=True))
             api_urls.append(api_url)
 
-        print_log("Info", f"开始请求API: {', '.join(api_urls)}", "zju_api.APIFitsAsync.get_api_data")
+        logger.info(f"开始请求API: {', '.join(api_urls)}")
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         results_json = []
         for api_response in responses:
             if isinstance(api_response, Exception):
-                print_log("Error", f"请求时发生错误: {api_response}", "zju_api.APIFitsAsync.get_api_data")
+                logger.error(f"请求时发生错误: {api_response}")
                 results_json.append({})
                 continue
 
@@ -262,7 +263,7 @@ class APIFitsAsync:
                 api_response.raise_for_status()
                 api_respone_json = api_response.json()
             except HTTPStatusError as e:
-                print_log("Error", f"请求{api_response.url}时发生错误。{e}", "zju_api.APIFitsAsync.get_api_data")
+                logger.error(f"请求{api_response.url}时发生错误。{e}")
                 results_json.append({})
                 continue
 
@@ -276,35 +277,38 @@ class APIFitsAsync:
 
     async def post_api_data(self)->List[dict]:
         if self.apis_name == None or self.apis_config == None:
-            self.load_api_config()
+            self._load_api_config()
         
         tasks = []
         api_urls = []
         for api_name in self.apis_name:
             api_config: dict = self.apis_config.get(api_name, None)
             if api_config == None:
-                print_log("Error", f"{api_name}不存在！", "zju_api.APIFitsAsync.post_api_data")
+                logger.error(f"{api_name}不存在！")
                 continue
                 
             if not self.check_api_method(api_config, "POST"):
-                print_log("Error", "该方法只适用POST请求！", "zju_api.APIFitsAsync.post_api_data")
+                logger.error("该方法只适用POST请求！")
                 raise RuntimeError
 
-            api_url = self.make_api_url(api_config, api_name)
+            api_url = self._make_api_url(api_config, api_name)
             if api_url == None:
-                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFitsAsync.post_api_data")
+                logger.error(f"{api_name}的{api_url}不存在！")
                 continue
+            
+            if not self.data:
+                self.data = self._make_api_data(api_config, api_name)
 
             tasks.append(self.login_session.post(url=api_url, json=self.data, follow_redirects=True))
             api_urls.append(api_url)
 
-        print_log("Info", f"请求 {', '.join(api_urls)} 中...", "zju_api.APIFitsAsync.post_api_data")
+        logger.info(f"请求 {', '.join(api_urls)}")
         responses = await asyncio.gather(*tasks, return_exceptions=True)
         
         all_api_response = []
         for api_response in responses:
             if isinstance(api_response, Exception):
-                print_log("Error", f"请求时发生错误: {api_response}", "zju_api.APIFitsAsync.post_api_data")
+                logger.error(f"请求时发生错误: {api_response}")
                 all_api_response.append({})
                 continue
 
@@ -312,49 +316,52 @@ class APIFitsAsync:
                 api_response.raise_for_status()
                 all_api_response.append(api_response.json())
             except HTTPError as e:
-                print_log("Error", f"请求{api_response.url}时发生错误。{e}", "zju_api.APIFitsAsync.post_api_data")
+                logger.error(f"请求{api_response.url}时发生错误。{e}")
                 all_api_response.append({})
 
         return all_api_response
     
-    def put_api_data(self)->List[dict|bool]:
+    async def put_api_data(self)->List[dict|bool]:
         all_api_response = []
         if self.apis_name == None or self.apis_config == None:
-            self.load_api_config()
+            self._load_api_config()
 
         for api_name in self.apis_name:
             api_config: dict = self.apis_config.get(api_name, None)
             
             if not api_config:
-                print_log("Error", f"{api_name}不存在！", "zju_api.APIFits.put_api_data")
+                logger.error(f"{api_name}不存在！")
                 continue
 
             if not self.check_api_method(api_config, "PUT"):
-                print_log("Error", "该方法只适用PUT请求！", "zju_api.APIFits.put_api_data")
+                logger.error("该方法只适用PUT请求！")
                 raise RuntimeError
             
-            api_url = self.make_api_url(api_config, api_name)
+            api_url = self._make_api_url(api_config, api_name)
             if api_url == None:
-                print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.APIFits.put_api_data")
+                logger.error(f"{api_name}的{api_url}不存在！")
                 continue
             
-            print_log("Info", f"请求 {api_url} 中...", "zju_api.APIFits.put_api_data")
-            api_response = self.login_session.put(url = api_url, json = self.data, follow_redirects=True)
+            logger.info(f"请求 {api_url} 中...")
+            api_response = await self.login_session.put(url = api_url, json = self.data, follow_redirects=True)
             try:
                 api_response.raise_for_status()
             except HTTPError as e:
-                print_log("Error", f"Put请求失败！{api_response.url}: {e}", "zju_api.APIFits.put_api_data")
+                logger.error(f"Put请求失败！{api_response.url}: {e}")
                 all_api_response.append(False)
             else:
                 all_api_response.append(api_response.json())
 
         return all_api_response
 
-    def make_api_url(self, api_config: dict, api_name):
+    def _make_api_url(self, api_config: dict, api_name):
         return api_config.get("url", None)
     
-    def make_api_params(self, api_config: dict, api_name: str):
+    def _make_api_params(self, api_config: dict, api_name: str):
         return api_config.get("params", None)
+    
+    def _make_api_data(self, api_config: dict, api_name: str):
+        return api_config.get("data", {})
     
     def check_api_method(self, apis_config: dict, method: str)->bool:
         for value in apis_config.values():
@@ -371,7 +378,7 @@ class submissionAPIFits(APIFitsAsync):
         self.activity_id = activity_id
         super().__init__(login_session, "resources_submission", apis_name=["submissions"], data = data)
 
-    def make_api_url(self, apis_config, api_name):
+    def _make_api_url(self, apis_config, api_name):
         return apis_config.get("url", None) + f"/{self.activity_id}/submissions"
 
 # --- Course API ---
@@ -409,7 +416,7 @@ class coursesListAPIFits(coursesAPIFits):
         self.page = page
         self.show_amount = show_amount
 
-    def make_api_params(self, api_config, api_name: str):
+    def _make_api_params(self, api_config, api_name: str):
         api_params: dict = api_config.get("params")
 
         # 修改conditions中的keyword参数为搜索关键词
@@ -435,10 +442,10 @@ class coursePreviewAPIFits(coursesAPIFits):
         super().__init__(login_session, apis_name)
         self.course_id = course_id
 
-    def make_api_url(self, api_config, api_name):
+    def _make_api_url(self, api_config, api_name):
         base_api_url: str = api_config.get("url", None)
         if not base_api_url:
-            print_log("Error", f"{api_name}参数url缺失！", "zju_api.courseViewAPIFits.make_api_url")
+            logger.error(f"{api_name}参数url缺失！")
             return None
         
         api_url = base_api_url.replace("<placeholder>", str(self.course_id))
@@ -460,10 +467,10 @@ class courseViewAPIFits(coursesAPIFits):
         super().__init__(login_session, apis_name)
         self.course_id = course_id
 
-    def make_api_url(self, api_config, api_name):
+    def _make_api_url(self, api_config, api_name):
         base_api_url: str = api_config.get("url", None)
         if not base_api_url:
-            print_log("Error", f"{api_name}参数url缺失！", "zju_api.courseViewAPIFits.make_api_url")
+            logger.error(f"{api_name}参数url缺失！")
             return None
         
         api_url = base_api_url.replace("<placeholder>", str(self.course_id))
@@ -482,23 +489,23 @@ class coursewaresViewAPIFits(coursesAPIFits):
         self.page = page
         self.page_size = page_size
 
-    def make_api_url(self, api_config, api_name):
+    def _make_api_url(self, api_config, api_name):
         base_api_url: str = api_config.get("url")
         
         if not base_api_url:
-            print_log("Error", f"{api_name}参数url缺失！", "zju_api.coursewaresViewAPIFits.make_api_url")
+            logger.error(f"{api_name}参数url缺失！")
             return 
 
         if api_name == "coursewares":
             return base_api_url.replace("<placeholder>", str(self.course_id))
 
-        return super().make_api_url(api_config, api_name)
+        return super()._make_api_url(api_config, api_name)
     
-    def make_api_params(self, api_config, api_name):
+    def _make_api_params(self, api_config, api_name):
         api_params: dict = api_config.get("params")
 
         if not api_params:
-            print_log("Error", f"{api_name}参数params缺失！", "zju_api.courseViewAPIFits.make_api_params")
+            logger.error(f"{api_name}参数params缺失！")
             return 
         
         if api_name == "coursewares":
@@ -509,7 +516,7 @@ class coursewaresViewAPIFits(coursesAPIFits):
             api_params["page_size"]  = self.page_size
             return api_params
 
-        return super().make_api_params(api_config, api_name)
+        return super()._make_api_params(api_config, api_name)
 
 # --- Assignment API ---
 class assignmentAPIFits(APIFitsAsync):
@@ -543,10 +550,10 @@ class assignmentPreviewAPIFits(assignmentAPIFits):
         super().__init__(login_session, apis_name)
         self.activity_id = activity_id
 
-    def make_api_url(self, api_config, api_name):
+    def _make_api_url(self, api_config, api_name):
         base_api_url: str = api_config.get("url")
         if not base_api_url:
-            print_log("Error", f"{api_name} 缺乏'url'参数", "zju_api.assignmentViewAPIFits.make_api_url")
+            logger.error(f"{api_name} 缺乏'url'参数")
             return None
         
         api_url = base_api_url.replace("<placeholder>", str(self.activity_id))
@@ -564,16 +571,16 @@ class assignmentViewAPIFits(assignmentAPIFits):
         super().__init__(login_session, apis_name)
         self.activity_id = activity_id
 
-    def make_api_url(self, api_config, api_name):
+    def _make_api_url(self, api_config, api_name):
         base_api_url: str = api_config.get("url")
         if not base_api_url:
-            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentSubmissionViewAPIFits.make_api_url")
+            logger.error(f"{api_name} 缺乏'url'参数！")
             return None
         
         if api_name == "activity":
             return base_api_url.replace("<placeholder>", str(self.activity_id))
 
-        return super().make_api_url(api_config, api_name)
+        return super()._make_api_url(api_config, api_name)
 
 class assignmentSubmissionListAPIFits(assignmentAPIFits):
     def __init__(self, 
@@ -586,16 +593,16 @@ class assignmentSubmissionListAPIFits(assignmentAPIFits):
         self.activity_id = activity_id
         self.student_id = student_id
 
-    def make_api_url(self, api_config, api_name):
+    def _make_api_url(self, api_config, api_name):
         base_api_url: str = api_config.get("url")
         if not base_api_url:
-            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentSubmissionViewAPIFits.make_api_url")
+            logger.error(f"{api_name} 缺乏'url'参数！")
             return None
         
         if api_name == "submission_list":
             # return base_api_url.replace("<placeholder1>", str(self.activity_id)).replace("<placeholder2>", str(self.student_id))
             return base_api_url.replace("<placeholder1>", str(self.activity_id)).replace("<placeholder2>", str(self.student_id))
-        return super().make_api_url(api_config, api_name)
+        return super()._make_api_url(api_config, api_name)
 
 class assignmentTodoListAPIFits(assignmentAPIFits):
     def __init__(self, 
@@ -617,17 +624,17 @@ class assignmentExamViewAPIFits(assignmentAPIFits):
         super().__init__(login_session, apis_name)
         self.exam_id = exam_id
 
-    def make_api_url(self, api_config, api_name):
+    def _make_api_url(self, api_config, api_name):
         base_api_url: str = api_config.get("url")
 
         if not base_api_url:
-            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentExamViewAPIFits.make_api_url")
+            logger.error(f"{api_name} 缺乏'url'参数！")
             return None
         
         if api_name in ["exam", "exam_submission_list", "exam_subjects_summary"]:
             return base_api_url.replace("<placeholder>", f"{self.exam_id}")
 
-        return super().make_api_url(api_config, api_name)
+        return super()._make_api_url(api_config, api_name)
 
 class assignmentClassroomViewAPIFits(assignmentAPIFits):
     def __init__(self, 
@@ -641,16 +648,103 @@ class assignmentClassroomViewAPIFits(assignmentAPIFits):
         super().__init__(login_session, apis_name)
         self.classroom_id = classroom_id
 
-    def make_api_url(self, api_config, api_name):
+    def _make_api_url(self, api_config, api_name):
         base_api_url: str = api_config.get("url")
 
         if not base_api_url:
-            print_log("Error", f"{api_name} 缺乏'url'参数！", "zju_api.assignmentClassroomViewAPIFits.make_api_url")
+            logger.error(f"{api_name} 缺乏'url'参数！")
 
         if api_name in ["classroom", "classroom_submissions"]:
             return base_api_url.replace("<placeholder>", str(self.classroom_id))
         
-        return super().make_api_url(api_config, api_name)
+        return super()._make_api_url(api_config, api_name)
+
+class assignmentSubmitAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 assignment_id: int,
+                 comment: str = None,
+                 uploads: List[int] = [],
+                 apis_name=[
+                     "submissions"
+                 ], 
+                ):
+        super().__init__(login_session, apis_name)
+        self.assignment_id = assignment_id
+        self.comment = comment
+        self.uploads = uploads
+
+    def _make_api_url(self, api_config, api_name)->str|None:
+        base_api_url: str = api_config.get("url")
+
+        if not base_api_url:
+            logger.error(f"{api_name} 缺少url！")
+            return None
+        
+        if api_name == "submissions":
+            return base_api_url.replace("<placeholder>", str(self.assignment_id))
+
+        return super()._make_api_url(api_config, api_name)
+    
+    def _make_api_data(self, api_config, api_name)->dict|None:
+        default_api_data = api_config.get("data")
+
+        if not default_api_data:
+            logger.error(f"{api_name} 缺少data！")
+            return None
+        
+        if api_name == "submissions":
+            api_data = default_api_data
+            api_data["comment"] = api_data.get("comment").replace("{{{comment}}}", self.comment)
+            api_data["uploads"] = self.uploads
+            return api_data
+        
+        return super()._make_api_data(api_config, api_name)
+    
+    async def submit(self)->bool:
+        if not self.apis_name or not self.apis_config:
+            self._load_api_config()
+
+        api_config: dict = self.apis_config.get(api_name, None)
+        if api_config == None:
+            logger.error(f"{api_name}不存在！")
+            return False
+            
+        if not self.check_api_method(api_config, "POST"):
+            logger.error("该方法只适用POST请求！")
+            return False
+        
+        api_name = "submissions"
+        api_config: dict = self.apis_config.get(api_name)
+        if not api_config:
+            logger.error(f"{api_name}不存在！")
+            return False
+
+        api_url = self._make_api_url(api_config, api_name)
+        if not api_url:
+            logger.error(f"{api_name}的url不存在！")
+            return False
+        
+        api_data = self._make_api_data(api_config, api_name)
+        if not api_data:
+            logger.error(f"{api_name}的data不存在！")
+            return False
+
+        try:
+            response = await self.login_session.post(
+                url=api_url,
+                data=api_data
+            )
+
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            logger.error(f"请求 {api_url} 时发生错误！{e}")
+            return False
+        except Exception as e:
+            logger.error(f"发生未知错误！{e}")
+            return False
+        
+        return True
 
 # --- Resource API ---
 class resourcesAPIFits(APIFitsAsync):
@@ -684,11 +778,11 @@ class resourcesListAPIFits(resourcesAPIFits):
         self.show_amount = show_amount
         self.file_type = file_type
 
-    def make_api_params(self, api_config: str, api_name: str):
+    def _make_api_params(self, api_config: str, api_name: str):
         api_params: dict = api_config.get("params")
 
         if api_params == None:
-            print_log("Error", f"{api_name}缺乏params参数配置！", "zju_api.resourcesListAPIFits.make_api_params")
+            logger.error(f"{api_name}缺乏params参数配置！")
         
         # conditions这里需要是字符串，所以要解码-赋值-编码来处理
         api_params_conditions: dict = api_params.get("conditions")
@@ -718,51 +812,51 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         self.resources_id = resources_id
         self.basename = basename
 
-    def make_api_url(self, api_config, api_name):    
+    def _make_api_url(self, api_config, api_name):    
         base_api_url: str = api_config.get("url", None)
         if not base_api_url:
-            print_log("Error", f"{api_name}参数url缺失！", "zju_api.resourcesDownloadAPIFits.make_api_url")
+            logger.error(f"{api_name}参数url缺失！")
             return None
 
         if api_name == "download": 
             return base_api_url.replace("<placeholder>", str(self.resource_id))
         
-        return super().make_api_url(api_config, api_name)
+        return super()._make_api_url(api_config, api_name)
     
-    def make_api_params(self, api_config, api_name):
+    def _make_api_params(self, api_config, api_name):
         api_params: dict = api_config.get("params", None)
         if not api_params:
-            print_log("Error", f"{api_name}参数url缺失！", "zju_api.resourcesDownloadAPIFits.make_api_url")
+            logger.error(f"{api_name}参数url缺失！")
             return None
         
         if api_name == "batch_download":
             api_params["upload_ids"]= ",".join(map(str, self.resources_id))
             return api_params
         
-        return super().make_api_params(api_config, api_name)
+        return super()._make_api_params(api_config, api_name)
     
     async def download(self, 
                  progress_callback: Optional[Callable[[int, int, str], None]] = None
                  )->bool:
         
         if self.apis_name == None or self.apis_config == None:
-            self.load_api_config()
+            self._load_api_config()
 
         if not self.output_path.exists():
             Path(self.output_path).mkdir()
 
         if not self.output_path.is_dir():
-            print_log("Error", f"{self.output_path} 不是一个文件夹路径！", "zju_api.resourcesDownloadAPIFits.download")
+            logger.error(f"{self.output_path} 不是一个文件夹路径！")
             return False
 
         api_name = "download"
         api_config: dict = self.apis_config.get(api_name)
         if not api_config:
-            print_log("Error", f"{api_name}不存在！", "zju_api.resourcesDownloadAPIFits.download")
+            logger.error(f"{api_name}不存在！")
 
-        api_url = self.make_api_url(api_config, api_name)
+        api_url = self._make_api_url(api_config, api_name)
         if not api_url:
-            print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.get_api_data")
+            logger.error(f"{api_name}的{api_url}不存在！")
             return 
 
         try:
@@ -800,7 +894,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                 if self.basename:
                     filename = f"{self.basename}_{filename}"
 
-                print_log("Info", f"获取到文件名: {filename}", "zju_api.resourcesDownloadAPIFits.download")
+                logger.info(f"获取到文件名: {filename}")
 
                 file_path = self.output_path / filename
 
@@ -808,7 +902,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                 total_size = int(response.headers.get('content-length', 0))
                 download_size = 0
 
-                print_log("Info", f"开始下载文件: {filename}", "zju_api.resourcesDownloadAPIFits.download")
+                logger.info(f"开始下载文件: {filename}")
                 # 分块读取
                 async with aiofiles.open(file_path, 'wb') as f:
                     async for chunk in response.aiter_bytes(chunk_size=8192):
@@ -821,16 +915,16 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                                 try:
                                     progress_callback(download_size, total_size, filename)
                                 except Exception as e:
-                                    print_log("Warning", f"进度回调函数出错: {e}", "zju_api.resourcesDownloadAPIFits.download")
+                                    logger.warning(f"进度回调函数出错: {e}")
 
-                print_log("Info", f"{filename} 下载完成", "zju_api.resourcesDownloadAPIFits.download")
+                logger.info(f"{filename} 下载完成")
                 return True
 
         except HTTPError as e:
-            print_log("Error", f"请求过程中发生 HTTP 错误！错误原因: {e}", "zju_api.resourcesDownloadAPIFits.download")
+            logger.error(f"请求过程中发生 HTTP 错误！错误原因: {e}")
             return False
         except Exception as e:
-            print_log("Error", f"请求过程中发生未知错误！错误原因: {e}", "zju_api.resourcesDownloadAPIFits.download")
+            logger.error(f"请求过程中发生未知错误！错误原因: {e}")
             return False
             
     async def batch_download(self,
@@ -838,30 +932,30 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                        )->bool:
         
         if self.apis_name == None or self.apis_config == None:
-            self.load_api_config()
+            self._load_api_config()
 
         if not self.output_path.exists():
             Path(self.output_path).mkdir()
 
         if not self.output_path.is_dir():
-            print_log("Error", f"{self.output_path} 不是一个文件夹路径！", "zju_api.resourcesDownloadAPIFits.batch_download")
+            logger.error(f"{self.output_path} 不是一个文件夹路径！")
             return False
             
         api_name = "batch_download"
         api_config: dict = self.apis_config.get(api_name)
 
         if not api_config:
-            print_log("Error", f"{api_name}不存在！", "zju_api.resourcesDownloadAPIFits.batch_download")
+            logger.error(f"{api_name}不存在！")
             return False
 
-        api_url = self.make_api_url(api_config, api_name)
+        api_url = self._make_api_url(api_config, api_name)
         if api_url == None:
-            print_log("Error", f"{api_name}缺少 url 参数！", "zju_api.resourcesDownloadAPIFits.batch_download")
+            logger.error(f"{api_name}缺少 url 参数！")
             return False
 
-        api_params = self.make_api_params(api_config=api_config, api_name=api_name)
+        api_params = self._make_api_params(api_config=api_config, api_name=api_name)
         if not api_params:
-            print_log("Error", f"{api_name}缺少 params 参数！", "zju_api.resourcesDownloadAPIFits.batch_download")
+            logger.error(f"{api_name}缺少 params 参数！")
 
         try:
             async with self.login_session.stream("GET", api_url, timeout=20, follow_redirects=True) as response:
@@ -888,7 +982,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                 if self.basename:
                     filename = f"{self.basename}_{filename}"
 
-                print_log("Info", f"获取到文件名: {filename}", "zju_api.resourcesDownloadAPIFits.download")
+                logger.info(f"获取到文件名: {filename}")
 
                 file_path = self.output_path / filename
 
@@ -896,7 +990,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                 total_size = int(response.headers.get('content-length', 0))
                 download_size = 0
                 
-                print_log("Info", f"开始下载文件: {filename}", "zju_api.resourcesDownloadAPIFits.download")
+                logger.info(f"开始下载文件: {filename}")
                 
                 # 分块读取
                 async with aiofiles.open(file_path, 'wb') as f:
@@ -910,16 +1004,16 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                                 try:
                                     progress_callback(download_size, total_size, filename)
                                 except Exception as e:
-                                    print_log("Warning", f"进度回调函数出错: {e}", "zju_api.resourcesDownloadAPIFits.batch_download")
+                                    logger.warning(f"进度回调函数出错: {e}")
 
-                print_log("Info", f"{filename} 下载完成", "zju_api.resourcesDownloadAPIFits.download")
+                logger.info(f"{filename} 下载完成")
                 return True
 
         except HTTPError as e:
-            print_log("Error", f"请求过程中发生 HTTP 错误！错误原因: {e}", "zju_api.resourcesDownloadAPIFits.batch_download")
+            logger.error(f"请求过程中发生 HTTP 错误！错误原因: {e}")
             return False
         except Exception as e:
-            print_log("Error", f"请求过程中发生未知错误！错误原因: {e}", "zju_api.resourcesDownloadAPIFits.batch_download")
+            logger.error(f"请求过程中发生未知错误！错误原因: {e}")
             return False
 
 class resourcesRemoveAPIFits(resourcesAPIFits):
@@ -936,100 +1030,100 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
         self.resource_id = resource_id
         self.resources_id = resources_id
 
-    def make_api_params(self, api_config, api_name):
+    def _make_api_params(self, api_config, api_name):
         api_params = api_config.get("params")
 
         if api_params == None:
-            print_log("Error", f"{api_name}缺乏params参数配置！", "zju_api.resourcesListAPIFits.make_api_params")
+            logger.error(f"{api_name}缺乏params参数配置！")
         
         if api_name == "batch_remove":
             api_params["upload_ids"] = self.resources_id
             return api_params
 
-        return super().make_api_params(api_config, "")
+        return super()._make_api_params(api_config, "")
 
 
-    def make_api_url(self, api_config, api_name):
+    def _make_api_url(self, api_config, api_name):
         base_api_url = api_config.get("url")
         if base_api_url == None:
-            print_log("Error", f"{api_name}参数url缺失！", "zju_api.resourcesRemoveAPIFits.make_api_url")
+            logger.error(f"{api_name}参数url缺失！")
             return 
         if api_name == "remove":
             return base_api_url.replace("<placeholder>", str(self.resource_id))
-        return super().make_api_url(api_config, api_name)
+        return super()._make_api_url(api_config, api_name)
 
     async def delete(self)->bool:
         if self.apis_config == None:
-            self.load_api_config()
+            self._load_api_config()
 
         api_name = "remove"
         api_config: dict = self.apis_config.get(api_name, None)
 
         if not self.check_api_method(api_config, "DELETE"):
-            print_log("Error", "该方法只适用DELET请求！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.error("该方法只适用DELET请求！")
             raise RuntimeError
 
         if api_config == None:
-            print_log("Error", f"{api_name}不存在！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.error(f"{api_name}不存在！")
             return False
         
-        api_url = self.make_api_url(api_config, api_name)
+        api_url = self._make_api_url(api_config, api_name)
         if api_url == None:
-            print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.error(f"{api_name}的{api_url}不存在！")
             return False
         
         try:
             api_respone = await self.login_session.delete(url=api_url, follow_redirects=True)
             api_respone.raise_for_status()
-            print_log("Info", f"删除成功", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.info(f"删除成功")
             return True
         except HTTPError as e:
             if api_respone.status_code == 404:
-                print_log("Error", "删除失败", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+                logger.error("删除失败")
                 return False
             
-            print_log("Error", f"未知请求错误！错误原因: {e}", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.error(f"未知请求错误！错误原因: {e}")
             return False
         except Exception as e:
-            print_log("Error", f"未知错误！错误原因: {e}", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.error(f"未知错误！错误原因: {e}")
             return False
         
     async def batch_delete(self):
         if self.apis_config == None:
-            self.load_api_config()
+            self._load_api_config()
 
         api_name = "batch_remove"
         api_config: dict = self.apis_config.get(api_name, None)
 
         if not self.check_api_method(api_config, "DELETE"):
-            print_log("Error", "该方法只适用DELET请求！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.error("该方法只适用DELET请求！")
             raise RuntimeError
         
         if api_config == None:
-            print_log("Error", f"{api_name}不存在！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.error(f"{api_name}不存在！")
             return False
         
-        api_url = self.make_api_url(api_config, api_name)
+        api_url = self._make_api_url(api_config, api_name)
         if api_url == None:
-            print_log("Error", f"{api_name}的{api_url}不存在！", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.error(f"{api_name}的{api_url}不存在！")
             return False
 
-        api_params = self.make_api_params(api_config, api_name)
+        api_params = self._make_api_params(api_config, api_name)
         
         try:
             api_respone = await self.login_session.delete(url=api_url, json=api_params, follow_redirects=True)
             api_respone.raise_for_status()
-            print_log("Info", f"删除成功", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.info(f"删除成功")
             return True
         except HTTPError as e:
             if api_respone.status_code == 404:
-                print_log("Error", "删除失败", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+                logger.error("删除失败")
                 return False
             
-            print_log("Error", f"未知请求错误！错误原因: {e}", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.error(f"未知请求错误！错误原因: {e}")
             return False
         except Exception as e:
-            print_log("Error", f"未知错误！错误原因: {e}", "zju_api.resourcesRemoveAPIFits.delete_api_data")
+            logger.error(f"未知错误！错误原因: {e}")
             return False
 
 class resourceUploadAPIFits(resourcesAPIFits):
@@ -1052,25 +1146,25 @@ class resourceUploadAPIFits(resourcesAPIFits):
 
         # --- 准备阶段 ---
         if not self.file_path:
-            print_log("Error", f"加载 {file_path} 的时候发生错误！", "zju_api.resourceUploadAPIFits.upload")
+            logger.error(f"加载 {file_path} 的时候发生错误！")
             return False
         
         if not self.apis_name or not self.apis_config:
-            self.load_api_config()
+            self._load_api_config()
 
         api_name   = "upload"
         api_config = self.apis_config.get(api_name)
-        api_url    = self.make_api_url(api_config, api_name)
+        api_url    = self._make_api_url(api_config, api_name)
 
         if not api_config:
-            print_log("Error", f"{api_name}不存在！", "zju_api.resourceUploadAPIFits.upload")
+            logger.error(f"{api_name}不存在！")
             return False
 
         self.file_name = self.file_path.name
         self.file_size = self.file_path.stat().st_size
-        upload_data    = self.make_api_data(api_config, api_name)
+        upload_data    = self._make_api_data(api_config, api_name)
 
-        print_log("Info", f"请求上传文件 {self.file_name} 中...", "zju_api.resourceUploadAPIFits.upload")
+        logger.info(f"请求上传文件 {self.file_name} 中...")
 
         # --- 申请阶段 ---
         # POST文件上传请求，以获得文件上传的实际位置
@@ -1084,11 +1178,11 @@ class resourceUploadAPIFits(resourcesAPIFits):
 
             upload_response.raise_for_status()
         except Exception as e:
-            print_log("Error", f"向服务器申请上传文件 {self.file_name} 时候发生错误！{e}", "zju_api.resourceUploadAPIFits.upload")
+            logger.error(f"向服务器申请上传文件 {self.file_name} 时候发生错误！{e}")
             return False
         
-        print_log("Info", f"文件 {self.file_name} 请求上传文件成功！", "zju_api.resourceUploadAPIFits.upload")
-        print_log("Info", f"文件 {self.file_name} 开始上传...", "zju_api.resourceUploadAPIFits.upload")
+        logger.info(f"文件 {self.file_name} 请求上传文件成功！")
+        logger.info(f"文件 {self.file_name} 开始上传...")
 
         # --- 上传阶段 ---
         upload_url    = upload_response.json().get("upload_url")
@@ -1116,13 +1210,13 @@ class resourceUploadAPIFits(resourcesAPIFits):
 
             response.raise_for_status()
         except Exception as e:
-            print_log("Error", f"向服务器上传文件 {self.file_name} 时候发生错误！{e}", "zju_api.resourceUploadAPIFits.upload")
+            logger.error(f"向服务器上传文件 {self.file_name} 时候发生错误！{e}")
             return False
         
-        print_log("Info", f"文件 {self.file_name} 上传成功！", "zju_api.resourceUploadAPIFits.upload")
+        logger.info(f"文件 {self.file_name} 上传成功！")
         return True
 
-    def make_api_data(self, api_config, api_name):
+    def _make_api_data(self, api_config, api_name):
         api_data = api_config.get("params", {})
 
         if api_name == "upload":
@@ -1130,7 +1224,7 @@ class resourceUploadAPIFits(resourcesAPIFits):
             api_data["size"] = self.file_size
             return api_data
         
-        return super().make_api_params(api_config, api_name)
+        return super()._make_api_params(api_config, api_name)
 
 
     def _check_file_paths(self, file_path: Path)->Path|None:
@@ -1152,15 +1246,15 @@ class resourceUploadAPIFits(resourcesAPIFits):
   
         # 检查路径合法性
         if not isinstance(file_path, Path):
-            print_log("Error", f"{file_path} 不是一个 Path 类型对象！", "zju_api.resourceUploadAPIFits._check_file_paths")
+            logger.error(f"{file_path} 不是一个 Path 类型对象！")
             return None
 
         if not Path(file_path).exists():
-            print_log("Error", f"{file_path} 不存在！", "zju_api.resourceUploadAPIFits._check_file_paths")
+            logger.error(f"{file_path} 不存在！")
             return None
         
         if not Path(file_path).is_file():
-            print_log("Error", f"{file_path} 不是一个文件！", "zju_api.resourceUploadAPIFits._check_file_paths")
+            logger.error(f"{file_path} 不是一个文件！")
             return None
         
         # 检查文件合法性
@@ -1169,14 +1263,14 @@ class resourceUploadAPIFits(resourcesAPIFits):
 
         if file_type in main_formats:
             if file_size > legal_file_max_size[0]:
-                print_log("Error", f"{file_path.name} 大小超出上限3GB！", "zju_api.resourceUploadAPIFits._check_file_paths")
+                logger.error(f"{file_path.name} 大小超出上限3GB！")
                 return None
         elif file_type in other_formats:
             if file_size > legal_file_max_size[1]:
-                print_log("Error", f"{file_path.name} 大小超出上限2GB！", "zju_api.resourceUploadAPIFits._check_file_paths")
+                logger.error(f"{file_path.name} 大小超出上限2GB！")
                 return None
         else:
-            print_log("Error", f"{file_path.name} 的文件类型 {file_type} 暂不支持上传！", "zju_api.resourceUploadAPIFits._check_file_paths")
+            logger.error(f"{file_path.name} 的文件类型 {file_type} 暂不支持上传！")
             return None
             
         return file_path
@@ -1215,13 +1309,13 @@ class rollcallAnswerAPIFits(rollcallAPIFits):
         super().__init__(login_session, apis_name, data=rollcall_data)
         self.rollcall_id = rollcall_id
 
-    def make_api_url(self, api_config, api_name):
+    def _make_api_url(self, api_config, api_name):
         base_api_url: str = api_config.get("url")
         if not base_api_url:
-            print_log("Error", f"{api_name}参数url缺失！", "zju_api.rollcallAnswerAPIFits.make_api_url")
+            logger.error(f"{api_name}参数url缺失！")
             return
         
         if api_name == "answer":
             return base_api_url.replace("<placeholder>", str(self.rollcall_id))
         
-        return super().make_api_url(api_config, api_name)
+        return super()._make_api_url(api_config, api_name)

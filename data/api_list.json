@@ -139,7 +139,6 @@
                     "no-intercept": true
                 }
             }
-                
         }
     },
     "resources_submission": {
@@ -185,7 +184,8 @@
             "batch_download",
             "remove",
             "batch_remove",
-            "upload"
+            "upload",
+            "submissions"
         ],
         "apis_config": {
             "list": {
@@ -243,6 +243,19 @@
                     "source": "",
                     "is_marked_attachment": false,
                     "embed_material_type": ""
+                }
+            },
+            "submissions": {
+                "url": "https://courses.zju.edu.cn/api/course/activities/<placeholder>/submissions",
+                "method": "POST",
+                "data": {
+                    "comment": "<p><span style=\"font-size: 14px;\">{{{comment}}}</span><br></p>",
+                    "uploads": [],
+                    "slides": "",
+                    "is_draft": false,
+                    "mode": "normal",
+                    "other_resources": [],
+                    "uploads_in_rich_text": []
                 }
             }
         }

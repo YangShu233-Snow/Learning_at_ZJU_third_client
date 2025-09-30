@@ -1,6 +1,7 @@
 import asyncio
 import httpx
 import typer
+import logging
 from asyncer import syncify
 from functools import partial
 from typing_extensions import Optional, Annotated, List, Tuple
@@ -15,7 +16,6 @@ from rich.text import Text
 from rich.console import Group
 from datetime import datetime
 
-from ...printlog.print_log import print_log
 from ...zjuAPI import zju_api
 from ...login.login import ZjuAsyncClient
 # course 命令组
@@ -24,6 +24,8 @@ app = typer.Typer(help="""
                        """,
                     no_args_is_help=True
                   )
+
+logger = logging.getLogger(__name__)
 
 # view 子命令组
 view_app = typer.Typer(help="学在浙大课程查看相关命令组，支持对课程多维信息的查看。", no_args_is_help=True)
@@ -99,14 +101,14 @@ def parse_indices(indices: str|None)->List[int]:
 
                 result.extend(range(start-1, end))
             except ValueError as e:
-                print_log("Error", f"{item} 格式有误，错误信息: {e}", "CLI.command.course.parse_indices")
+                logger.error(f"{item} 格式有误，错误信息: {e}")
                 typer.echo(f"{item} 格式错误，请使用 'start_index - end_index' 的格式！", err=True)
                 raise typer.Exit(code=1)
         else:
             try:
                 result.append(int(item)-1)
             except ValueError as e:
-                print_log("Error", f"{item} 格式有误，错误信息: {e}", "CLI.command.course.parse_indices")
+                logger.error(f"{item} 格式有误，错误信息: {e}")
                 typer.echo(f"{item} 应为整数！", err=True)
                 raise typer.Exit(code=1)
     
@@ -296,7 +298,7 @@ async def view_syllabus(
             course_modules_node_list: List[Tuple[dict, dict, dict, dict]] = []
             
             if not modules_list:
-                print_log("Error", f"{course_name}(ID: {course_id})中你要查询的章节不存在！", "CLI.command.course.view_course")
+                logger.error(f"{course_name}(ID: {course_id})中你要查询的章节不存在！")
                 rprint(f"未找到章节！")
                 return 
 

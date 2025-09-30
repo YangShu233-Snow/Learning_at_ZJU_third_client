@@ -75,7 +75,7 @@ a = Analysis(
 当你修改完 `lazy.spec`后，就可以进行进一步的打包了。
 
 ```bash
-pyinstaller lazy.spec --noconfirm=
+pyinstaller lazy.spec --noconfirm
 ```
 
 打包好的文件在 `Learning_at_ZJU_third_client/dist/lazy` 下，是一个 `lazy` 名的可执行文件。

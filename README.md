@@ -80,6 +80,30 @@ pyinstaller lazy.spec --noconfirm
 
 打包好的文件在 `Learning_at_ZJU_third_client/dist/lazy` 下，是一个 `lazy` 名的可执行文件。
 
+```bash
+cd ./dist/lazy
+./lazy --help
+
+# 出现以下输出，说明LAZY安装成功
+# Usage: lazy [OPTIONS] COMMAND [ARGS]...
+# LAZY CLI - 学在浙大第三方客户端的命令行工具
+
+# 安装补全
+lazy --install-completion
+
+# 添加至环境变量
+# Linux & MacOS
+echo 'export PATH="/path/to/your/Learning_at_ZJU_third_client/dist/lazy:$PATH"' >> ~/.bashrc # 如果你用的是bash
+echo 'export PATH="/path/to/your/Learning_at_ZJU_third_client/dist/lazy:$PATH"' >>  ./zshrc # 如果你用的是zsh
+
+source ~/.bashrc # 应用修改
+source ~/.zshrc  # 应用修改
+
+# Windows需要在系统高级设置-环境变量-系统Path-新增，加入以下路径
+# /path/to/your/Learning_at_ZJU_third_client/dist/lazy
+# 保存后请重启终端以应用修改！
+```
+
 ### 直接从源码运行
 
 LAZY 支持直接从项目源码开始运行，你可以按照如下步骤进行操作。

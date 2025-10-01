@@ -48,7 +48,7 @@ def get_status_text(start_status: bool, close_status: bool)->Text:
 
 def get_completion_text(completion_status: bool, completion_criterion_key: str)->Text:
     if completion_criterion_key == "none":
-        return Text(f"无需完成", style="dim")
+        return Text(f"无完成指标", style="dim")
     
     if completion_status:
         return Text(f"🟢 已完成", style="green")

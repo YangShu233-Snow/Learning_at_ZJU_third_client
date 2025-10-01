@@ -214,7 +214,8 @@
             "exam_distribute",
             "exam_submission",
             "classroom",
-            "classroom_submissions"
+            "classroom_submissions",
+            "classroom_subject"
         ],
         "apis_config": {
             "activity": {
@@ -271,6 +272,11 @@
             },
             "classroom_submissions": {
                 "url": "https://courses.zju.edu.cn/api/classroom-exams/<placeholder>/my-submissions",
+                "method": "GET",
+                "params": {}
+            },
+            "classroom_subject": {
+                "url": "https://courses.zju.edu.cn/api/classroom/<placeholder>/subject",
                 "method": "GET",
                 "params": {}
             }

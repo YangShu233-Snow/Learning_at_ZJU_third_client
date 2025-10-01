@@ -86,6 +86,48 @@ def extract_uploads(uploads_list: List[dict])->List[Table]:
 
     return content_renderables
 
+def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Padding|str]|None:
+    content_renderables = []
+    if not subjects:
+        return None
+    
+    for index, subject in enumerate(subjects):
+        subject_description: str = extract_comment(subject.get("description"))
+        subject_point: int = subject.get("point", 0)
+        subject_type: str = subject_type_map.get(subject.get("type"), subject.get("type"))
+        subject_options: List[str] = []
+
+        for option_index, option in enumerate(subject.get("options"), start=65):
+            raw_content = extract_comment(option.get("content"))
+            subject_options.append(f"{chr(option_index)}. {raw_content}")
+
+        subject_note = subject.get("note")
+
+        if subject_note:
+            subject_head_note = Text(subject_note, "dim")
+
+        subject_text = Text.assemble(
+            (f"[{subject_type}]", "green"),
+            (f"({subject_point}分) ", "white"),
+            (f"{index + 1}. {subject_description}", "white")
+        )
+
+        if subject_options:
+            subject_options_text = Padding('\n'.join(subject_options), (0, 0, 0, 2))
+
+        if subject_note:
+            content_renderables.append(subject_head_note)
+        
+        content_renderables.append(subject_text)
+
+        if subject_options:
+            content_renderables.append(subject_options_text)
+
+        if subject != subjects[-1]:
+            content_renderables.append("")
+
+    return content_renderables
+
 def get_status_text(start_status: bool, close_status: bool)->Text:
     if close_status:
         return Text(f"🔴 已结束", style="red")
@@ -124,23 +166,26 @@ async def guess_assignment_type(assignment_id: int)->Tuple[bool, bool, bool]:
 
         async with ZjuAsyncClient(cookies=cookies) as client:
             raw_activity, raw_exam, raw_classroom = await asyncio.gather(*[
-                zju_api.assignmentPreviewAPIFits(client.session, assignment_id).post_api_data(),
+                zju_api.assignmentViewAPIFits(client.session, assignment_id).get_api_data(),
                 zju_api.assignmentExamViewAPIFits(client.session, assignment_id, apis_name=["exam"]).get_api_data(),
                 zju_api.assignmentClassroomViewAPIFits(client.session, assignment_id, apis_name=["classroom"]).get_api_data()
             ], return_exceptions=True)
 
-        if isinstance(raw_activity, list) and raw_activity and raw_activity[0].get("data"):
+        if raw_activity[0]:
             progress.update(task, description="猜测是作业!", completed=1)
+            logger.info(f"猜测 {assignment_id} 为 Homework")
             return (True, False, False)
         
         
         if isinstance(raw_exam, list) and raw_exam and raw_exam[0]:
             progress.update(task, description="猜测是测试!", completed=1)
+            logger.info(f"猜测 {assignment_id} 为 Exam")
             return (False, True, False)
         
         
         if isinstance(raw_classroom, list) and raw_classroom and raw_classroom[0]:
             progress.update(task, description="猜测是课堂任务!", completed=1)
+            logger.info(f"猜测 {assignment_id} 为 Classroom")
             return (False, False, True)
     
     return (False, False, False)
@@ -153,9 +198,9 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
     ) as progress:
         task = progress.add_task(description="请求数据中...", total=2)
         cookies = ZjuAsyncClient().load_cookies()
-
+        
+        # --- 请求阶段 ---
         async with ZjuAsyncClient(cookies=cookies) as client:
-            # --- 请求阶段 ---
             raw_exam, raw_exam_submission_list, raw_exam_distribute = await zju_api.assignmentExamViewAPIFits(client.session, exam_id).get_api_data()
         
             if not raw_exam:
@@ -232,6 +277,7 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
             content_renderables.append(exam_description_block)
             content_renderables.append("")
 
+        # --- 解析提交列表 ---
         if raw_exam_submission_list:
             exam_final_score: int|None = raw_exam_submission_list.get("exam_final_score")
             if not exam_final_score:
@@ -279,6 +325,7 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
             content_renderables.append("")
             content_renderables.append("无提交记录")
 
+        # --- 解析预览内容 ---
         if preview:
             exam_subjects_renderables = []
             
@@ -304,39 +351,8 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
                     "fill_in_blank": "填空"
                 }
 
-                for index, subject in enumerate(exam_subjects):
-                    subject_description: str = extract_comment(subject.get("description"))
-                    subject_point: int = subject.get("point", 0)
-                    subject_type: str = subject_type_map.get(subject.get("type"), subject.get("type"))
-                    subject_options: List[str] = []
-                    for option_index, option in enumerate(subject.get("options"), start=65):
-                        raw_content = extract_comment(option.get("content"))
-                        subject_options.append(f"{chr(option_index)}. {raw_content}")
-                    
-                    subject_note = subject.get("note")
+                exam_subjects_renderables = extract_subjects(exam_subjects, subject_type_map)
 
-                    if subject_note:
-                        subject_head_note = Text(subject_note, "dim")
-
-                    subject_text = Text.assemble(
-                        (f"[{subject_type}]", "green"),
-                        (f"({subject_point}分) ", "white"),
-                        (f"{index + 1}. {subject_description}", "white")
-                    )
-
-                    if subject_options:
-                        subject_options_text = Padding('\n'.join(subject_options), (0, 0, 0, 2))
-
-                    if subject_note:
-                        exam_subjects_renderables.append(subject_head_note)
-                    
-                    exam_subjects_renderables.append(subject_text)
-
-                    if subject_options:
-                        exam_subjects_renderables.append(subject_options_text)
-
-                    if subject != exam_subjects[-1]:
-                        exam_subjects_renderables.append("")
             
             exam_preview_subjects_panel = Panel(
                 Group(*exam_subjects_renderables),
@@ -371,13 +387,12 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
         transient=True
     ) as progress:
         task = progress.add_task(description="请求数据中...", total=2)
-
         cookies = ZjuAsyncClient().load_cookies()
-
+        
+        # --- 请求阶段 ---
         async with ZjuAsyncClient(cookies=cookies) as client:
-            # --- 请求阶段 ---
             # 请求classroom与classroom submission数据
-            classroom_message, raw_classroom_submissions_list = await zju_api.assignmentClassroomViewAPIFits(client.session, classroom_id).get_api_data()
+            classroom_message, raw_classroom_submissions_list, raw_classroom_subjects = await zju_api.assignmentClassroomViewAPIFits(client.session, classroom_id).get_api_data()
 
             if not classroom_message:
                 rprint(f"[red]请求课堂测试 [green]{classroom_id}[/green] 不存在！[/red]")
@@ -419,7 +434,8 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
         
         if classroom_finish_time_text:
             content_renderables.append(classroom_finish_time_text)
-
+        
+        # --- 解析提交列表 ---
         if classroom_submissions_list:
             submissions_content_renderables = []
             for submission in classroom_submissions_list:
@@ -450,6 +466,42 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
 
             content_renderables.append(classroom_submissions_panel)
 
+        # --- 解析预览内容 ---
+        if preview:
+            classroom_subjects_renderables = []
+
+            if not raw_classroom_subjects:
+                preview_error_text = Text.assemble(
+                    (f"(╥╯^╰╥) 预览失效了……", "red"),
+                    "\n",
+                    (f"未知错误导致无法预览题目。", "dim")
+                )
+
+                classroom_subjects_renderables.append(preview_error_text)
+            else:
+                classroom_subjects: List[dict] = raw_classroom_subjects.get("subjects", [])
+                                
+                subject_type_map = {
+                    "single_selection": "单选",
+                    "short_answer": "简答",
+                    "multiple_selection": "多选",
+                    "true_or_false": "判断",
+                    "fill_in_blank": "填空"
+                }
+
+                classroom_subjects_renderables = extract_subjects(classroom_subjects, subject_type_map)
+
+            classroom_preview_subjects_panel = Panel(
+                Group(*classroom_subjects_renderables),
+                title = "[yellow][内容预览][/yellow]",
+                border_style="cyan",
+                expand=True,
+                padding=(1, 2)
+            )
+
+            content_renderables.append("")
+            content_renderables.append(classroom_preview_subjects_panel)
+
         classroom_panel = Panel(
             Group(*content_renderables),
             title = f"[white][{classroom_type}][/white]",
@@ -478,14 +530,6 @@ async def view_activity(activity_id: int, type_map: dict):
             # --- 请求阶段 ---
             # 请求预览数据
             raw_activity_read: dict = (await zju_api.assignmentPreviewAPIFits(client.session, activity_id).post_api_data())[0]
-
-            if not raw_activity_read:
-                rprint(f"[red]请求作业 [green]{activity_id}[/green] 不存在！[/red]")
-                raise typer.Exit(code=1)
-
-            if not raw_activity_read.get("data"):
-                rprint(f"[red]请求作业 [green]{activity_id}[/green] 不存在！[/red]")
-                raise typer.Exit(code=1)
             
             student_id = raw_activity_read.get("created_for_id")
             if not student_id:

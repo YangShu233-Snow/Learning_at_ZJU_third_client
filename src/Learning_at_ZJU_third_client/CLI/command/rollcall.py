@@ -12,7 +12,6 @@ from rich import print as rprint
 
 from ...zjuAPI import zju_api
 from ...load_config import load_config
-from ...printlog.print_log import print_log
 
 from .subcommand import rollcall_config
 from ...login.login import ZjuAsyncClient

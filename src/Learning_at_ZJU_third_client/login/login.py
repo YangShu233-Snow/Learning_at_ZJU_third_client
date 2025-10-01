@@ -4,10 +4,11 @@ import pickle
 import httpx
 import asyncio
 import logging
+from httpx import HTTPStatusError, ConnectTimeout, RequestError
 from cryptography.fernet import Fernet, InvalidToken
 from lxml import etree
 from pathlib import Path
-from requests.exceptions import HTTPError, ConnectionError, Timeout, RequestException
+from requests.exceptions import HTTPError, ConnectionError
 
 from ..load_config import load_config
 from ..encrypt import LoginRSA
@@ -118,19 +119,17 @@ class ZjuAsyncClient:
 
         except HTTPError as errh:
             logger.error(f"HTTP错误: {errh}")
-
-        except ConnectionError as errc:
-            logger.error(f"连接错误: {errc}")
-
-        except Timeout as errt:
+            return False
+        except ConnectTimeout as errt:
             logger.error(f"超时错误: {errt}")
-
-        except RequestException as err:
-            logger.error(f"发生了其他请求错误: {err}")
-
+            return False
         except ValueError as e: # 当响应不是有效JSON时，.json()会抛出json.JSONDecodeError，它是ValueError的子类
             logger.error(f"无法解析JSON数据: {e}")
-
+            return False
+        except Exception as e:
+            logger.error(f"未知错误: {e}")
+            return False
+        
         # 加密password
         try:
             encrypted_password = self._encrypt_password(password=password, exponent=exponent, modulus=modulus)
@@ -152,17 +151,26 @@ class ZjuAsyncClient:
         }
 
         logger.info(f"POST登录请求中...")
-        response = await self.session.post(
-            url=login_response.url, 
-            data=data,
-            follow_redirects=True
-            )
         
+        try:
+            response = await self.session.post(
+                url=login_response.url, 
+                data=data,
+                follow_redirects=True
+                )
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            logger.error(f"请求出错: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"未知错误: {e}")
+            return False
+
         if "学在浙大" in response.text:
             logger.info(f"登录成功！学号: {self.studentid}")
             return True
         else:
-            logger.error(f"登录失败，请检查学号与密码是否正确！")
+            logger.error(f"登录失败，可能是学号或密码不正确！")
             return False
 
     def _encrypt_password(self, password: str, exponent: str, modulus: str)->str:
@@ -274,7 +282,7 @@ class ZjuAsyncClient:
 
     async def is_valid_session(self)->bool:
         if not self.session.cookies:
-            logger.warning("Session.Cookies不存在，需手动登录")
+            logger.info("Session.Cookies不存在，需手动登录")
             return False
         
         # 验证登录状态
@@ -286,8 +294,14 @@ class ZjuAsyncClient:
                 return True
             
             return False
-        except RequestException:
+        except HTTPStatusError:
             logger.warning("会话已过期失效！")
+            return False
+        except ConnectTimeout as e:
+            logger.error(f"网络问题: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"未知错误: {e}")
             return False
 
 # 新版Client类
@@ -362,10 +376,10 @@ class ZjuClient:
         except ConnectionError as errc:
             logger.error(f"连接错误: {errc}")
 
-        except Timeout as errt:
+        except ConnectTimeout as errt:
             logger.error(f"超时错误: {errt}")
 
-        except RequestException as err:
+        except RequestError as err:
             logger.error(f"发生了其他请求错误: {err}")
 
         except ValueError as e: # 当响应不是有效JSON时，.json()会抛出json.JSONDecodeError，它是ValueError的子类
@@ -503,7 +517,7 @@ class ZjuClient:
                 return True
             
             return False
-        except RequestException:
+        except RequestError:
             logger.warning("会话已过期失效！")
             return False
 
@@ -562,10 +576,10 @@ class LoginFit:
         except ConnectionError as errc:
             print(f"连接错误: {errc}")
 
-        except Timeout as errt:
+        except ConnectTimeout as errt:
             print(f"超时错误: {errt}")
 
-        except RequestException as err:
+        except RequestError as err:
             print(f"发生了其他请求错误: {err}")
 
         except ValueError as e: # 当响应不是有效JSON时，.json()会抛出json.JSONDecodeError，它是ValueError的子类

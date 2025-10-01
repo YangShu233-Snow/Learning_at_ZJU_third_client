@@ -1,41 +1,4 @@
 {
-    "user_index": {
-        "apis_name": [
-            "todo_list",
-            "notifications",
-            "recent_visit_courses"
-        ],
-        "apis_config": {
-            "todo_list": {
-                "url": "https://courses.zju.edu.cn/api/todos?no-intercept=true",
-                "params": {}
-            },
-            "notifications": {
-                "url": "https://courses.zju.edu.cn/ntf/users",
-                "params": {
-                    "offset": 0,
-                    "limit": 5,
-                    "removed": "only_mobile",
-                    "additionalFields": "total_count"
-                }
-            },
-            "recent_visit_courses": {
-                "url": "https://courses.zju.edu.cn/api/user/recently-visited-courses",
-                "params": {}
-            }
-        }
-    },
-    "todo_list_lite": {
-        "apis_name": [
-            "todo_list"
-        ],
-        "apis_config": {
-            "todo_list": {
-                "url": "https://courses.zju.edu.cn/api/todos?no-intercept=true",
-                "params": {}
-            }
-        }
-    },
     "course": {
         "apis_name": [
             "list",
@@ -54,6 +17,7 @@
         "apis_config": {
             "list": {
                 "url": "https://courses.zju.edu.cn/api/my-courses",
+                "method": "GET",
                 "params": {
                     "conditions": {
                         "status": [
@@ -72,46 +36,55 @@
             },
             "view": {
                 "url": "https://courses.zju.edu.cn/api/courses/<placeholder>",
+                "method": "GET",
                 "params": {
                     "fileds": "name"
                 }
             },
             "modules": {
                 "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/modules",
+                "method": "GET",
                 "params": {}
             },
             "activities": {
                 "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/activities",
+                "method": "GET",
                 "params": {
                     "sub_course_id": 0
                 }
             },
             "exams": {
                 "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/exams",
+                "method": "GET",
                 "params": {
                     "no-intercept": "true"
                 }
             },
             "exam-scores": {
                 "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/exam-scores",
+                "method": "GET",
                 "params": {
                     "no-intercept": "true"
                 }
             },
             "completeness": {
                 "url": "https://courses.zju.edu.cn/api/course/<placeholder>/my-completeness",
+                "method": "GET",
                 "params": {}
             },
             "classrooms": {
                 "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/classroom-list",
+                "method": "GET",
                 "params": {}
             },
             "activities_reads": {
                 "url": "https://courses.zju.edu.cn/api/course/<placeholder>/activity-reads-for-user",
+                "method": "GET",
                 "params": {}
             },
             "coursewares": {
                 "url": "https://courses.zju.edu.cn/api/course/<placeholder>/coursewares",
+                "method": "GET",
                 "params": {
                     "conditions": {
                         "category": null,
@@ -129,50 +102,16 @@
             },
             "homework-completeness": {
                 "url": "https://courses.zju.edu.cn/api/course/<palceholder>/homework/submission-status",
+                "method": "GET",
                 "params": {
                     "no-intercept": true
                 }
             },
             "exam-completeness": {
                 "url": "https://courses.zju.edu.cn/api/courses/<placeholder>/submitted-exams",
+                "method": "GET",
                 "params": {
                     "no-intercept": true
-                }
-            }
-        }
-    },
-    "resources_submission": {
-        "apis_name": [
-            "upload",
-            "submissions"
-        ],
-        "apis_config": {
-            "upload": {
-                "url": "https://courses.zju.edu.cn/api/uploads",
-                "method": "POST",
-                "data": {
-                    "name": "Default_name",
-                    "size": 1,
-                    "parent_type": null,
-                    "parent_id": 0,
-                    "is_scorm": false,
-                    "is_wmpkg": false,
-                    "source": "",
-                    "is_marked_attachment": false,
-                    "embed_material_type": ""
-                }
-            },
-            "submissions": {
-                "url": "https://courses.zju.edu.cn/api/course/activities",
-                "method": "POST",
-                "data": {
-                    "comment": "<p><span style=\"font-size: 14px;\">{{{comment}}}</span><br></p>",
-                    "uploads": [],
-                    "slides": "",
-                    "is_draft": false,
-                    "mode": "normal",
-                    "other_resources": [],
-                    "uploads_in_rich_text": []
                 }
             }
         }
@@ -190,6 +129,7 @@
         "apis_config": {
             "list": {
                 "url": "https://courses.zju.edu.cn/api/user/resources",
+                "method": "GET",
                 "params": {
                     "conditions": {
                         "keyword": "",
@@ -209,10 +149,12 @@
             },
             "download": {
                 "url": "https://courses.zju.edu.cn/api/uploads/<placeholder>/blob",
+                "method": "GET",
                 "params": {}
             },
             "batch_download": {
                 "url": "https://courses.zju.edu.cn/zip/uploads",
+                "method": "GET",
                 "params": {
                     "timezone": -480,
                     "upload_ids": []
@@ -269,12 +211,15 @@
             "exam",
             "exam_submission_list",
             "exam_subjects_summary",
+            "exam_distribute",
+            "exam_submission",
             "classroom",
             "classroom_submissions"
         ],
         "apis_config": {
             "activity": {
                 "url": "https://courses.zju.edu.cn/api/activities/<placeholder>?sub_course_id=0",
+                "method": "GET",
                 "params": {}
             },
             "activity_read": {
@@ -284,32 +229,49 @@
             },
             "submission_list": {
                 "url": "https://courses.zju.edu.cn/api/activities/<placeholder1>/students/<placeholder2>/submission_list",
+                "method": "GET",
                 "params": {}
             },
             "todo": {
                 "url": "https://courses.zju.edu.cn/api/todos?no-intercept=true",
+                "method": "GET",
                 "params": {}
             },
             "exam": {
                 "url": "https://courses.zju.edu.cn/api/exams/<placeholder>",
+                "method": "GET",
                 "params": {}
             },
             "exam_submission_list": {
                 "url": "https://courses.zju.edu.cn/api/exams/<placeholder>/submissions",
+                "method": "GET",
                 "params": {}
             },
             "exam_subjects_summary": {
                 "url": "https://courses.zju.edu.cn/api/exams/<placeholder>/subjects-summary",
+                "method": "GET",
                 "params": {
                     "forAllSubjects": false
                 }
             },
+            "exam_distribute": {
+                "url": "https://courses.zju.edu.cn/api/exams/<placeholder>/distribute",
+                "method": "GET",
+                "params": {}
+            },
+            "exam_submission":{
+                "url": "https://courses.zju.edu.cn/api/exams/<placeholder1>/submissions/<placeholder2>",
+                "method": "GET",
+                "params": {}
+            },
             "classroom": {
                 "url": "https://courses.zju.edu.cn/api/classroom-exams/<placeholder>",
+                "method": "GET",
                 "params": {}
             },
             "classroom_submissions": {
                 "url": "https://courses.zju.edu.cn/api/classroom-exams/<placeholder>/my-submissions",
+                "method": "GET",
                 "params": {}
             }
         }
@@ -322,6 +284,7 @@
         "apis_config": {
             "rollcall": {
                 "url": "https://courses.zju.edu.cn/api/radar/rollcalls?api_version=1.1.0",
+                "method": "GET",
                 "params": {}
             },
             "answer": {

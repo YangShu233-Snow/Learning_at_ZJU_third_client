@@ -55,7 +55,7 @@ def transform_time(time: str|None)->str:
     else:
         return "null"
 
-def extract_comment(raw_content: str)->str:
+def extract_comment(raw_content: str|None)->str:
     if not raw_content or not raw_content.strip():
         return ""
     
@@ -145,7 +145,7 @@ async def guess_assignment_type(assignment_id: int)->Tuple[bool, bool, bool]:
     
     return (False, False, False)
 
-async def view_exam(exam_id: int, type_map: dict):
+async def view_exam(exam_id: int, type_map: dict, preview: bool):
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -156,11 +156,17 @@ async def view_exam(exam_id: int, type_map: dict):
 
         async with ZjuAsyncClient(cookies=cookies) as client:
             # --- 请求阶段 ---
-            raw_exam, raw_exam_submission_list, raw_exam_subjects_summary = await zju_api.assignmentExamViewAPIFits(client.session, exam_id).get_api_data()
+            raw_exam, raw_exam_submission_list, raw_exam_distribute = await zju_api.assignmentExamViewAPIFits(client.session, exam_id).get_api_data()
         
-        if not raw_exam:
-            rprint(f"[red]请求测试 [green]{exam_id}[/green] 不存在！[/red]")
-            raise typer.Exit(code=1)
+            if not raw_exam:
+                rprint(f"[red]请求测试 [green]{exam_id}[/green] 不存在！[/red]")
+                raise typer.Exit(code=1)
+
+            if not raw_exam_distribute and raw_exam_submission_list:
+                head_submission_id = raw_exam_submission_list.get("submissions")[0].get("id")
+                raw_exam_submission_subjects = (await zju_api.assignmentExanSubmissionViewAPIFits(client.session, exam_id, head_submission_id).get_api_data())[0]
+            else:
+                raw_exam_submission_subjects = None
 
         progress.advance(task, 1)
         progress.update(task, description="渲染数据中...")
@@ -173,7 +179,7 @@ async def view_exam(exam_id: int, type_map: dict):
         exam_start_status: bool = raw_exam.get("is_started", False)
         exam_close_status: bool = raw_exam.get("is_closed")
         exam_description = extract_comment(raw_exam.get("description"))
-        exam_submit_times_limit: int|str = raw_exam.get("submit_times", "N/A")
+        exam_submit_times_limit: int|str = raw_exam.get("submit_times", "N/A") if raw_exam.get("submit_times", "N/A") != 0 else '\u221E'
         exam_submitted_times: int = raw_exam.get("submitted_times", 0)
 
         # 开放时间
@@ -233,7 +239,7 @@ async def view_exam(exam_id: int, type_map: dict):
             
             submission_content_renderables = []
             exam_submission_list: List[dict] = raw_exam_submission_list.get("submissions")
-            
+
             for submission in exam_submission_list:
                 submission_submitted_time = submission.get("submitted_at")
                 submission_score = submission.get("score") if submission.get("score") else "未公布"
@@ -273,6 +279,76 @@ async def view_exam(exam_id: int, type_map: dict):
             content_renderables.append("")
             content_renderables.append("无提交记录")
 
+        if preview:
+            exam_subjects_renderables = []
+            
+            if not raw_exam_distribute and not raw_exam_submission_subjects.get("subjects_data"):
+                preview_error_text = Text.assemble(
+                    (f"(╥╯^╰╥) 预览失效了……", "red"),
+                    "\n",
+                    (f"测试未开放、测试已结束但未公布或作答次数达到上限等情况均无法预览题目。", "dim")
+                )
+
+                exam_subjects_renderables.append(preview_error_text)
+            else:
+                if raw_exam_distribute:
+                    exam_subjects: List[dict] = raw_exam_distribute.get("subjects", [])
+                else:
+                    exam_subjects: List[dict] = raw_exam_submission_subjects.get("subjects_data").get("subjects")
+                
+                subject_type_map = {
+                    "single_selection": "单选",
+                    "short_answer": "简答",
+                    "multiple_selection": "多选",
+                    "true_or_false": "判断",
+                    "fill_in_blank": "填空"
+                }
+
+                for index, subject in enumerate(exam_subjects):
+                    subject_description: str = extract_comment(subject.get("description"))
+                    subject_point: int = subject.get("point", 0)
+                    subject_type: str = subject_type_map.get(subject.get("type"), subject.get("type"))
+                    subject_options: List[str] = []
+                    for option_index, option in enumerate(subject.get("options"), start=65):
+                        raw_content = extract_comment(option.get("content"))
+                        subject_options.append(f"{chr(option_index)}. {raw_content}")
+                    
+                    subject_note = subject.get("note")
+
+                    if subject_note:
+                        subject_head_note = Text(subject_note, "dim")
+
+                    subject_text = Text.assemble(
+                        (f"[{subject_type}]", "green"),
+                        (f"({subject_point}分) ", "white"),
+                        (f"{index + 1}. {subject_description}", "white")
+                    )
+
+                    if subject_options:
+                        subject_options_text = Padding('\n'.join(subject_options), (0, 0, 0, 2))
+
+                    if subject_note:
+                        exam_subjects_renderables.append(subject_head_note)
+                    
+                    exam_subjects_renderables.append(subject_text)
+
+                    if subject_options:
+                        exam_subjects_renderables.append(subject_options_text)
+
+                    if subject != exam_subjects[-1]:
+                        exam_subjects_renderables.append("")
+            
+            exam_preview_subjects_panel = Panel(
+                Group(*exam_subjects_renderables),
+                title = "[yellow][内容预览][/yellow]",
+                border_style="cyan",
+                expand=True,
+                padding=(1, 2)
+            )
+            
+            content_renderables.append("")
+            content_renderables.append(exam_preview_subjects_panel)
+
         # --- 组装 Exam Panel ---
         exam_panel = Panel(
             Group(*content_renderables),
@@ -288,7 +364,7 @@ async def view_exam(exam_id: int, type_map: dict):
 
         rprint(exam_panel)
 
-async def view_classroom(classroom_id: int, type_map: dict):
+async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -590,7 +666,8 @@ async def view_assignment(
     assignment_id: Annotated[int, typer.Argument(help="任务id")],
     exam: Annotated[Optional[bool], typer.Option("--exam", "-e", help="启用此选项，将查询对应的考试")] = False,
     classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")] = False,
-    homework: Annotated[Optional[bool], typer.Option("--homework", "-H", help="启用此选项，将查询对应作业")] = False
+    homework: Annotated[Optional[bool], typer.Option("--homework", "-H", help="启用此选项，将查询对应作业")] = False,
+    preview: Annotated[Optional[bool], typer.Option("--preview", "-P", help="启用此选项，预览测试或课堂任务题目")] = False
 ):
     """
     浏览指定任务，显示任务基本信息，任务附件与任务提交记录，启用'--homework', '--exam', '--classroom'以指定访问的任务类型。如果不提供，LAZY会自行猜测任务类型。
@@ -610,15 +687,19 @@ async def view_assignment(
 
     # 按照指定分配至相应任务
     if homework:
+        if preview:
+            rprint("[red]'homework' 类型不可预览！[/red]")
+            raise typer.Exit(code=1)
+        
         await view_activity(assignment_id, type_map)
         return 
 
     if exam:
-        await view_exam(assignment_id, type_map)
+        await view_exam(assignment_id, type_map, preview)
         return 
     
     if classroom:
-        await view_classroom(assignment_id, type_map)
+        await view_classroom(assignment_id, type_map, preview)
         return
     
     rprint(f"任务 {assignment_id} 不存在！")

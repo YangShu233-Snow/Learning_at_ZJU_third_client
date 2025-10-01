@@ -7,6 +7,7 @@ import aiofiles
 import httpx
 import mimetypes
 import logging
+from httpx import ConnectTimeout
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import unquote
@@ -266,6 +267,10 @@ class APIFitsAsync:
                 logger.error(f"请求{api_response.url}时发生错误。{e}")
                 results_json.append({})
                 continue
+            except ConnectTimeout as e:
+                logger.error(f"请求{api_url}超时！{e}")
+                results_json.append({})
+                continue
 
             if auto_load:
                 api_json_file = load_config.apiConfig(self.parent_dir, api_name)
@@ -289,7 +294,7 @@ class APIFitsAsync:
                 
             if not self.check_api_method(api_config, "POST"):
                 logger.error("该方法只适用POST请求！")
-                raise RuntimeError
+                continue
 
             api_url = self._make_api_url(api_config, api_name)
             if api_url == None:
@@ -303,7 +308,10 @@ class APIFitsAsync:
             api_urls.append(api_url)
 
         logger.info(f"请求 {', '.join(api_urls)}")
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
+        except Exception as e:
+            logger.error(f"发生未知错误！{e}")
         
         all_api_response = []
         for api_response in responses:
@@ -317,6 +325,12 @@ class APIFitsAsync:
                 all_api_response.append(api_response.json())
             except HTTPError as e:
                 logger.error(f"请求{api_response.url}时发生错误。{e}")
+                all_api_response.append({})
+            except ConnectTimeout as e:
+                logger.error(f"请求 {api_response.url} 超时！{e}")
+                all_api_response.append({})
+            except Exception as e:
+                logger.error(f"未知错误！{e}")
                 all_api_response.append({})
 
         return all_api_response
@@ -349,6 +363,11 @@ class APIFitsAsync:
             except HTTPError as e:
                 logger.error(f"Put请求失败！{api_response.url}: {e}")
                 all_api_response.append(False)
+            except ConnectTimeout as e:
+                logger.error(f"请求 {api_response.url} 超时！{e}")
+                all_api_response.append({})
+            except Exception as e:
+                logger.error(f"未知错误！{e}")
             else:
                 all_api_response.append(api_response.json())
 
@@ -530,6 +549,7 @@ class assignmentAPIFits(APIFitsAsync):
                     "exam",
                     "exam_submission_list",
                     "exam_subjects_summary",
+                    "exam_distribute",
                     "classroom",
                     "classroom_submissions"
                  ], 
@@ -618,7 +638,7 @@ class assignmentExamViewAPIFits(assignmentAPIFits):
                  apis_name=[
                     "exam",
                     "exam_submission_list",
-                    "exam_subjects_summary"
+                    "exam_distribute"
                      ] 
     ):
         super().__init__(login_session, apis_name)
@@ -631,9 +651,31 @@ class assignmentExamViewAPIFits(assignmentAPIFits):
             logger.error(f"{api_name} 缺乏'url'参数！")
             return None
         
-        if api_name in ["exam", "exam_submission_list", "exam_subjects_summary"]:
+        if api_name in ["exam", "exam_submission_list", "exam_distribute"]:
             return base_api_url.replace("<placeholder>", f"{self.exam_id}")
 
+        return super()._make_api_url(api_config, api_name)
+
+class assignmentExanSubmissionViewAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 exam_id: int,
+                 submission_id: int,
+                 apis_name=["exam_submission"]):
+        super().__init__(login_session, apis_name)
+        self.exam_id       = exam_id
+        self.submission_id = submission_id
+
+    def _make_api_url(self, api_config, api_name)->str|None:
+        base_api_url: str = api_config.get("url")
+
+        if not base_api_url:
+            logger.error(f"{api_name} 缺乏'url'参数")
+            return None
+        
+        if api_name == "exam_submission":
+            return base_api_url.replace("<placeholder1>", str(self.exam_id)).replace("<placeholder2>", str(self.submission_id))
+        
         return super()._make_api_url(api_config, api_name)
 
 class assignmentClassroomViewAPIFits(assignmentAPIFits):

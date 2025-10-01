@@ -8,6 +8,8 @@
 
 ## Installation
 
+以下均为 LAZY CLI 安装指南。
+
 ### 从源码开始打包
 
 LAZY 支持从项目源码打包为一个可执行文件，通常这能使得 LAZY 的启动速度得到提升，同时如果你想对 LAZY 做一些个性的修改，这个安装方法就是最适合你的。
@@ -37,8 +39,10 @@ conda activate LAZY
 pip install -e '.[dev]'
 
 # 如果你想做一些修改再打包，完全没有问题，记得保存你的修改
-# 接下来开始打包 LAZY，请确保你在 LAZY 项目根目录下
-pyinstaller --name lazy src/Learning_at_ZJU_third_client/main_CLI.py
+# 接下来开始打包 LAZY，请确保你在 LAZY 项目根目录下，首先pyinstaller会分析 LAZY 项目。
+pyinstaller --name lazy src/Learning_at_ZJU_third_client/main_CLI.py --noconfirm
+# 使用单文件模式可以将 LAZY 打包为单个可执行文件，但是会带来不可避免的启动延迟。
+pyinstaller --onefile --name lazy src/Learning_at_ZJU_third_client/main_CLI.py --noconfirm
 ```
 
 接下来你需要修改 LAZY 项目根目录下生成的 `lazy.spec`，具体的需求可见下方。
@@ -62,7 +66,7 @@ a = Analysis(
     binaries=[],
     datas=data_files, # <--这里请将变量赋值为 data_files
     # ....
-    hookspath=[
+    hiddenimports=[
         'keyring.backends.SecretService',          # 如果你在 Linux 下打包，请补充这个依赖
         'keyring.backends.chainer',                # 如果你在 Linux 下打包，请补充这个依赖
         'keyring.backends.macOS.Keyring'           # 如果你在 MacOS 下打包，请补充这个依赖
@@ -87,21 +91,41 @@ cd ./dist/lazy
 # 出现以下输出，说明LAZY安装成功
 # Usage: lazy [OPTIONS] COMMAND [ARGS]...
 # LAZY CLI - 学在浙大第三方客户端的命令行工具
+```
 
-# 安装补全
-lazy --install-completion
+打包成功后，我们推荐你进行进一步的配置，以享受最好的使用体验。
 
+如果你是 MacOS/Linux 用户，并且使用的单文件模式打包的 LAZY，可以直接将 `lazy`可执行文件移动至 `/usr/local/bin`下。如果你使用文件夹模式打包的 LAZY，可以通过软链接的方式方便 LAZY 的调用（通常这也是我们所推荐的方式），当然使用环境变量也是一个可行的方案。
+
+```bash
+# 如果你采用文件夹模式打包，可以参考以下指引
+# 将打包后的 LAZY 文件夹移动至一个永久存放的位置，我们推荐~/.local/share
+mkdir ~/.local/share/lazy -p
+mv /path/to/your/Learning_at_ZJU_third_client/dist/lazy/* ~/.local/share/lazy
+
+# 创建一个软链接
+sudo ln -s ~/.local/share/lazy/lazy /usr/local/bin/lazy
+
+# 如果你更喜欢环境变量，可以参考以下指引
 # 添加至环境变量
 # Linux & MacOS
 echo 'export PATH="/path/to/your/Learning_at_ZJU_third_client/dist/lazy:$PATH"' >> ~/.bashrc # 如果你用的是bash
-echo 'export PATH="/path/to/your/Learning_at_ZJU_third_client/dist/lazy:$PATH"' >>  ./zshrc # 如果你用的是zsh
+echo 'export PATH="/path/to/your/Learning_at_ZJU_third_client/dist/lazy:$PATH"' >> ~/.zshrc # 如果你用的是zsh
 
 source ~/.bashrc # 应用修改
 source ~/.zshrc  # 应用修改
+```
 
-# Windows需要在系统高级设置-环境变量-系统Path-新增，加入以下路径
-# /path/to/your/Learning_at_ZJU_third_client/dist/lazy
-# 保存后请重启终端以应用修改！
+对于 Windows 用户来说，我们更推荐你将 LAZY 添加至环境变量当中。通过设置-高级设置-环境变量-系统-Path，加入 LAZY 可执行文件所在文件夹的路径即可。
+
+完成以上修改后，你的 LAZY 应该就正确安装到系统当中了。
+
+```bash
+# 验证是否安装
+lazy --help
+
+# （可选）为 LAZY 配置补全
+lazy --install-completion
 ```
 
 ### 直接从源码运行

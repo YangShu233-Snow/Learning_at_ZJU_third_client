@@ -690,7 +690,7 @@ async def view_members(
     student: Annotated[Optional[bool], typer.Option("--student", "-S", help="启用此选项，只输出学生")] = False
 ):
     if instructor and student:
-        rprint("(#`Д´)ﾉ不可以同时'只'输出啦！")
+        rprint("[red](#`Д´)ﾉ不可以同时'只'输出啦！[/red]")
         raise typer.Exit(code=1)
     
     with Progress(
@@ -722,6 +722,10 @@ async def view_members(
             instructor_course_enrollments = [enrollment.get("user").get("name") for enrollment in course_enrollments if enrollment.get("roles")[0] == "instructor"]
             student_course_enrollments    = [enrollment.get("user").get("name") for enrollment in course_enrollments if enrollment.get("roles")[0] == "student"]
 
+        if not instructor_course_enrollments and not student_course_enrollments:
+            rprint("[red]∑(✘Д✘๑ )呀，没有结果呢~[/red]")
+            return 
+        
         if instructor_course_enrollments:
             rprint(f"[cyan]教师: [/cyan]{', '.join(instructor_course_enrollments)}")
         

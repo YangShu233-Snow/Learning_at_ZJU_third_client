@@ -289,7 +289,7 @@ class ZjuAsyncClient:
         try:
             response = await self.session.get(url="https://courses.zju.edu.cn/api/activities/is-locked", follow_redirects=True)
             response.raise_for_status()
-            if response.status_code == 200:
+            if response.url == "https://courses.zju.edu.cn/api/activities/is-locked":
                 logger.info("会话验证有效")
                 return True
             

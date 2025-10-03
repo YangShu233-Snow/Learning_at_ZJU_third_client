@@ -537,6 +537,43 @@ class coursewaresViewAPIFits(coursesAPIFits):
 
         return super()._make_api_params(api_config, api_name)
 
+class courseMembersViewAPIFits(coursesAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 course_id: int,
+                 keyword: str,
+                 apis_name=["enrollments"]
+                 ):
+        super().__init__(login_session, apis_name)
+        self.course_id = course_id
+        self.keyword = keyword
+
+    def _make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+
+        if not base_api_url:
+            logger.error(f"{api_name}参数url缺失！")
+            return None
+        
+        if api_name == "enrollments":
+            return base_api_url.replace("<placeholder>", str(self.course_id))
+        
+        return super()._make_api_url(api_config, api_name)
+    
+    def _make_api_params(self, api_config, api_name):
+        default_api_params = api_config.get("params")
+
+        if not default_api_params:
+            logger.error(f"{api_name} 缺少'params'！")
+            return None
+        
+        if api_name == "enrollments":
+            api_params = default_api_params
+            api_params["conditions"] = self.keyword if self.keyword else ""
+            return api_params
+        
+        return super()._make_api_params(api_config, api_name)
+
 # --- Assignment API ---
 class assignmentAPIFits(APIFitsAsync):
     def __init__(self, 

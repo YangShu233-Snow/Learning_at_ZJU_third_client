@@ -12,7 +12,8 @@
             "activities_reads",
             "coursewares",
             "homework-completeness",
-            "exam-completeness"
+            "exam-completeness",
+            "enrollments"
         ],
         "apis_config": {
             "list": {
@@ -112,6 +113,14 @@
                 "method": "GET",
                 "params": {
                     "no-intercept": true
+                }
+            },
+            "enrollments": {
+                "url": "https://courses.zju.edu.cn/api/course/<placeholder>/enrollments",
+                "method": "GET",
+                "params": {
+                    "conditions": "",
+                    "fields": "id,user(id,name),roles"
                 }
             }
         }

@@ -5,7 +5,6 @@ import logging
 from asyncer import syncify
 from functools import partial
 from typing_extensions import Optional, Annotated, List, Tuple
-from requests import Session
 from rich import filesize
 from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -681,6 +680,55 @@ async def view_coursewares(
         progress.update(task, description="渲染完成！", advance=1)
 
     rprint(coursewares_table)
+
+@view_app.command("enrollments")
+@partial(syncify, raise_sync_error=False)
+async def view_members(
+    course_id: Annotated[int, typer.Argument(help="课程ID")],
+    keyword: Annotated[Optional[str|None], typer.Option("--keyword", "-k", help="搜索关键词")] = None,
+    instructor: Annotated[Optional[bool], typer.Option("--instructor", "-I", help="启用此选项，只输出教师")] = False,
+    student: Annotated[Optional[bool], typer.Option("--student", "-S", help="启用此选项，只输出学生")] = False
+):
+    if instructor and student:
+        rprint("(#`Д´)ﾉ不可以同时'只'输出啦！")
+        raise typer.Exit(code=1)
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        cookies = ZjuAsyncClient().load_cookies()
+        task = progress.add_task(description="请求数据中...", total=2)
+
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            raw_course_enrollments = (await zju_api.courseMembersViewAPIFits(client.session, course_id, keyword).get_api_data())[0]
+
+        progress.update(task, description="渲染任务信息中...", advance=1)
+        course_enrollments = raw_course_enrollments.get("enrollments")
+
+        if not course_enrollments:
+            rprint("[red]∑(✘Д✘๑ )呀，没有结果呢~[/red]")
+            return 
+
+        instructor_course_enrollments = []
+        student_course_enrollments = []
+
+        if instructor:
+            instructor_course_enrollments = [enrollment.get("user").get("name") for enrollment in course_enrollments if enrollment.get("roles")[0] == "instructor"]
+        elif student:
+            student_course_enrollments    = [enrollment.get("user").get("name") for enrollment in course_enrollments if enrollment.get("roles")[0] == "student"]
+        else:
+            instructor_course_enrollments = [enrollment.get("user").get("name") for enrollment in course_enrollments if enrollment.get("roles")[0] == "instructor"]
+            student_course_enrollments    = [enrollment.get("user").get("name") for enrollment in course_enrollments if enrollment.get("roles")[0] == "student"]
+
+        if instructor_course_enrollments:
+            rprint(f"[cyan]教师: [/cyan]{', '.join(instructor_course_enrollments)}")
+        
+        if student_course_enrollments:
+            rprint(f"[cyan]学生: [/cyan]{', '.join(student_course_enrollments)}")
+        
+        progress.update(task, description="渲染完成x    ...", advance=1)
 
 # view 注册入课程命令组
 app.add_typer(view_app, name="view")

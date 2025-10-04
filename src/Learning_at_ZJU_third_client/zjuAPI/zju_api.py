@@ -949,24 +949,22 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                 content_disposition = response.headers.get('Content-Disposition')
                 if content_disposition:
                     fn_match = re.search(r'filename\*\s*=\s*utf-?8''([^;]+)', content_disposition)
+                    
                     if fn_match:
                         potential_filename = fn_match.group(1).strip('"')
                         filename = unquote(potential_filename)
+                    # 如果没有找到 filename*，再尝试匹配非标准的 filename="..."
+                    else:
+                        fn_match = re.search(r'filename="?(.+)"?', content_disposition)
+                        if fn_match:
+                            try:
+                                filename = fn_match.group(1).encode('latin-1').decode('utf-8')
+                            except UnicodeError:
+                                filename = fn_match.group(1) # 如果解码失败，使用原始字符串
                 
-                # 如果没有找到 filename*，再尝试匹配非标准的 filename="..."
                 if not filename:
-                    fn_match = re.search(r'filename="?(.+)"?', content_disposition)
-                    if fn_match:
-                        try:
-                            filename = fn_match.group(1).encode('latin-1').decode('utf-8')
-                        except UnicodeError:
-                            filename = fn_match.group(1) # 如果解码失败，使用原始字符串
-                
-                if not filename and 'name=' in response.url:
-                    filename = unquote(response.url.split("name=")[-1])
-
-                if not filename and 'name=' not in response.url:
-                    filename = unquote(response.url.split('/')[-1])
+                    response_url = Path(str(response.url))
+                    filename = unquote(response_url.name)
 
                 if not filename:
                     filename = datetime.now().strftime('%Y-%m-%d %H:%M:%S')

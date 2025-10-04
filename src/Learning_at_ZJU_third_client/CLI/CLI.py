@@ -96,18 +96,25 @@ async def login():
     studentid = typer.prompt("请输入学号")
     password = typer.prompt("请输入密码", hide_input=True)
 
-    client = ZjuAsyncClient()
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        client = ZjuAsyncClient()
+        task = progress.add_task(description="登录中...", total=1)
 
-    if await client.login(studentid, password):
-        client.save_session()
-        keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_STUDENTID_NAME, studentid)
-        keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_PASSWORD_NAME, password)
-        logger.info("已更新凭据与本地会话")
-        print("登录成功，凭据和会话已更新")
+        if await client.login(studentid, password):
+            client.save_session()
+            keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_STUDENTID_NAME, studentid)
+            keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_PASSWORD_NAME, password)
+            logger.info("已更新凭据与本地会话")
+            progress.advance(task)
+            rprint("[green]登录成功！[/green]")
 
-    else:
-        print("登录失败，请检查你的学号与密码是否正确。")
-        raise typer.Exit(code=1)
+        else:
+            print("登录失败，请检查你的学号与密码是否正确。")
+            raise typer.Exit(code=1)
     
 # --- Who am I ? ---
 @app.command()

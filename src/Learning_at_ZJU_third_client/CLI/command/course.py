@@ -725,7 +725,7 @@ async def view_members(
         if not instructor_course_enrollments and not student_course_enrollments:
             rprint("[red]∑(✘Д✘๑ )呀，没有结果呢~[/red]")
             return 
-        
+            
         if instructor_course_enrollments:
             rprint(f"[cyan]教师: [/cyan]{', '.join(instructor_course_enrollments)}")
         

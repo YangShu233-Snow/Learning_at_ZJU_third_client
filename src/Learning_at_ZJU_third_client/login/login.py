@@ -4,6 +4,7 @@ import pickle
 import httpx
 import asyncio
 import logging
+import traceback
 from httpx import HTTPStatusError, ConnectTimeout, RequestError
 from cryptography.fernet import Fernet, InvalidToken
 from lxml import etree
@@ -104,9 +105,15 @@ class ZjuAsyncClient:
 
         # 初始化登录POST表单
         # 获取password RSA加密所需的exponent与modulus
+        print(1)
         try: 
+            print(1.5)
+            print(url)
+            print(self.session)
             login_response = await self.session.get(url=url, follow_redirects=True)
+            print(2)
             pubkey_json = await self.session.get(url=pubkey_url, follow_redirects=True)
+            print(3)
             pubkey_json.raise_for_status()
             
             # 解析，获取exponent和modulus
@@ -127,7 +134,10 @@ class ZjuAsyncClient:
             logger.error(f"无法解析JSON数据: {e}")
             return False
         except Exception as e:
-            logger.error(f"未知错误: {e}")
+            # 【关键修正】: 打印异常的类型、原始表示(repr)和完整的堆栈信息
+            logger.error(f"捕获到未知异常，类型: {type(e)}")
+            logger.error(f"异常的 repr: {repr(e)}")
+            logger.error(f"完整的 Traceback:\n{traceback.format_exc()}")
             return False
         
         # 加密password

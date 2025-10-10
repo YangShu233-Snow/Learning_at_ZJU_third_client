@@ -392,14 +392,6 @@ class APIFitsAsync:
             
         return False
 
-class submissionAPIFits(APIFits):
-    def __init__(self, login_session, activity_id, data):
-        self.activity_id = activity_id
-        super().__init__(login_session, "resources_submission", apis_name=["submissions"], data = data)
-
-    def _make_api_url(self, apis_config, api_name):
-        return apis_config.get("url", None) + f"/{self.activity_id}/submissions"
-
 # --- Course API ---
 class coursesAPIFits(APIFitsAsync):
     def __init__(self, 

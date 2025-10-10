@@ -540,7 +540,17 @@ async def view_activity(activity_id: int, type_map: dict):
             # 请求主体数据
             raw_activity = (await zju_api.assignmentViewAPIFits(client.session, activity_id).get_api_data())[0]
         
-        activity_completion_criterion_key: str       = raw_activity.get("completion_criterion_key", "none")
+            activity_completion_criterion_key: str = raw_activity.get("completion_criterion_key", "none")
+            
+            # 判断是否获取提交列表（必须是提交完成的任务且有提交记录）
+            if activity_completion_criterion_key == "submitted":
+                if raw_activity.get("user_submit_count") and raw_activity.get("user_submit_count") > 0:
+                    raw_submission_list = (await zju_api.assignmentSubmissionListAPIFits(client.session, activity_id, student_id).get_api_data())[0]
+                else:
+                    raw_submission_list = {}
+            else:
+                raw_submission_list = {}
+
         activity_highest_score: int                  = raw_activity.get("highest_score", 0) if raw_activity.get("highest_score", 0) is not None else "N/A"
         activity_description: str                    = extract_comment(raw_activity.get("data", {}).get("description", ""))
         activity_content: str                        = extract_comment(raw_activity.get("data", {}).get("content", ""))
@@ -550,16 +560,7 @@ async def view_activity(activity_id: int, type_map: dict):
             activity_description
         )
         activity_description_block = Padding(activity_description_text, (0, 0, 0, 2))
-
-        # 判断是否获取提交列表（必须是提交完成的任务且有提交记录）
-        if activity_completion_criterion_key == "submitted":
-            if raw_activity.get("user_submit_count") and raw_activity.get("user_submit_count") > 0:
-                raw_submission_list = (await zju_api.assignmentSubmissionListAPIFits(client.session, activity_id, student_id).get_api_data())[0]
-            else:
-                raw_submission_list = {}
-        else:
-            raw_submission_list = {}
-        
+            
         progress.advance(task, advance=1)
 
         task = progress.add_task(description="渲染内容中...", total=1)

@@ -392,7 +392,7 @@ class APIFitsAsync:
             
         return False
 
-class submissionAPIFits(APIFitsAsync):
+class submissionAPIFits(APIFits):
     def __init__(self, login_session, activity_id, data):
         self.activity_id = activity_id
         super().__init__(login_session, "resources_submission", apis_name=["submissions"], data = data)
@@ -775,8 +775,8 @@ class assignmentSubmitAPIFits(assignmentAPIFits):
         
         if api_name == "submissions":
             api_data = default_api_data
-            api_data["comment"] = api_data.get("comment").replace("{{{comment}}}", self.comment)
-            api_data["uploads"] = self.uploads
+            api_data["comment"] = api_data.get("comment", "").replace("{{{comment}}}", self.comment)
+            api_data["uploads"].extend(self.uploads)
             return api_data
         
         return super()._make_api_data(api_config, api_name)
@@ -785,6 +785,7 @@ class assignmentSubmitAPIFits(assignmentAPIFits):
         if not self.apis_name or not self.apis_config:
             self._load_api_config()
 
+        api_name = "submissions"
         api_config: dict = self.apis_config.get(api_name, None)
         if api_config == None:
             logger.error(f"{api_name}不存在！")
@@ -794,7 +795,6 @@ class assignmentSubmitAPIFits(assignmentAPIFits):
             logger.error("该方法只适用POST请求！")
             return False
         
-        api_name = "submissions"
         api_config: dict = self.apis_config.get(api_name)
         if not api_config:
             logger.error(f"{api_name}不存在！")
@@ -813,7 +813,7 @@ class assignmentSubmitAPIFits(assignmentAPIFits):
         try:
             response = await self.login_session.post(
                 url=api_url,
-                data=api_data
+                json=api_data
             )
 
             response.raise_for_status()
@@ -1246,6 +1246,7 @@ class resourceUploadAPIFits(resourcesAPIFits):
         upload_data    = self._make_api_data(api_config, api_name)
 
         logger.info(f"请求上传文件 {self.file_name} 中...")
+        progress_callback(0, self.file_size, self.file_name)
 
         # --- 申请阶段 ---
         # POST文件上传请求，以获得文件上传的实际位置
@@ -1256,8 +1257,7 @@ class resourceUploadAPIFits(resourcesAPIFits):
                 headers = self.upload_headers,
                 follow_redirects=True
             )
-
-            upload_response.raise_for_status()
+            
         except Exception as e:
             logger.error(f"向服务器申请上传文件 {self.file_name} 时候发生错误！{e}")
             return False
@@ -1271,16 +1271,17 @@ class resourceUploadAPIFits(resourcesAPIFits):
 
         try:
             with open(self.file_path, 'rb') as f:
-                # 适配上层需求文件名
-                def sub_progress_callback(uploaded: int, total: int):
-                    progress_callback(uploaded, total, self.file_name)
+                # # 适配上层需求文件名
+                # def sub_progress_callback(uploaded: int, total: int):
+                #     progress_callback(uploaded, total, self.file_name)
                
                 # 包装文件
-                uploader = fileUploadProgressWrapper(f, sub_progress_callback)
+                # uploader = fileUploadProgressWrapper(f, sub_progress_callback)
+                file_bytes = f.read()
 
                 # 构建payload
                 file_payload = {
-                    "file": (self.file_name, uploader, file_mimetype)
+                    "file": (self.file_name, file_bytes, file_mimetype)
                 }
 
                 response = await self.login_session.put(
@@ -1288,12 +1289,13 @@ class resourceUploadAPIFits(resourcesAPIFits):
                     files = file_payload,
                     follow_redirects=True
                 )
-
+            logger.info(f"{response.cookies}")
             response.raise_for_status()
         except Exception as e:
             logger.error(f"向服务器上传文件 {self.file_name} 时候发生错误！{e}")
             return False
         
+        progress_callback(self.file_size, self.file_size, self.file_name)
         logger.info(f"文件 {self.file_name} 上传成功！")
         return True
 

@@ -275,26 +275,26 @@ async def upload_resources(
             async with ZjuAsyncClient(cookies=cookies) as client:
                 files_uploader = zju_api.resourceUploadAPIFits(client.session)
                 
-            for to_upload_file in to_upload_files:
-                # 文件子任务，跟踪单文件上传进度
-                upload_task = sub_progress.add_task(description="创建上传任务...", start=False)
+                for to_upload_file in to_upload_files:
+                    # 文件子任务，跟踪单文件上传进度
+                    upload_task = sub_progress.add_task(description="创建上传任务...", start=False)
 
-                # 创建回调函数
-                def update_progress(uploaded: int, total: int, filename: str, task_id: int = upload_task):
-                    # 首次回调，更新文件名和进度
-                    if not sub_progress.tasks[task_id].started:
-                        sub_progress.start_task(task_id)
-                        sub_progress.update(task_id, description=f"[cyan]上传: {filename}", total=total)
+                    # 创建回调函数
+                    def update_progress(uploaded: int, total: int, filename: str, task_id: int = upload_task):
+                        # 首次回调，更新文件名和进度
+                        if not sub_progress.tasks[task_id].started:
+                            sub_progress.start_task(task_id)
+                            sub_progress.update(task_id, description=f"[cyan]上传: {filename}", total=total)
 
-                    sub_progress.update(task_id, completed=uploaded)
+                        sub_progress.update(task_id, completed=uploaded)
 
-                if await files_uploader.upload(to_upload_file, update_progress):
-                    success_amount += 1
-                    sub_progress.update(upload_task, description=f"[green]√ {sub_progress.tasks[upload_task].description}[/green]", completed=sub_progress.tasks[upload_task].total)
-                else:
-                    sub_progress.update(upload_task, description=f"[red]上传失败: {str(to_upload_file)} o(￣ヘ￣o＃)[/red]")
+                    if await files_uploader.upload(to_upload_file, update_progress):
+                        success_amount += 1
+                        sub_progress.update(upload_task, description=f"[green]√ {sub_progress.tasks[upload_task].description}[/green]", completed=sub_progress.tasks[upload_task].total)
+                    else:
+                        sub_progress.update(upload_task, description=f"[red]上传失败: {str(to_upload_file)} o(￣ヘ￣o＃)[/red]")
 
-                progress.advance(main_task, advance=1)
+                    progress.advance(main_task, advance=1)
             
         rprint(f"[green]文件上传完成！[/green]成功上传 {success_amount} 个文件，失败 {total_amount - success_amount} 个文件。")
     

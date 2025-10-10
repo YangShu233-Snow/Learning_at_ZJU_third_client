@@ -132,8 +132,7 @@
             "batch_download",
             "remove",
             "batch_remove",
-            "upload",
-            "submissions"
+            "upload"
         ],
         "apis_config": {
             "list": {
@@ -195,19 +194,6 @@
                     "is_marked_attachment": false,
                     "embed_material_type": ""
                 }
-            },
-            "submissions": {
-                "url": "https://courses.zju.edu.cn/api/course/activities/<placeholder>/submissions",
-                "method": "POST",
-                "data": {
-                    "comment": "<p><span style=\"font-size: 14px;\">{{{comment}}}</span><br></p>",
-                    "uploads": [],
-                    "slides": "",
-                    "is_draft": false,
-                    "mode": "normal",
-                    "other_resources": [],
-                    "uploads_in_rich_text": []
-                }
             }
         }
     },
@@ -224,7 +210,8 @@
             "exam_submission",
             "classroom",
             "classroom_submissions",
-            "classroom_subject"
+            "classroom_subject",
+            "submissions"
         ],
         "apis_config": {
             "activity": {
@@ -288,6 +275,19 @@
                 "url": "https://courses.zju.edu.cn/api/classroom/<placeholder>/subject",
                 "method": "GET",
                 "params": {}
+            },
+            "submissions": {
+                "url": "https://courses.zju.edu.cn/api/course/activities/<placeholder>/submissions",
+                "method": "POST",
+                "data": {
+                    "comment": "<p><span style=\"font-size: 14px;\">{{{comment}}}</span><br></p>",
+                    "uploads": [],
+                    "slides": "",
+                    "is_draft": false,
+                    "mode": "normal",
+                    "other_resources": [],
+                    "uploads_in_rich_text": []
+                }
             }
         }
     },

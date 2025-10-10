@@ -734,5 +734,35 @@ async def view_members(
         
         progress.update(task, description="渲染完成x    ...", advance=1)
 
+@view_app.command("assignments")
+@partial(syncify, raise_sync_error=False)
+async def view_assignments(
+    course_id: Annotated[int, typer.Argument(help="课程ID")],
+    page: Annotated[Optional[int], typer.Option("--page", "-p", help="页面索引")] = 1,
+    page_size: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示任务数量")] = 10,
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，输出所有结果")] = False
+):
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        cookies = ZjuAsyncClient().load_cookies()
+        task = progress.add_task(description="获取任务信息中...", total=2)
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            raw_course_activities, raw_course_exams, raw_course_classrooms, raw_course_activities_reads, raw_homework_completeness, raw_exam_completeness = await zju_api.courseViewAPIFits(client.session, course_id)
+
+        progress.update(task, description="渲染任务信息中...", completed=1)
+
+        activities_list: List[dict]         = raw_course_activities.get("activities", [])
+        exams_list: List[dict]              = raw_course_exams.get("exams", [])
+        classrooms_list: List[dict]         = raw_course_classrooms.get("classrooms", [])
+        exams_completeness: List[int]       = raw_exam_completeness.get("exam_ids", [])
+        activities_completeness: List[int]  = [homework_activitie.get("id") for homework_activitie in raw_homework_completeness.get("homework_activities", {}) if homework_activitie.get("status") == "已交"]
+        classrooms_completeness: List[dict] = [activity_read for activity_read in raw_course_activities_reads.get("activity_reads") if activity_read.get("activity_type") == "classroom_activity"]
+
+        
+
+
 # view 注册入课程命令组
 app.add_typer(view_app, name="view")

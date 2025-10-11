@@ -18,6 +18,8 @@ CURRENT_SCRIPT_PATH = Path(__file__)
 USER_AVATAR_PATH = CURRENT_SCRIPT_PATH.parent.parent.parent.parent / "images/user_avatar.png"
 
 KEYRING_SERVICE_NAME = "lazy"
+KEYRING_STUDENTID_NAME = "studentid"
+KEYRING_PASSWORD_NAME = "password"
 ENCRYPTION_KEY_NAME = "session_encryption_key"
 SESSION_FILE = Path.home() / ".lazy_cli_session.enc"
 
@@ -102,18 +104,13 @@ class ZjuAsyncClient:
         url = "https://courses.zju.edu.cn/user/index#/"
         pubkey_url = "https://zjuam.zju.edu.cn/cas/v2/getPubKey"
         self.studentid = studentid
+        self.password = password
 
         # 初始化登录POST表单
         # 获取password RSA加密所需的exponent与modulus
-        print(1)
         try: 
-            print(1.5)
-            print(url)
-            print(self.session)
             login_response = await self.session.get(url=url, follow_redirects=True)
-            print(2)
             pubkey_json = await self.session.get(url=pubkey_url, follow_redirects=True)
-            print(3)
             pubkey_json.raise_for_status()
             
             # 解析，获取exponent和modulus
@@ -142,7 +139,7 @@ class ZjuAsyncClient:
         
         # 加密password
         try:
-            encrypted_password = self._encrypt_password(password=password, exponent=exponent, modulus=modulus)
+            encrypted_password = self._encrypt_password(password=self.password, exponent=exponent, modulus=modulus)
         
         except ValueError as e:
             logger.error(f"密码值错误！发生在RSA加密时。")
@@ -177,7 +174,7 @@ class ZjuAsyncClient:
             return False
 
         if "学在浙大" in response.text:
-            logger.info(f"登录成功！学号: {self.studentid}")
+            logger.info(f"登录成功！")
             return True
         else:
             logger.error(f"登录失败，可能是学号或密码不正确！")

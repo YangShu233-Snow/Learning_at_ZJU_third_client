@@ -102,7 +102,7 @@
                 }
             },
             "homework-completeness": {
-                "url": "https://courses.zju.edu.cn/api/course/<palceholder>/homework/submission-status",
+                "url": "https://courses.zju.edu.cn/api/course/<placeholder>/homework/submission-status",
                 "method": "GET",
                 "params": {
                     "no-intercept": true
@@ -272,7 +272,7 @@
                 "params": {}
             },
             "classroom_subject": {
-                "url": "https://courses.zju.edu.cn/api/classroom/<placeholder>/subject",
+                "url": "https://courses.zju.edu.cn/api/classroom/<placeholder>/result",
                 "method": "GET",
                 "params": {}
             },

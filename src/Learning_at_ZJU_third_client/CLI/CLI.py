@@ -51,11 +51,13 @@ async def main_callback(ctx: typer.Context):
 
             if not studentid or not password:
                 logger.error("未能找到登录凭据！")
-                rprint("[red]未找到登录凭据，请重新登录[/red]")
+                rprint("[red]未找到登录凭据，请尝试手动登录！[/red]")
                 progress.advance(task)
                 raise typer.Exit(code=1)
             
             if await client.login(studentid, password):
+                keyring.set_password(service_name=KEYRING_SERVICE_NAME, username=KEYRING_STUDENTID_NAME, password=studentid)
+                keyring.set_password(service_name=KEYRING_SERVICE_NAME, username=KEYRING_PASSWORD_NAME, password=password)
                 client.save_session()
                 progress.advance(task)
             else:

@@ -262,7 +262,11 @@ async def view_syllabus(
     modules_id: Annotated[Optional[List[int]], typer.Option("--module", "-m", help="章节id")] = None,
     last: Annotated[Optional[bool], typer.Option("--last", "-l", help="启用此选项，自动展示最新一章节")] = False,
     indices: Annotated[Optional[str], typer.Option("--index", "-i", help="通过索引号查看章节，索引从'1'开始，支持使用范围表示，如'1-5'。", callback=parse_indices)] = "",
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，展示所有章节内容")] = False
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，展示所有章节内容")] = False,
+    only_activity: Annotated[Optional[bool], typer.Option("--activity", "-a", help="启用此选项，只展示活动内容")] = False,
+    only_classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，只展示课堂任务")] = False,
+    only_exam: Annotated[Optional[bool], typer.Option("--exam", "-e", help="启用此选项，只展示测试内容")] = False,
+    only_homework: Annotated[Optional[bool], typer.Option("--homework", "-H", help="启用此选项，只展示作业")] = False
 ):
     """
     浏览指定课程的目录，默认对章节进行折叠，使用'--module'选项指定展开特定章节，使用'--index'展开对应索引号的章节，启用'--last'自动展开最新章节。
@@ -317,19 +321,25 @@ async def view_syllabus(
                 # 筛选目标activities, exams 和 classrooms
                 
                 activities_list: List[dict] = []
-                for course_activity in course_activities:
-                    if course_activity.get("module_id") == module_id:
-                        activities_list.append(course_activity)
+                if not (only_classroom or only_exam):
+                    for course_activity in course_activities:
+                        if only_homework and course_activity.get("type", "null") != "homework":
+                            continue
+
+                        if course_activity.get("module_id") == module_id:
+                                activities_list.append(course_activity)
 
                 exams_list: List[dict] = []
-                for course_exam in course_exams:
-                    if course_exam.get("module_id") == module_id:
-                        exams_list.append(course_exam)
+                if not (only_classroom or only_activity or only_homework):
+                    for course_exam in course_exams:
+                        if course_exam.get("module_id") == module_id:
+                            exams_list.append(course_exam)
 
                 classrooms_list: List[dict] = []
-                for course_classroom in course_classrooms:
-                    if course_classroom.get("module_id") == module_id:
-                        classrooms_list.append(course_classroom)
+                if not (only_exam or only_activity or only_homework):
+                    for course_classroom in course_classrooms:
+                        if course_classroom.get("module_id") == module_id:
+                            classrooms_list.append(course_classroom)
 
                 if len(activities_list) == 0 and len(exams_list) == 0 and len(classrooms_list) == 0:
                     rprint(f"章节 {module_id} 无内容")

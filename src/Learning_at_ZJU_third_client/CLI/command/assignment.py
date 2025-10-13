@@ -96,6 +96,13 @@ def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Pa
         subject_point: int = subject.get("point", 0)
         subject_type: str = subject_type_map.get(subject.get("type"), subject.get("type"))
         subject_options: List[str] = []
+        subject_answers: List[str] = []
+
+        if subject_type == "填空":
+            answers: List[dict] = subject.get("correct_answers", [])
+            for answer in answers:
+                answer_content = answer.get("content")
+                subject_answers.append(f"{answer_content}")
 
         for option_index, option in enumerate(subject.get("options"), start=65):
             raw_content = extract_comment(option.get("content"))
@@ -120,6 +127,9 @@ def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Pa
         if subject_options:
             subject_options_text = Padding('\n'.join(subject_options), (0, 0, 0, 2))
 
+        if subject_answers:
+            subject_answers_text = Padding(f"答案: {' '.join(subject_answers)}", (0, 0, 0, 2), style="green")
+
         if subject_note:
             content_renderables.append(subject_head_note)
         
@@ -127,6 +137,9 @@ def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Pa
 
         if subject_options:
             content_renderables.append(subject_options_text)
+
+        if subject_answers:
+            content_renderables.append(subject_answers_text)
 
         if subject != subjects[-1]:
             content_renderables.append("")

@@ -714,6 +714,7 @@ class assignmentClassroomViewAPIFits(assignmentAPIFits):
                  apis_name=[
                     "classroom",
                     "classroom_submissions",
+                    "classroom_subject_result",
                     "classroom_subject"
                  ], 
                  ):
@@ -726,7 +727,7 @@ class assignmentClassroomViewAPIFits(assignmentAPIFits):
         if not base_api_url:
             logger.error(f"{api_name} 缺乏'url'参数！")
 
-        if api_name in ["classroom", "classroom_submissions", "classroom_subject"]:
+        if api_name in ["classroom", "classroom_submissions", "classroom_subject", "classroom_subject_result"]:
             return base_api_url.replace("<placeholder>", str(self.classroom_id))
         
         return super()._make_api_url(api_config, api_name)

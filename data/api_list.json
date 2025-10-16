@@ -210,6 +210,7 @@
             "exam_submission",
             "classroom",
             "classroom_submissions",
+            "classroom_subject_result",
             "classroom_subject",
             "submissions"
         ],
@@ -271,8 +272,13 @@
                 "method": "GET",
                 "params": {}
             },
-            "classroom_subject": {
+            "classroom_subject_result": {
                 "url": "https://courses.zju.edu.cn/api/classroom/<placeholder>/result",
+                "method": "GET",
+                "params": {}
+            },
+            "classroom_subject": {
+                "url": "https://courses.zju.edu.cn/api/classroom/<placeholder>/subject",
                 "method": "GET",
                 "params": {}
             },

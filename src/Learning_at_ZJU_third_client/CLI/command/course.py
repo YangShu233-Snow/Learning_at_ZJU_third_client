@@ -536,7 +536,13 @@ async def view_syllabus(
                     classroom_type = type_map.get(classroom.get("type", "null"), classroom.get("type", "null"))
                     classroom_id = classroom.get("id", "null")
                     classroom_status = classroom.get("status")
-                    classroom_completeness_status = [classroom_completeness.get("completeness", "null") for classroom_completeness in classrooms_completeness if classroom_completeness.get("activity_id") == classroom_id][0]
+                    
+                    for classroom_completeness in classrooms_completeness:
+                        if classroom_completeness.get("activity_id") == classroom_id:
+                            classroom_completeness_status = "full"
+                            break
+                    else:
+                        classroom_completeness_status = ""
 
                     classroom_start_time: str = transform_time(classroom.get("start_at"))
 

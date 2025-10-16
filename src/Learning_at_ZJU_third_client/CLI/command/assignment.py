@@ -86,10 +86,10 @@ def extract_uploads(uploads_list: List[dict])->List[Table]:
 
     return content_renderables
 
-def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Padding|str]|None:
+def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Padding|str]:
     content_renderables = []
     if not subjects:
-        return None
+        return ""
     
     for index, subject in enumerate(subjects):
         subject_description: str = extract_comment(subject.get("description"))
@@ -410,7 +410,7 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
         # --- 请求阶段 ---
         async with ZjuAsyncClient(cookies=cookies) as client:
             # 请求classroom与classroom submission数据
-            classroom_message, raw_classroom_submissions_list, raw_classroom_subjects_result = await zju_api.assignmentClassroomViewAPIFits(client.session, classroom_id).get_api_data()
+            classroom_message, raw_classroom_submissions_list, raw_classroom_subjects_result, raw_classroom_subjects = await zju_api.assignmentClassroomViewAPIFits(client.session, classroom_id).get_api_data()
 
             if not classroom_message:
                 rprint(f"[red]请求课堂测试 [green]{classroom_id}[/green] 不存在！[/red]")
@@ -488,7 +488,7 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
         if preview:
             classroom_subjects_renderables = []
 
-            if not raw_classroom_subjects_result:
+            if not raw_classroom_subjects_result and not raw_classroom_subjects:
                 preview_error_text = Text.assemble(
                     (f"(╥╯^╰╥) 预览失效了……", "red"),
                     "\n",
@@ -497,7 +497,10 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
 
                 classroom_subjects_renderables.append(preview_error_text)
             else:
-                classroom_subjects: List[dict] = raw_classroom_subjects_result.get("subjects_data", {}).get("subjects", [])
+                if raw_classroom_subjects_result.get("correct_answers_data", {}).get("correct_answers"):
+                    classroom_subjects: List[dict] = raw_classroom_subjects_result.get("subjects_data", {}).get("subjects", [])
+                else:
+                    classroom_subjects: List[dict] = raw_classroom_subjects.get("subjects")
                                 
                 subject_type_map = {
                     "single_selection": "单选",

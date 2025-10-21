@@ -417,6 +417,9 @@ async def view_syllabus(
                     content_renderables = []
                     title_line = Text.assemble(
                         (f"{activity_title}", "bold bright_magenta"),
+                        (" [ID: ", "bright_white"),
+                        (f"{activity_id}", "green"),
+                        (f"]", "bright_white"),
                         "\n",
                         completion_text,
                         status_text
@@ -450,16 +453,13 @@ async def view_syllabus(
 
                     if activity_type == "作业":
                         panel_title = f"[cyan][{activity_type}][/cyan]"
-                        panel_subtitle = f"[cyan]ID: {activity_id}[/cyan]"
 
                     else:
                         panel_title = f"[white][{activity_type}][/white]"
-                        panel_subtitle = f"[white]ID: {activity_id}[/white]"
 
                     activity_panel = Panel(
                         Group(*content_renderables),
                         title=panel_title,
-                        subtitle=panel_subtitle,
                         border_style="bright_cyan" if activity_type == "作业" else "bright_black",
                         expand=True,
                         padding=(1, 2)
@@ -507,6 +507,9 @@ async def view_syllabus(
                     content_renderables = []
                     title_line = Text.assemble(
                         (f"{exam_title}", "bold bright_magenta"),
+                        (" [ID: ", "bright_white"),
+                        (f"{exam_id}", "green"),
+                        (f"]", "bright_white"),
                         "\n",
                         completion_text,
                         status_text
@@ -517,12 +520,10 @@ async def view_syllabus(
                     content_renderables.append(url_jump_text)
 
                     panel_title = f"[yellow][{exam_type}][/yellow]"
-                    panel_subtitle = f"[yellow]ID: {exam_id}[/yellow]"
 
                     activity_panel = Panel(
                         Group(*content_renderables),
                         title=panel_title,
-                        subtitle=panel_subtitle,
                         border_style="bright_yellow",
                         expand=True,
                         padding=(1, 2)
@@ -559,6 +560,9 @@ async def view_syllabus(
                     content_renderables = []
                     title_line = Text.assemble(
                         (f"{classroom_title}", "bold bright_magenta"),
+                        (" [ID: ", "bright_white"),
+                        (f"{classroom_id}", "green"),
+                        (f"]", "bright_white"),
                         "\n",
                         classroom_completeness_status_text,
                         classroom_status_text
@@ -569,12 +573,10 @@ async def view_syllabus(
                     content_renderables.append(prompt_text)
 
                     panel_title = f"[yellow][{classroom_type}][/yellow]"
-                    panel_subtitle = f"[yellow]ID: {classroom_id}[/yellow]"
 
                     classroom_panel = Panel(
                         Group(*content_renderables),
                         title=panel_title,
-                        subtitle=panel_subtitle,
                         border_style="bright_green",
                         expand=True,
                         padding=(1, 2)

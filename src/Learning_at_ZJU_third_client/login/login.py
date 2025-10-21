@@ -105,7 +105,6 @@ class ZjuAsyncClient:
         pubkey_url = "https://zjuam.zju.edu.cn/cas/v2/getPubKey"
         self.studentid = studentid
         self.password = password
-
         # 初始化登录POST表单
         # 获取password RSA加密所需的exponent与modulus
         try: 

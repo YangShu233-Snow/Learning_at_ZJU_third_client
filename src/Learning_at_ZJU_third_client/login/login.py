@@ -99,7 +99,10 @@ class ZjuAsyncClient:
         bool
             登录状态，True为成功，False为失败
         """        
-        
+        # 初始化会话
+        logger.info("初始化会话...")
+        self.session.cookies.clear()
+
         # 初始化常量
         url = "https://courses.zju.edu.cn/user/index#/"
         pubkey_url = "https://zjuam.zju.edu.cn/cas/v2/getPubKey"

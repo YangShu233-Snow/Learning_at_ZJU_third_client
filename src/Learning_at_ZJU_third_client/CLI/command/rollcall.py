@@ -267,7 +267,7 @@ async def answer_rollcall(
     number_mode: Annotated[Optional[bool], typer.Option("--number-mode", "-N", help="启用此选项以启动响应数字点名模式")] = False
 ):  
     if number_mode:
-        pass
+        answer_number_rollcall(rollcall_id, number_code)
     else:
         answer_radar_rollcall(rollcall_id, site)
 

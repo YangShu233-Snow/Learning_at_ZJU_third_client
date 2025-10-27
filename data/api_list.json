@@ -308,8 +308,13 @@
                 "method": "GET",
                 "params": {}
             },
-            "answer": {
+            "answer_radar": {
                 "url": "https://courses.zju.edu.cn/api/rollcall/<placeholder>/answer?api_version=1.76",
+                "method": "PUT",
+                "params": {}
+            },
+            "answer_number": {
+                "url": "https://courses.zju.edu.cn/api/rollcall/<placeholder>/answer_number_rollcall",
                 "method": "PUT",
                 "params": {}
             }

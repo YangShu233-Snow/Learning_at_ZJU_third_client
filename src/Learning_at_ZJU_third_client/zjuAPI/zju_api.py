@@ -7,11 +7,10 @@ import aiofiles
 import httpx
 import mimetypes
 import logging
-from httpx import ConnectTimeout
+from httpx import ConnectTimeout, HTTPError
 from pathlib import Path
 from datetime import datetime
 from urllib.parse import unquote
-from requests.exceptions import HTTPError
 from httpx import HTTPStatusError
 from typing_extensions import List, Optional, Callable
 
@@ -1374,13 +1373,13 @@ class rollcallListAPIFits(rollcallAPIFits):
                  ):
         super().__init__(login_session, apis_name)
 
-class rollcallAnswerAPIFits(rollcallAPIFits):
+class rollcallAnswerRadarAPIFits(rollcallAPIFits):
     def __init__(self, 
                  login_session, 
                  rollcall_id: int,
                  rollcall_data,
                  apis_name = [
-                     "answer"
+                     "answer_radar"
                  ]):
         super().__init__(login_session, apis_name, data=rollcall_data)
         self.rollcall_id = rollcall_id
@@ -1391,7 +1390,26 @@ class rollcallAnswerAPIFits(rollcallAPIFits):
             logger.error(f"{api_name}参数url缺失！")
             return
         
-        if api_name == "answer":
+        if api_name == "answer_radar":
             return base_api_url.replace("<placeholder>", str(self.rollcall_id))
         
         return super()._make_api_url(api_config, api_name)
+
+class rollcallAnswerNumberAPIFits(rollcallAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 rollcall_id,
+                 rollcall_data,
+                 apis_name=["answer_number"]
+                 ):
+        super().__init__(login_session, apis_name, data=rollcall_data)
+        self.rollcall_id = rollcall_id
+
+    def _make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+        if not base_api_url:
+            logger.error(f"{api_name}参数url缺失！")
+            return
+        
+        if api_name == "answer_number":
+            return base_api_url.replace("<placeholder>", str(self.rollcall_id))

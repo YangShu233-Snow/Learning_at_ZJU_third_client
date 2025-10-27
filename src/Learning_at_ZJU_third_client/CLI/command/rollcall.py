@@ -262,14 +262,49 @@ async def answer_number_rollcall(rollcall_id: int, number_code: str|None):
 @partial(syncify, raise_sync_error=False)
 async def answer_rollcall(
     rollcall_id: Annotated[int, typer.Argument(help="签到任务id")],
-    site: Annotated[str, typer.Option("--site", "-s", help="签到定位配置", callback=get_site_coordinate)],
-    number_code: Annotated[Optional[str|None], typer.Option("--number", "-n", help="数字点名")] = None,
-    number_mode: Annotated[Optional[bool], typer.Option("--number-mode", "-N", help="启用此选项以启动响应数字点名模式")] = False
+    
+    site: Annotated[Optional[str], typer.Option(
+        "--site", "-s", 
+        help="雷达点名：签到定位配置", 
+        callback=get_site_coordinate
+    )] = None,
+    
+    number: Annotated[Optional[str], typer.Option(
+        "--number", "-n", 
+        help="数字点名：提供4位数字 (如 0001)"
+    )] = None,
+    
+    bruteforce: Annotated[bool, typer.Option(
+        "--bruteforce", "-b", 
+        help="数字点名：启用并发爆破 (0000-9999)"
+    )] = False
 ):  
-    if number_mode:
-        answer_number_rollcall(rollcall_id, number_code)
-    else:
-        answer_radar_rollcall(rollcall_id, site)
+    
+    modes = [site is not None, number is not None, bruteforce]
+    
+    if sum(modes) == 0:
+        rprint("[bold red]错误：[/bold red] 请指定一种签到模式。")
+        rprint("  - [cyan]lazy rollcall answer <ID> --site <地点>[/cyan]")
+        rprint("  - [cyan]lazy rollcall answer <ID> --number <代码>[/cyan]")
+        rprint("  - [cyan]lazy rollcall answer <ID> --bruteforce[/cyan]")
+        raise typer.Exit(code=1)
+        
+    if sum(modes) > 1:
+        rprint("[bold red]错误：[/bold red] 请不要同时使用 --site, --number, 或 --bruteforce。")
+        raise typer.Exit(code=1)
 
+    # --- 调度 ---
+    if site:
+        rprint(f"[bold blue]检测到 --site, 启动 [雷达] 签到...[/bold blue]")
+        await answer_radar_rollcall(rollcall_id, site)
+    
+    elif number:
+        rprint(f"[bold blue]检测到 --number, 启动 [数字(单次)] 签到...[/bold blue]")
+        await answer_number_rollcall(rollcall_id, number)
+    
+    elif bruteforce:
+        rprint(f"[bold blue]检测到 --bruteforce, 启动 [数字(爆破)] 签到...[/bold blue]")
+        await answer_number_rollcall(rollcall_id, None)
+        
 # --- 配置命令组 ---
 app.add_typer(rollcall_config.app, name="config", help="签到定位配置相关命令组")

@@ -135,6 +135,7 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
 @app.command(
         "ls",
         help="Alias for 'list'",
+        hidden=True,
         epilog=dedent("""
             EXAMPLES:
               $ lazy course list -n "微积分"
@@ -287,6 +288,7 @@ async def list_courses(
 @view_app.command(
         "sy",
         help="Alias for 'syllabus'",
+        hidden=True,
         epilog=dedent("""
             EXAMPLES:
               $ lazy course view syllabus 114514
@@ -679,6 +681,7 @@ async def view_syllabus(
 @view_app.command(
         "coursewares",
         help="查看课程资源与课件",
+        hidden=True,
         epilog=dedent("""
             EXAMPLES: 
               $ lazy course view coursewares 114514 -A -q
@@ -803,6 +806,7 @@ async def view_coursewares(
 @view_app.command(
         "members",
         help="查看课程教师与学生",
+        hidden=True,
         epilog=dedent("""
             EXAMPLES:
               $ lazy course view members 114514

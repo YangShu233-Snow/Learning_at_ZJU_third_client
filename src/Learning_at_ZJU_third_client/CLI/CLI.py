@@ -130,6 +130,19 @@ def whoami():
     
     rprint(f"[red]密码错误[/red]")
 
+@app.command("whomai", hidden=True)
+@app.command("lazy", hidden=True)
+@app.command("hachimi", hidden=True)
+def easter_egg(ctx: typer.Context):
+    if ctx.command.name == "whomai":
+        print("Who am I ???")
+
+    if ctx.command.name == "lazy":
+        print("not lazy, laz yes!")
+
+    if ctx.command.name == "hachimi":
+        print("哈基米哦南北绿豆~")
+
 # --- 注册命令组 ---
 # 课程命令组
 app.add_typer(course.app, name="course", help="管理学在浙大课程信息与章节")

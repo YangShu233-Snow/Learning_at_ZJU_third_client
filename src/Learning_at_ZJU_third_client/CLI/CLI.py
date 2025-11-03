@@ -129,7 +129,7 @@ def whoami():
     authorization_password = typer.prompt("请输入密码", hide_input=True)
     
     if authorization_password == keyring.get_password("lazy", "password"):
-        rprint(f"{keyring.get_password("lazy", "studentid")}")
+        rprint(f"{keyring.get_password('lazy', 'studentid')}")
         return 
     
     rprint(f"[red]密码错误[/red]")

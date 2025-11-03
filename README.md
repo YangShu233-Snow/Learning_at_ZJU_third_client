@@ -40,9 +40,9 @@ pip install -e '.[dev]'
 
 # 如果你想做一些修改再打包，完全没有问题，记得保存你的修改
 # 接下来开始打包 LAZY，请确保你在 LAZY 项目根目录下，首先pyinstaller会分析 LAZY 项目。
-pyinstaller --name lazy src/Learning_at_ZJU_third_client/main_CLI.py --noconfirm
+pyinstaller --name lazy src/lazy_cli_main.py --noconfirm
 # 使用单文件模式可以将 LAZY 打包为单个可执行文件，但是会带来不可避免的启动延迟。
-pyinstaller --onefile --name lazy src/Learning_at_ZJU_third_client/main_CLI.py --noconfirm
+pyinstaller --onefile --name lazy src/lazy_cli_main.py --noconfirm
 ```
 
 接下来你需要修改 LAZY 项目根目录下生成的 `lazy.spec`，具体的需求可见下方。
@@ -61,7 +61,7 @@ for f in glob.glob('data/*'):
 # --- 内容请新增在文件开头 ---
 
 a = Analysis(
-    ['src/Learning_at_ZJU_third_client/main_CLI.py'],
+    ['src/lazy_cli_main.py'],
     pathex=[],
     binaries=[],
     datas=data_files, # <--这里请将变量赋值为 data_files

@@ -16,7 +16,7 @@ from ...zjuAPI import zju_api
 from ...login.login import ZjuAsyncClient
 
 # resource 命令组
-app = typer.Typer(help="学在浙大云盘资源相关命令，可以查看，搜索，上传或下载云盘文件。",
+app = typer.Typer(help="管理学在浙大云盘资源",
                   no_args_is_help=True
                   )
 
@@ -123,8 +123,7 @@ def to_upload_dir_walker(dir: Path)->List[Path]:
                       
               $ lazy resource list -p 2 -a 5  
                 (查看第 2 页，每页显示 5 个结果)
-        """),
-        no_args_is_help=True)
+        """))
 @app.command(
         "list",
         help="查看云盘资源列表",
@@ -139,8 +138,7 @@ def to_upload_dir_walker(dir: Path)->List[Path]:
                       
               $ lazy resource list -p 2 -a 5  
                 (查看第 2 页，每页显示 5 个结果)
-        """),
-        no_args_is_help=True)
+        """))
 @partial(syncify, raise_sync_error=False)
 async def list_resources(
     keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="文件名称")] = "",

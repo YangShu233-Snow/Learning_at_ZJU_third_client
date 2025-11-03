@@ -8,6 +8,7 @@ from rich.table import Table
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn, TaskID
 from rich import print as rprint
+from textwrap import dedent
 
 from ...zjuAPI import zju_api
 from ...load_config import load_config
@@ -16,7 +17,7 @@ from .subcommand import rollcall_config
 from ...login.login import ZjuAsyncClient
 
 app = typer.Typer(help="""
-    学在浙大签到相关命令组
+    处理学在浙大签到任务
     """,
     no_args_is_help=True
 )
@@ -47,62 +48,6 @@ def generate_device_id()->str:
     load_config.rollcallSiteConfig().update_config(rollcall_site_config)
 
     return device_id
-
-@app.command("list")
-@partial(syncify, raise_sync_error=False)
-async def list_rollcall():
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        transient=True
-    ) as progress:
-        task = progress.add_task(description="请求数据中...", total=2)
-        cookies = ZjuAsyncClient().load_cookies()
-
-        async with ZjuAsyncClient(cookies=cookies) as client:
-            raw_rollcalls_list = (await zju_api.rollcallListAPIFits(client.session).get_api_data())[0]
-        
-        rollcalls_list: List[dict] = raw_rollcalls_list.get("rollcalls", [])
-
-        progress.update(task, description="渲染数据中...", completed=1)
-
-        if not rollcalls_list:
-            print("暂时还没有签到任务哦~")
-            return 
-
-        rollcall_list_table = Table(
-            title=f"签到任务 共 {len(rollcalls_list)} 个",
-            border_style="bright_black",
-            show_header=True,
-            header_style="bold magenta",
-            expand=True
-        )
-
-        rollcall_list_table.add_column("签到任务ID", style="cyan", ratio=2)
-        rollcall_list_table.add_column("课程名称", style="bright_yellow", ratio=4)
-        rollcall_list_table.add_column("签到发起者", ratio=2)
-        rollcall_list_table.add_column("签到属性", ratio=2)
-
-        for rollcall in rollcalls_list:
-            rollcall_course_title = rollcall.get("course_title", "null")
-            rollcall_initiator = rollcall.get("created_by_name", "null")
-            rollcall_id = str(rollcall.get("rollcall_id", "null"))
-            rollcall_is_radar = rollcall.get("is_radar", False)
-
-            if rollcall_is_radar:
-                rollcall_description = "雷达点名"
-            else:
-                rollcall_description = "非雷达点名"
-
-            rollcall_list_table.add_row(
-                rollcall_id,
-                rollcall_course_title,
-                rollcall_initiator,
-                rollcall_description
-            )
-        
-        progress.advance(task)
-        rprint(rollcall_list_table)
 
 async def answer_radar_rollcall(rollcall_id: int, site: str):
     device_id = generate_device_id()
@@ -258,7 +203,110 @@ async def answer_number_rollcall(rollcall_id: int, number_code: str|None):
             else:
                 rprint(f"[bold red]❌ 爆破失败。未找到签到码。[/bold red]")
 
-@app.command("answer")
+# --- 注册签到任务查看命令 ---
+@app.command(
+        "ls",
+        hidden=True,
+        help="Alias for 'list'",
+        epilog=dedent("""
+            EXAMPLES:
+              
+              $ lazy rollcall list
+                (查看当前正在进行的签到任务) 
+        """))
+@app.command(
+        "list",
+        help="查看学在浙大签到任务",
+        epilog=dedent("""
+            EXAMPLES:
+              
+              $ lazy rollcall list
+                (查看当前正在进行的签到任务) 
+        """))
+@partial(syncify, raise_sync_error=False)
+async def list_rollcall():
+    """
+    查看学在浙大正在进行的签到任务。
+    """
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="请求数据中...", total=2)
+        cookies = ZjuAsyncClient().load_cookies()
+
+        async with ZjuAsyncClient(cookies=cookies) as client:
+            raw_rollcalls_list = (await zju_api.rollcallListAPIFits(client.session).get_api_data())[0]
+        
+        rollcalls_list: List[dict] = raw_rollcalls_list.get("rollcalls", [])
+
+        progress.update(task, description="渲染数据中...", completed=1)
+
+        if not rollcalls_list:
+            print("暂时还没有签到任务哦~")
+            return 
+
+        rollcall_list_table = Table(
+            title=f"签到任务 共 {len(rollcalls_list)} 个",
+            border_style="bright_black",
+            show_header=True,
+            header_style="bold magenta",
+            expand=True
+        )
+
+        rollcall_list_table.add_column("签到任务ID", style="cyan", ratio=2)
+        rollcall_list_table.add_column("课程名称", style="bright_yellow", ratio=4)
+        rollcall_list_table.add_column("签到发起者", ratio=2)
+        rollcall_list_table.add_column("签到属性", ratio=2)
+
+        for rollcall in rollcalls_list:
+            rollcall_course_title = rollcall.get("course_title", "null")
+            rollcall_initiator = rollcall.get("created_by_name", "null")
+            rollcall_id = str(rollcall.get("rollcall_id", "null"))
+            rollcall_is_radar = rollcall.get("is_radar", False)
+
+            if rollcall_is_radar:
+                rollcall_description = "雷达点名"
+            else:
+                rollcall_description = "非雷达点名"
+
+            rollcall_list_table.add_row(
+                rollcall_id,
+                rollcall_course_title,
+                rollcall_initiator,
+                rollcall_description
+            )
+        
+        progress.advance(task)
+        rprint(rollcall_list_table)
+
+# --- 注册签到任务应答命令 ---
+@app.command(
+        "as",
+        help="Alias for 'answer'",
+        hidden=True,
+        epilog=dedent("""
+            EXAMPLES: 
+                      
+              $ lazy rollcall answer 114514 -s your_site
+                (以"your_site"配置项完成ID为"114514"的雷达点名任务)
+                      
+              $ lazy rollcall answer 114514 -n 2333
+                (以"2333"应答ID为"114514"的数字点名任务)
+        """))
+@app.command(
+        "answer",
+        help="应答指定签到任务",
+        epilog=dedent("""
+            EXAMPLES: 
+                      
+              $ lazy rollcall answer 114514 -s your_site
+                (以"your_site"配置项完成ID为"114514"的雷达点名任务)
+                      
+              $ lazy rollcall answer 114514 -n 2333
+                (以"2333"应答ID为"114514"的数字点名任务)
+        """))
 @partial(syncify, raise_sync_error=False)
 async def answer_rollcall(
     rollcall_id: Annotated[int, typer.Argument(help="签到任务id")],
@@ -279,6 +327,15 @@ async def answer_rollcall(
         help="数字点名：启用并发爆破 (0000-9999)"
     )] = False
 ):  
+    """
+    应答学在浙大签到任务
+
+    以 -s 指定已配置地点应答雷达点名任务
+
+    以 -n 指定签到码应答数字点名任务
+
+    以 -b 启用对数字点名的爆破
+    """
     
     modes = [site is not None, number is not None, bruteforce]
     
@@ -307,4 +364,4 @@ async def answer_rollcall(
         await answer_number_rollcall(rollcall_id, None)
 
 # --- 配置命令组 ---
-app.add_typer(rollcall_config.app, name="config", help="签到定位配置相关命令组")
+app.add_typer(rollcall_config.app, name="config", help="管理签到定位配置")

@@ -20,7 +20,7 @@ from ...zjuAPI import zju_api
 from ...login.login import ZjuAsyncClient
 # course 命令组
 app = typer.Typer(help="""
-                        学在浙大课程相关命令组，提供了对课程的查询与对课程章节查看的功能。
+                        管理学在浙大课程信息与章节
                        """,
                     no_args_is_help=True
                   )
@@ -147,8 +147,7 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
             
               $ lazy course list -p 2 -a 5  
                 (查看第 2 页，每页显示 5 个结果)
-        """),
-        no_args_is_help=True)
+        """))
 @app.command(
         "list",
         help="列举课程并支持搜索",
@@ -163,8 +162,7 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
             
               $ lazy course list -p 2 -a 5  
                 (查看第 2 页，每页显示 5 个结果)
-        """),
-        no_args_is_help=True)
+        """))
 @partial(syncify, raise_sync_error=False)
 async def list_courses(
     keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="课程搜索关键字")] = None,
@@ -677,6 +675,7 @@ async def view_syllabus(
 
 @view_app.command(
         "cw",
+        hidden=True,
         help="Alias for 'coursewares'",
         epilog=dedent("""
             EXAMPLES:
@@ -691,7 +690,6 @@ async def view_syllabus(
 @view_app.command(
         "coursewares",
         help="查看课程资源与课件",
-        hidden=True,
         epilog=dedent("""
             EXAMPLES:
  
@@ -811,6 +809,7 @@ async def view_coursewares(
 @view_app.command(
         "mb",
         help="Alias for 'members'",
+        hidden=True,
         epilog=dedent("""
             EXAMPLES:
 
@@ -824,7 +823,6 @@ async def view_coursewares(
 @view_app.command(
         "members",
         help="查看课程教师与学生",
-        hidden=True,
         epilog=dedent("""
             EXAMPLES:
 

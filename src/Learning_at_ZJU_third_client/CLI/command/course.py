@@ -138,6 +138,7 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
         hidden=True,
         epilog=dedent("""
             EXAMPLES:
+
               $ lazy course list -n "微积分"
                 (搜索名称包括"微积分"的课程)
               
@@ -152,6 +153,7 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
         help="列举课程并支持搜索",
         epilog=dedent("""
             EXAMPLES:
+
               $ lazy course list -n "微积分"
                 (搜索名称包括"微积分"的课程)
               
@@ -291,6 +293,7 @@ async def list_courses(
         hidden=True,
         epilog=dedent("""
             EXAMPLES:
+
               $ lazy course view syllabus 114514
                 (查看ID为"114514"课程的章节目录)
             
@@ -308,6 +311,7 @@ async def list_courses(
         help="查看课程目录",
         epilog=dedent("""
             EXAMPLES:
+
               $ lazy course view syllabus 114514
                 (查看ID为"114514"课程的章节目录)
             
@@ -671,7 +675,8 @@ async def view_syllabus(
         "cw",
         help="Alias for 'coursewares'",
         epilog=dedent("""
-            EXAMPLES: 
+            EXAMPLES:
+ 
               $ lazy course view coursewares 114514 -A -q
                 (查看课程所有资源并只输出文件ID)
             
@@ -683,7 +688,8 @@ async def view_syllabus(
         help="查看课程资源与课件",
         hidden=True,
         epilog=dedent("""
-            EXAMPLES: 
+            EXAMPLES:
+ 
               $ lazy course view coursewares 114514 -A -q
                 (查看课程所有资源并只输出文件ID)
             
@@ -801,6 +807,7 @@ async def view_coursewares(
         help="Alias for 'members'",
         epilog=dedent("""
             EXAMPLES:
+
               $ lazy course view members 114514 -n "李明"
         """))
 @view_app.command(
@@ -809,6 +816,7 @@ async def view_coursewares(
         hidden=True,
         epilog=dedent("""
             EXAMPLES:
+
               $ lazy course view members 114514
                 (查看课程成员名单)
                       

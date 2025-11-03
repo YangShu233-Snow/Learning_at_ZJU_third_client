@@ -3,6 +3,7 @@ import keyring
 import httpx
 import asyncio
 import logging
+import sys
 from asyncer import syncify
 from functools import partial
 from rich import print as rprint
@@ -26,7 +27,10 @@ app = typer.Typer(help="LAZY CLI - 学在浙大第三方客户端的命令行工
 @partial(syncify, raise_sync_error=False)
 async def main_callback(ctx: typer.Context):
     # 如果是login，whoami子命令，或查询--help时候，无需检查登录状态
-    if ctx.invoked_subcommand in ["login", "whoami"] or "--help" in ctx.args:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        return 
+    
+    if ctx.invoked_subcommand in ["login", "whoami"]:
         return
 
     async with ZjuAsyncClient() as client:

@@ -14,6 +14,7 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.console import Group
 from datetime import datetime
+from textwrap import dedent
 
 from ...zjuAPI import zju_api
 from ...login.login import ZjuAsyncClient
@@ -131,7 +132,34 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
     return result
 
 # 注册课程列举命令
-@app.command("list")
+@app.command(
+        "ls",
+        help="Alias for 'list'",
+        epilog=dedent("""
+            EXAMPLES:
+              $ lazy course list -n "微积分"
+                (搜索名称包括"微积分"的课程)
+              
+              $ lazy course list -A -q
+                (仅列出所有课程的ID)
+            
+              $ lazy course list -p 2 -a 5
+                (查看第 2 页，每页显示 5 个结果)
+        """))
+@app.command(
+        "list",
+        help="列举课程并支持搜索",
+        epilog=dedent("""
+            EXAMPLES:
+              $ lazy course list -n "微积分"
+                (搜索名称包括"微积分"的课程)
+              
+              $ lazy course list -A -q
+                (仅列出所有课程的ID)
+            
+              $ lazy course list -p 2 -a 5
+                (查看第 2 页，每页显示 5 个结果)
+        """))
 @partial(syncify, raise_sync_error=False)
 async def list_courses(
     keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="课程搜索关键字")] = None,
@@ -142,9 +170,10 @@ async def list_courses(
     all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False
     ):
     """
-    列举学在浙大内的课程信息，允许指定课程名称，显示数量。
+    列举学在浙大内的课程信息，并按条件筛选。
 
-    并不建议将显示数量指定太大，这可能延长网络请求时间，并且大量输出会淹没你的显示窗口。实际上你可以通过 "--page" 参数实现翻页。
+    默认按分页显示（每页10条）。你可以使用 -n 进行关键词搜索，
+    或者使用 -A 来获取所有结果（这将忽略 -p 和 -a）。
     """
     # 如果启用--all，则先获取有多少课程
     with Progress(
@@ -255,7 +284,40 @@ async def list_courses(
     rprint(courses_list_table)
 
 # 注册课程查看命令
-@view_app.command("syllabus")
+@view_app.command(
+        "sy",
+        help="Alias for 'syllabus'",
+        epilog=dedent("""
+            EXAMPLES:
+              $ lazy course view syllabus 114514
+                (查看ID为"114514"课程的章节目录)
+            
+              $ lazy course view syllabus 114514 -i 4
+                (查看ID为"114514"课程的第四章节内容)
+              
+              $ lazy course view syllabus 114514 -A -e
+                (查看ID为"114514"课程所有的测试活动)
+                
+              $ lazy course view syllabus 114514 --last
+                (查看ID为"114514"课程的最新章节内容)
+        """))
+@view_app.command(
+        "syllabus",
+        help="查看课程目录",
+        epilog=dedent("""
+            EXAMPLES:
+              $ lazy course view syllabus 114514
+                (查看ID为"114514"课程的章节目录)
+            
+              $ lazy course view syllabus 114514 -i 4
+                (查看ID为"114514"课程的第四章节内容)
+              
+              $ lazy course view syllabus 114514 -A -e
+                (查看ID为"114514"课程所有的测试活动)
+                
+              $ lazy course view syllabus 114514 --last
+                (查看ID为"114514"课程的最新章节内容)
+        """))
 @partial(syncify, raise_sync_error=False)
 async def view_syllabus(
     course_id: Annotated[int, typer.Argument(help="课程id")],
@@ -269,7 +331,10 @@ async def view_syllabus(
     only_homework: Annotated[Optional[bool], typer.Option("--homework", "-H", help="启用此选项，只展示作业")] = False
 ):
     """
-    浏览指定课程的目录，默认对章节进行折叠，使用'--module'选项指定展开特定章节，使用'--index'展开对应索引号的章节，启用'--last'自动展开最新章节。
+    浏览指定课程的目录，并按条件进行筛选。
+    
+    默认对章节进行折叠，你可以通过 -m 或 -i 来展开指定的章节。
+    或者使用 -A 来展开所有章节，并通过 -a, -c, -e 与 -H 进行筛选。
     """
     # 给出module_id则进行完整的请求
     with Progress(
@@ -600,7 +665,28 @@ async def view_syllabus(
 
     rprint(course_tree)
 
-@view_app.command("coursewares")
+@view_app.command(
+        "cw",
+        help="Alias for 'coursewares'",
+        epilog=dedent("""
+            EXAMPLES: 
+              $ lazy course view coursewares 114514 -A -q
+                (查看课程所有资源并只输出文件ID)
+            
+              $ lazy course view coursewares 114514 -p 2 -a 5
+                (查看第 2 页，每页显示 5 个结果)
+        """))
+@view_app.command(
+        "coursewares",
+        help="查看课程资源与课件",
+        epilog=dedent("""
+            EXAMPLES: 
+              $ lazy course view coursewares 114514 -A -q
+                (查看课程所有资源并只输出文件ID)
+            
+              $ lazy course view coursewares 114514 -p 2 -a 5
+                (查看第 2 页，每页显示 5 个结果)
+        """))
 @partial(syncify, raise_sync_error=False)
 async def view_coursewares(
     course_id: Annotated[int, typer.Argument(help="课程ID")],
@@ -610,6 +696,12 @@ async def view_coursewares(
     quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="启用此选项，仅输出文件ID")] = False,
     all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，输出所有结果")] = False
 ):
+    """
+    查看课程资源与课件，并按条件筛选。
+
+    默认按分页显示（每页10条）。
+    使用 -A 来获取所有结果（这将忽略 -p 和 -a）。
+    """
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -701,14 +793,36 @@ async def view_coursewares(
 
     rprint(coursewares_table)
 
-@view_app.command("enrollments")
+@view_app.command(
+        "mb",
+        help="Alias for 'members'",
+        epilog=dedent("""
+            EXAMPLES:
+              $ lazy course view members 114514 -n "李明"
+        """))
+@view_app.command(
+        "members",
+        help="查看课程教师与学生",
+        epilog=dedent("""
+            EXAMPLES:
+              $ lazy course view members 114514
+                (查看课程成员名单)
+                      
+              $ lazy course view members 114514 -I 
+                (只查看课程教师)
+                    
+        """))
 @partial(syncify, raise_sync_error=False)
 async def view_members(
     course_id: Annotated[int, typer.Argument(help="课程ID")],
-    keyword: Annotated[Optional[str|None], typer.Option("--keyword", "-k", help="搜索关键词")] = None,
     instructor: Annotated[Optional[bool], typer.Option("--instructor", "-I", help="启用此选项，只输出教师")] = False,
     student: Annotated[Optional[bool], typer.Option("--student", "-S", help="启用此选项，只输出学生")] = False
 ):
+    """
+    查看课程教师与学生，并按条件筛选。
+
+    默认同时展示教师与学生，你可以通过 -I 或 -S 来指定输出教师还是学生，两个选项互斥。
+    """
     if instructor and student:
         rprint("[red](#`Д´)ﾉ不可以同时'只'输出啦！[/red]")
         raise typer.Exit(code=1)
@@ -722,7 +836,7 @@ async def view_members(
         task = progress.add_task(description="请求数据中...", total=2)
 
         async with ZjuAsyncClient(cookies=cookies) as client:
-            raw_course_enrollments = (await zju_api.courseMembersViewAPIFits(client.session, course_id, keyword).get_api_data())[0]
+            raw_course_enrollments = (await zju_api.courseMembersViewAPIFits(client.session, course_id).get_api_data())[0]
 
         progress.update(task, description="渲染任务信息中...", advance=1)
         course_enrollments = raw_course_enrollments.get("enrollments")
@@ -755,4 +869,4 @@ async def view_members(
         progress.update(task, description="渲染完成x    ...", advance=1)
 
 # view 注册入课程命令组
-app.add_typer(view_app, name="view")
+app.add_typer(view_app, name="view", help="管理学在浙大课程的查看")

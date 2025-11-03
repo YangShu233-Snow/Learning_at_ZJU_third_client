@@ -132,13 +132,13 @@ def whoami():
 
 # --- 注册命令组 ---
 # 课程命令组
-app.add_typer(course.app, name="course", help="学在浙大课程相关命令，支持列举，搜索与查看课程章节等功能。")
+app.add_typer(course.app, name="course", help="管理学在浙大课程信息与章节")
 
 # 资源命令组
-app.add_typer(resource.app, name="resource", help="学在浙大云盘资源相关命令，可以查看，搜索，上传或下载云盘文件。")
+app.add_typer(resource.app, name="resource", help="管理学在浙大云盘资源")
 
 # 任务命令组
-app.add_typer(assignment.app, name="assignment", help="学在浙大作业任务相关命令，可以查看待完成的任务，提交作业等。")
+app.add_typer(assignment.app, name="assignment", help="管理学在浙大活动任务")
 
 # 签到命令组
-app.add_typer(rollcall.app, name="rollcall", help="学在浙大签到相关任务，可以查看当前签到任务，完成指定的雷达签到任务。")
+app.add_typer(rollcall.app, name="rollcall", help="处理学在浙大签到任务")

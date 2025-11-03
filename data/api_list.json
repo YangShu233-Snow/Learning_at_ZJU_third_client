@@ -117,8 +117,9 @@
             },
             "enrollments": {
                 "url": "https://courses.zju.edu.cn/api/course/<placeholder>/enrollments",
-                "method": "GET",
-                "params": {
+                "method": "POST",
+                "params": {},
+                "data": {
                     "conditions": "",
                     "fields": "id,user(id,name),roles"
                 }

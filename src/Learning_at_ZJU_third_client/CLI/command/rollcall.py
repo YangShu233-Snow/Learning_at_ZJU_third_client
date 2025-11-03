@@ -1,4 +1,3 @@
-
 import asyncio
 import typer
 import uuid
@@ -143,7 +142,7 @@ async def answer_radar_rollcall(rollcall_id: int, site: str):
         rprint(f"[bold red]签到失败！请将此问题上报开发者！[/bold red] 收到未知的API响应:")
         rprint(raw_rollcall_answer)
 
-# --- z数字点名并发worker ---
+# --- 数字点名并发worker ---
 async def check_code_worker(
     client: ZjuAsyncClient,
     rollcall_id: int,

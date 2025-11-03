@@ -294,7 +294,8 @@ async def list_rollcall():
                       
               $ lazy rollcall answer 114514 -n 2333
                 (以"2333"应答ID为"114514"的数字点名任务)
-        """))
+        """),
+        no_args_is_help=True)
 @app.command(
         "answer",
         help="应答指定签到任务",
@@ -306,7 +307,8 @@ async def list_rollcall():
                       
               $ lazy rollcall answer 114514 -n 2333
                 (以"2333"应答ID为"114514"的数字点名任务)
-        """))
+        """),
+        no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def answer_rollcall(
     rollcall_id: Annotated[int, typer.Argument(help="签到任务id")],

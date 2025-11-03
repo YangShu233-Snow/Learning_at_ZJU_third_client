@@ -408,7 +408,7 @@ async def remove_resources(
 
     if not force:
         rprint(f"本次共要删除 {files_id_amount} 个文件。")
-        rprint(f"包含以下文件: {", ".join(map(str, files_id))}")
+        rprint(f"包含以下文件: {', '.join(map(str, files_id))}")
         delete = typer.confirm("你确定要删除它们吗?")
 
         if not delete:

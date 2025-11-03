@@ -771,7 +771,6 @@ async def view_assignment(
     rprint(f"任务 {assignment_id} 不存在！")
     return 
 
-
 @app.command("todo")
 @partial(syncify, raise_sync_error=False)
 async def todo_assignment(

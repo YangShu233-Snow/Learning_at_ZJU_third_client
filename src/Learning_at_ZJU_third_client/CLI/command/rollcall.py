@@ -79,10 +79,10 @@ async def list_rollcall():
             expand=True
         )
 
-        rollcall_list_table.add_column("签到任务ID")
-        rollcall_list_table.add_column("课程名称")
-        rollcall_list_table.add_column("签到发起者")
-        rollcall_list_table.add_column("签到属性")
+        rollcall_list_table.add_column("签到任务ID", style="cyan", ratio=2)
+        rollcall_list_table.add_column("课程名称", style="bright_yellow", ratio=4)
+        rollcall_list_table.add_column("签到发起者", ratio=2)
+        rollcall_list_table.add_column("签到属性", ratio=2)
 
         for rollcall in rollcalls_list:
             rollcall_course_title = rollcall.get("course_title", "null")
@@ -113,8 +113,8 @@ async def answer_radar_rollcall(rollcall_id: int, site: str):
         "altitude": None,
         "altitudeAccuracy": None,
         "deviceId": device_id,
-        "latitude": latitude,
-        "longitude": longitude,
+        "latitude": float(latitude),
+        "longitude": float(longitude),
         "speed": None
     }
     cookies = ZjuAsyncClient().load_cookies()
@@ -143,6 +143,7 @@ async def answer_radar_rollcall(rollcall_id: int, site: str):
         rprint(f"[bold red]签到失败！请将此问题上报开发者！[/bold red] 收到未知的API响应:")
         rprint(raw_rollcall_answer)
 
+# --- z数字点名并发worker ---
 async def check_code_worker(
     client: ZjuAsyncClient,
     rollcall_id: int,
@@ -305,6 +306,6 @@ async def answer_rollcall(
     elif bruteforce:
         rprint(f"[bold blue]检测到 --bruteforce, 启动 [数字(爆破)] 签到...[/bold blue]")
         await answer_number_rollcall(rollcall_id, None)
-        
+
 # --- 配置命令组 ---
 app.add_typer(rollcall_config.app, name="config", help="签到定位配置相关命令组")

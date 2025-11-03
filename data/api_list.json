@@ -304,12 +304,12 @@
         ],
         "apis_config": {
             "rollcall": {
-                "url": "https://courses.zju.edu.cn/api/radar/rollcalls?api_version=1.1.0",
+                "url": "https://courses.zju.edu.cn/api/radar/rollcalls",
                 "method": "GET",
                 "params": {}
             },
             "answer_radar": {
-                "url": "https://courses.zju.edu.cn/api/rollcall/<placeholder>/answer?api_version=1.76",
+                "url": "https://courses.zju.edu.cn/api/rollcall/<placeholder>/answer?api_version=1.1.2",
                 "method": "PUT",
                 "params": {}
             },

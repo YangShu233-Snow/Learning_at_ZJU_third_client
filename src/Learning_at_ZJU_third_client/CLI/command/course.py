@@ -142,12 +142,13 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
               $ lazy course list -n "微积分"
                 (搜索名称包括"微积分"的课程)
               
-              $ lazy course list -A -q
+              $ lazy course list -A -q      
                 (仅列出所有课程的ID)
             
-              $ lazy course list -p 2 -a 5
+              $ lazy course list -p 2 -a 5  
                 (查看第 2 页，每页显示 5 个结果)
-        """))
+        """),
+        no_args_is_help=True)
 @app.command(
         "list",
         help="列举课程并支持搜索",
@@ -157,12 +158,13 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
               $ lazy course list -n "微积分"
                 (搜索名称包括"微积分"的课程)
               
-              $ lazy course list -A -q
+              $ lazy course list -A -q      
                 (仅列出所有课程的ID)
             
-              $ lazy course list -p 2 -a 5
+              $ lazy course list -p 2 -a 5  
                 (查看第 2 页，每页显示 5 个结果)
-        """))
+        """),
+        no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def list_courses(
     keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="课程搜索关键字")] = None,
@@ -294,36 +296,38 @@ async def list_courses(
         epilog=dedent("""
             EXAMPLES:
 
-              $ lazy course view syllabus 114514
+              $ lazy course view syllabus 114514       
                 (查看ID为"114514"课程的章节目录)
             
-              $ lazy course view syllabus 114514 -i 4
+              $ lazy course view syllabus 114514 -i 4  
                 (查看ID为"114514"课程的第四章节内容)
               
-              $ lazy course view syllabus 114514 -A -e
+              $ lazy course view syllabus 114514 -A -e 
                 (查看ID为"114514"课程所有的测试活动)
                 
               $ lazy course view syllabus 114514 --last
                 (查看ID为"114514"课程的最新章节内容)
-        """))
+        """),
+        no_args_is_help=True)
 @view_app.command(
         "syllabus",
         help="查看课程目录",
         epilog=dedent("""
             EXAMPLES:
 
-              $ lazy course view syllabus 114514
+              $ lazy course view syllabus 114514       
                 (查看ID为"114514"课程的章节目录)
             
-              $ lazy course view syllabus 114514 -i 4
+              $ lazy course view syllabus 114514 -i 4  
                 (查看ID为"114514"课程的第四章节内容)
               
-              $ lazy course view syllabus 114514 -A -e
+              $ lazy course view syllabus 114514 -A -e 
                 (查看ID为"114514"课程所有的测试活动)
                 
               $ lazy course view syllabus 114514 --last
                 (查看ID为"114514"课程的最新章节内容)
-        """))
+        """),
+        no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def view_syllabus(
     course_id: Annotated[int, typer.Argument(help="课程id")],
@@ -677,12 +681,13 @@ async def view_syllabus(
         epilog=dedent("""
             EXAMPLES:
  
-              $ lazy course view coursewares 114514 -A -q
+              $ lazy course view coursewares 114514 -A -q    
                 (查看课程所有资源并只输出文件ID)
             
               $ lazy course view coursewares 114514 -p 2 -a 5
                 (查看第 2 页，每页显示 5 个结果)
-        """))
+        """),
+        no_args_is_help=True)
 @view_app.command(
         "coursewares",
         help="查看课程资源与课件",
@@ -690,12 +695,13 @@ async def view_syllabus(
         epilog=dedent("""
             EXAMPLES:
  
-              $ lazy course view coursewares 114514 -A -q
+              $ lazy course view coursewares 114514 -A -q    
                 (查看课程所有资源并只输出文件ID)
             
               $ lazy course view coursewares 114514 -p 2 -a 5
                 (查看第 2 页，每页显示 5 个结果)
-        """))
+        """),
+        no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def view_coursewares(
     course_id: Annotated[int, typer.Argument(help="课程ID")],
@@ -808,8 +814,13 @@ async def view_coursewares(
         epilog=dedent("""
             EXAMPLES:
 
-              $ lazy course view members 114514 -n "李明"
-        """))
+              $ lazy course view members 114514    
+                (查看课程成员名单)
+                      
+              $ lazy course view members 114514 -I 
+                (只查看课程教师)          
+        """),
+        no_args_is_help=True)
 @view_app.command(
         "members",
         help="查看课程教师与学生",
@@ -817,13 +828,13 @@ async def view_coursewares(
         epilog=dedent("""
             EXAMPLES:
 
-              $ lazy course view members 114514
+              $ lazy course view members 114514    
                 (查看课程成员名单)
                       
               $ lazy course view members 114514 -I 
-                (只查看课程教师)
-                    
-        """))
+                (只查看课程教师)    
+        """),
+        no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def view_members(
     course_id: Annotated[int, typer.Argument(help="课程ID")],

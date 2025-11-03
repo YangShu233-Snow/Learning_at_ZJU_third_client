@@ -10,6 +10,7 @@ from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn, BarColumn, ProgressColumn, Text, Task
 from datetime import datetime
 from pathlib import Path
+from textwrap import dedent
 
 from ...zjuAPI import zju_api
 from ...login.login import ZjuAsyncClient
@@ -107,7 +108,39 @@ def to_upload_dir_walker(dir: Path)->List[Path]:
     return to_upload_files
 
 # 注册资源列举命令
-@app.command("list")
+@app.command(
+        "ls",
+        hidden=True,
+        help="Alias for 'list'",
+        epilog=dedent("""
+            EXAMPLES:
+                      
+              $ lazy resource list -n "微积分"
+                (搜索名称包含"微积分"的文件)
+                      
+              $ lazy resource list -A -q      
+                (仅输出所有资源的文件ID)
+                      
+              $ lazy resource list -p 2 -a 5  
+                (查看第 2 页，每页显示 5 个结果)
+        """),
+        no_args_is_help=True)
+@app.command(
+        "list",
+        help="查看云盘资源列表",
+        epilog=dedent("""
+            EXAMPLES:
+                      
+              $ lazy resource list -n "微积分"
+                (搜索名称包含"微积分"的文件)
+                      
+              $ lazy resource list -A -q      
+                (仅输出所有资源的文件ID)
+                      
+              $ lazy resource list -p 2 -a 5  
+                (查看第 2 页，每页显示 5 个结果)
+        """),
+        no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def list_resources(
     keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="文件名称")] = "",
@@ -119,9 +152,11 @@ async def list_resources(
     all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False
     ):
     """
-    列举学在浙大云盘内的文件资源，允许指定文件名称，显示数量与文件类型。
+    列举学在浙大云盘内的文件资源，并通过指定条件进行筛选。
 
-    并不建议将显示数量指定太大，这可能延长网络请求时间，并且大量输出会淹没你的显示窗口。实际上你可以通过 "--page" 参数实现翻页。
+    默认每页显示 10 个结果。
+    你可以通过 -p 与 -a 指定页码与每页显示数量，或通过 -A 输出全部文件（此时会无视 -p 与 -a）。
+    你可以通过 -t 筛选指定的文件类型，合法的文件类型有："file", "video", "document", "image", "audio", "scorm", "swf", "link"
     """
     with Progress(
         SpinnerColumn(),
@@ -211,14 +246,42 @@ async def list_resources(
     rprint(resources_list_table)
 
 # 注册资源上传命令
-@app.command(name="upload")
+@app.command(
+        "up",
+        hidden=True,
+        help="Alias for 'upload'",
+        epilog=dedent("""
+            EXAMPLES:
+              
+              $ lazy resource upload /path/to/your/file   
+                (上传指定路径的文件)
+                      
+              $ lazy resource upload /path/to/your/dir/ -r
+                (上传指定路径文件夹内的文件)
+        """),
+        no_args_is_help=True)
+@app.command(
+        "upload",
+        help="上传文件至云盘",
+        epilog=dedent("""
+            EXAMPLES:
+              
+              $ lazy resource upload /path/to/your/file   
+                (上传指定路径的文件)
+                      
+              $ lazy resource upload /path/to/your/dir/ -r
+                (上传指定路径文件夹内的文件)
+        """),
+        no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def upload_resources(
     files: Annotated[List[Path], typer.Argument(help="一个或多个文件路径", callback=check_files_path)],
     recursion: Annotated[Optional[bool], typer.Option("--recursion", "-r", help="启用此参数以解析文件夹")] = False
 ):
     """
-    将本地指定文件上传云盘，支持批量上传，启用 --recursion 参数后支持自动文件夹解包与上传。
+    将本地指定文件上传云盘。
+
+    启用 --recursion 参数后支持自动文件夹解包与上传。
 
     目前学在浙大仅支持以下文件格式上传：
         
@@ -301,7 +364,33 @@ async def upload_resources(
     return 
     
 # 注册资源删除命令
-@app.command(name="remove")
+@app.command(
+        "re",
+        hidden=True,
+        help="Alias for 'remove'",
+        epilog=dedent("""
+            EXAMPLES:
+                      
+              $ lazy resource remove 114514         
+                (从云盘上删除ID为"114514"的文件)
+                      
+              $ lazy resource remove 114514 23333 -b
+                (从云盘上删除ID为"114514"与"2333"的文件，批量模式)
+        """),
+        no_args_is_help=True)
+@app.command(
+        "remove",
+        help="删除云盘资源文件",
+        epilog=dedent("""
+            EXAMPLES:
+                      
+              $ lazy resource remove 114514         
+                (从云盘上删除ID为"114514"的文件)
+                      
+              $ lazy resource remove 114514 23333 -b
+                (从云盘上删除ID为"114514"与"2333"的文件，批量模式)
+        """),
+        no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def remove_resources(
     files_id: Annotated[List[int], typer.Argument(help="需删除文件的id")],
@@ -309,7 +398,9 @@ async def remove_resources(
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用 --batch 则使用快速批量模式，但此模式存在缺陷，服务端不会对文件id做任何校验，倘若你输入一个不存在的文件id也会返回删除成功")] = False
 ):
     """
-    删除学在浙大云盘内的指定文件，支持一次提供多个文件id批量删除。
+    删除学在浙大云盘内的指定文件。
+
+    默认支持多个文件ID的删除，启用批量模式并不安全。
 
     本命令需要二次确认，启用 --force 则忽略二次确认。
     """
@@ -367,18 +458,49 @@ async def remove_resources(
         rprint(f"删除完成，{success_delete_amount} 个文件被成功删除，{files_id_amount - success_delete_amount} 个文件删除失败。")
         return
 
-@app.command(name="download")
+# 注册资源下载命令
+@app.command(
+        "dl",
+        hidden=True,
+        help="Alias for 'download'",
+        epilog=dedent("""
+            EXAMPLES:
+                      
+              $ lazy resource download 114514 -d /path/to/your/download_dir
+                (从云盘下载ID为"114514"的文件至本地指定路径，文件名前会加上"我的文件_")
+                      
+              $ lazy resource download 114514 2333 -b                      
+                (从云盘以压缩包形式下载指定文件)
+        """),
+        no_args_is_help=True)
+@app.command(
+        "download",
+        help="从云盘下载指定文件",
+        epilog=dedent("""
+            EXAMPLES:
+                      
+              $ lazy resource download 114514 -d /path/to/your/download_dir
+                (从云盘下载ID为"114514"的文件至本地指定路径)
+                      
+              $ lazy resource download 114514 2333 -b                      
+                (从云盘以压缩包形式下载指定文件)
+        """),
+        no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def download_resource(
     files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
-    basename: Annotated[List[int], typer.Option(help="文件的基本名，会附加在下载文件的开头")] = None,
+    basename: Annotated[List[int], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
     dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = Path().home() / "Downloads",
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False
 ):
     """
-    下载学在浙大的文件，同时支持个人浙大云盘与课程资源下载，支持一次提供多个文件id批量下载。
+    下载学在浙大云盘文件，支持对个人云盘与课程资源的下载。
 
-    使用 --batch 选项以启用批量下载，最终下载文件打包为.zip
+    默认支持多文件ID自动下载。
+
+    使用 -b 选项以启用批量下载，最终下载文件为包含所有目标文件的压缩包。
+
+    课程资源下载不支持 -b 选项。
     """
 
     files_id_amount = len(files_id)

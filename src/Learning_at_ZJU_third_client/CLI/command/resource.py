@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 
+from ..state import state
 from ...zjuAPI import zju_api
 from ...login.login import ZjuAsyncClient
 
@@ -165,7 +166,7 @@ async def list_resources(
 
         cookies = ZjuAsyncClient().load_cookies()
 
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             # 如果启用--all，则先获取文件资源总数
             if all:
                 pre_results = (await zju_api.resourcesListAPIFits(client.session, keyword, 1, 1, file_type).get_api_data(False))[0]
@@ -333,7 +334,7 @@ async def upload_resources(
         ) as sub_progress:
             cookies = ZjuAsyncClient().load_cookies()
 
-            async with ZjuAsyncClient(cookies=cookies) as client:
+            async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                 files_uploader = zju_api.resourceUploadAPIFits(client.session)
                 
                 for to_upload_file in to_upload_files:
@@ -424,7 +425,7 @@ async def remove_resources(
         if batch:
             task = progress.add_task(description="删除文件中...", total=1)
 
-            async with ZjuAsyncClient(cookies=cookies) as client:
+            async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                 file_deleter = zju_api.resourcesRemoveAPIFits(client.session, resources_id=files_id)
             
             if await file_deleter.batch_delete():
@@ -440,7 +441,7 @@ async def remove_resources(
         
         task = progress.add_task(description="删除文件中...", total=files_id_amount)
         
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             for file_id in files_id:
                 file_deleter = zju_api.resourcesRemoveAPIFits(client.session, resource_id=file_id)
                 
@@ -522,7 +523,7 @@ async def download_resource(
             ) as sub_progress:
                 cookies = ZjuAsyncClient().load_cookies()
 
-                async with ZjuAsyncClient(cookies=cookies) as client:
+                async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                     resources_downloader = zju_api.resourcesDownloadAPIFits(client.session, output_path=dest, resources_id=files_id, basename=basename)
                 
                 # 子任务，跟踪文件下载进度
@@ -564,7 +565,7 @@ async def download_resource(
         ) as sub_progress:
             cookies = ZjuAsyncClient().load_cookies()
 
-            async with ZjuAsyncClient(cookies=cookies) as client:
+            async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                 for file_id in files_id:
                     resource_downloader = zju_api.resourcesDownloadAPIFits(client.session, output_path=dest, resource_id=file_id, basename=basename)
                     

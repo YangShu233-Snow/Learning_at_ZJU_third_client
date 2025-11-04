@@ -45,7 +45,12 @@ def generate_encryption_key()->bytes:
 
 # 异步架构Client类
 class ZjuAsyncClient:
-    def __init__(self, headers=None, cookies=None):
+    def __init__(
+        self, 
+        headers   = None, 
+        cookies   = None,
+        trust_env = True
+    ):
         """初始化会话
 
         Parameters
@@ -55,7 +60,13 @@ class ZjuAsyncClient:
         """
         # 初始化会话    
         logger.info("初始化会话中...")
-        self.session = httpx.AsyncClient()
+        
+        if trust_env:
+            logger.info(f"启用全局代理")
+        else:
+            logger.info(f"全局代理关闭")
+
+        self.session = httpx.AsyncClient(trust_env=trust_env)
 
         if headers is None:
             headers = {

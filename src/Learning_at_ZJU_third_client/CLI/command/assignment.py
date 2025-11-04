@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from lxml import html
 from lxml.html import HtmlElement
 
+from ..state import state
 from ...zjuAPI import zju_api
 from ...login.login import ZjuAsyncClient
 
@@ -182,7 +183,7 @@ async def guess_assignment_type(assignment_id: int)->Tuple[bool, bool, bool]:
         cookies = ZjuAsyncClient().load_cookies()
         task = progress.add_task(description="正在猜测任务类型...",total=1)
 
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             raw_activity, raw_exam, raw_classroom = await asyncio.gather(*[
                 zju_api.assignmentViewAPIFits(client.session, assignment_id).get_api_data(),
                 zju_api.assignmentExamViewAPIFits(client.session, assignment_id, apis_name=["exam"]).get_api_data(),
@@ -218,7 +219,7 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
         cookies = ZjuAsyncClient().load_cookies()
         
         # --- 请求阶段 ---
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             raw_exam, raw_exam_submission_list, raw_exam_distribute = await zju_api.assignmentExamViewAPIFits(client.session, exam_id).get_api_data()
         
             if not raw_exam:
@@ -408,7 +409,7 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
         cookies = ZjuAsyncClient().load_cookies()
         
         # --- 请求阶段 ---
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             # 请求classroom与classroom submission数据
             classroom_message, raw_classroom_submissions_list, raw_classroom_subjects_result, raw_classroom_subjects = await zju_api.assignmentClassroomViewAPIFits(client.session, classroom_id).get_api_data()
 
@@ -547,7 +548,7 @@ async def view_activity(activity_id: int, type_map: dict):
 
         cookies = ZjuAsyncClient().load_cookies()
 
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             # --- 请求阶段 ---
             # 请求预览数据
             raw_activity_read: dict = (await zju_api.assignmentPreviewAPIFits(client.session, activity_id).post_api_data())[0]
@@ -803,7 +804,7 @@ async def todo_assignment(
         
         cookies = ZjuAsyncClient().load_cookies()
 
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             raw_todo_list: dict = (await zju_api.assignmentTodoListAPIFits(client.session).get_api_data())[0]
         progress.advance(task, advance=1)
 
@@ -944,7 +945,7 @@ async def submit_assignment(
     """
     cookies = ZjuAsyncClient().load_cookies()
 
-    async with ZjuAsyncClient(cookies=cookies) as client:
+    async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
         if await zju_api.assignmentSubmitAPIFits(client.session, activity_id, text, files_id).submit():
             rprint(f"[green]提交成功！[/green]")
         else:

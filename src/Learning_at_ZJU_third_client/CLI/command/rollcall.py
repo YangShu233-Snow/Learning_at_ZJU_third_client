@@ -10,6 +10,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeEl
 from rich import print as rprint
 from textwrap import dedent
 
+from ..state import state
 from ...zjuAPI import zju_api
 from ...load_config import load_config
 
@@ -63,7 +64,7 @@ async def answer_radar_rollcall(rollcall_id: int, site: str):
     }
     cookies = ZjuAsyncClient().load_cookies()
 
-    async with ZjuAsyncClient(cookies=cookies) as client:
+    async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
         raw_rollcall_answer_list = await zju_api.rollcallAnswerRadarAPIFits(
             client.session, rollcall_id, rollcall_data
         ).put_api_data()
@@ -139,7 +140,7 @@ async def answer_number_rollcall(rollcall_id: int, number_code: str|None):
     device_id = generate_device_id()
     cookies = ZjuAsyncClient().load_cookies()
 
-    async with ZjuAsyncClient(cookies=cookies) as client:
+    async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
         if number_code:
             rollcall_data = {
                 "deviceId": device_id,
@@ -236,7 +237,7 @@ async def list_rollcall():
         task = progress.add_task(description="请求数据中...", total=2)
         cookies = ZjuAsyncClient().load_cookies()
 
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             raw_rollcalls_list = (await zju_api.rollcallListAPIFits(client.session).get_api_data())[0]
         
         rollcalls_list: List[dict] = raw_rollcalls_list.get("rollcalls", [])

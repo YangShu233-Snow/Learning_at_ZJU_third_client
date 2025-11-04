@@ -12,6 +12,7 @@ from typing_extensions import Annotated, Optional
 from ..login.login import ZjuAsyncClient
 
 from .command import course, resource, assignment, rollcall
+from .state import state
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_STUDENTID_NAME = "studentid"
@@ -25,7 +26,14 @@ app = typer.Typer(help="LAZY CLI - 学在浙大第三方客户端的命令行工
 # --- 全局回调，检验登录状态 ---
 @app.callback()
 @partial(syncify, raise_sync_error=False)
-async def main_callback(ctx: typer.Context):
+async def main_callback(
+    ctx: typer.Context,
+    no_proxy: Annotated[Optional[bool], typer.Option(
+        "--no-proxy",
+        help="启用此选项，禁用 lazy 使用系统代理"
+    )] = False
+):
+
     # 如果是login，whoami子命令，或查询--help时候，无需检查登录状态
     if "--help" in sys.argv or "-h" in sys.argv:
         return 
@@ -33,7 +41,12 @@ async def main_callback(ctx: typer.Context):
     if ctx.invoked_subcommand in ["login", "whoami"]:
         return
 
-    async with ZjuAsyncClient() as client:
+    state.trust_env = not no_proxy
+
+    async with ZjuAsyncClient(
+        trust_env=state.trust_env
+    ) as client:
+        
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -76,10 +89,10 @@ async def check(
     """
     开发者网址测试检查工具，检验网页返回。
     """
-    temp_client = ZjuAsyncClient()
+    temp_client = ZjuAsyncClient(trust_env=state.trust_env)
     cookies = temp_client.load_cookies()
 
-    client = ZjuAsyncClient(cookies=cookies)
+    client = ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env)
     session = client.session
 
     try:
@@ -105,7 +118,7 @@ async def login():
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
-        client = ZjuAsyncClient()
+        client = ZjuAsyncClient(trust_env=state.trust_env)
         task = progress.add_task(description="登录中...", total=1)
 
         if await client.login(studentid, password):

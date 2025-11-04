@@ -16,6 +16,7 @@ from rich.console import Group
 from datetime import datetime
 from textwrap import dedent
 
+from ..state import state
 from ...zjuAPI import zju_api
 from ...login.login import ZjuAsyncClient
 # course 命令组
@@ -189,7 +190,7 @@ async def list_courses(
 
         task = progress.add_task(description="拉取课程信息中...", total=1)
 
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             if all:
                 pre_results = (await zju_api.coursesListAPIFits(client.session, keyword, 1, 1).get_api_data())[0]
                 amount = pre_results.get("total", 0)
@@ -355,7 +356,7 @@ async def view_syllabus(
         task = progress.add_task(description="获取课程信息中...", total=1)
     
         # --- 加载预备课程信息 ---
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             course_messages, raw_course_modules = await zju_api.coursePreviewAPIFits(client.session, course_id).get_api_data()
         
         course_name = course_messages.get("name", "null")
@@ -378,7 +379,7 @@ async def view_syllabus(
                 rprint(f"未找到章节！")
                 return 
 
-            async with ZjuAsyncClient(cookies=cookies) as client:
+            async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                 raw_course_activities, raw_course_exams, raw_course_classrooms, raw_course_activities_reads, raw_homework_completeness, raw_exam_completeness = await zju_api.courseViewAPIFits(client.session, course_id).get_api_data()
 
             for module_id, module in modules_list:
@@ -724,7 +725,7 @@ async def view_coursewares(
 
         task = progress.add_task(description="获取课程信息中...", total=2)
 
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             if all:
                 pre_raw_coursewares = (await zju_api.coursewaresViewAPIFits(client.session, course_id, 1, 1).get_api_data())[0]
                 page = 1
@@ -856,7 +857,7 @@ async def view_members(
         cookies = ZjuAsyncClient().load_cookies()
         task = progress.add_task(description="请求数据中...", total=2)
 
-        async with ZjuAsyncClient(cookies=cookies) as client:
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             raw_course_enrollments = (await zju_api.courseMembersViewAPIFits(client.session, course_id).get_api_data())[0]
 
         progress.update(task, description="渲染任务信息中...", advance=1)

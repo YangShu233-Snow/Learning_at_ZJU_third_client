@@ -20,7 +20,7 @@ from lxml.html import HtmlElement
 
 from ..state import state
 from ...zjuAPI import zju_api
-from ...login.login import ZjuAsyncClient
+from ...login.login import ZjuAsyncClient, CredentialManager
 
 # assignment 命令组
 app = typer.Typer(help="""
@@ -180,7 +180,11 @@ async def guess_assignment_type(assignment_id: int)->Tuple[bool, bool, bool]:
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
         task = progress.add_task(description="正在猜测任务类型...",total=1)
 
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
@@ -216,7 +220,11 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
         transient=True
     ) as progress:
         task = progress.add_task(description="请求数据中...", total=2)
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
         
         # --- 请求阶段 ---
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
@@ -406,7 +414,11 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
         transient=True
     ) as progress:
         task = progress.add_task(description="请求数据中...", total=2)
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
         
         # --- 请求阶段 ---
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
@@ -546,7 +558,11 @@ async def view_activity(activity_id: int, type_map: dict):
         
         task = progress.add_task(description="请求数据中...", total=1)
 
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
 
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             # --- 请求阶段 ---
@@ -802,7 +818,11 @@ async def todo_assignment(
         
         task = progress.add_task(description="获取待办事项信息中...", total=1)
         
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
 
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             raw_todo_list: dict = (await zju_api.assignmentTodoListAPIFits(client.session).get_api_data())[0]
@@ -943,7 +963,11 @@ async def submit_assignment(
     """
     提交 Homework 类型的作业，支持传入文本内容（等价于学在浙大提交内容里的文本框输入内容）与携带附件（请使用浙大云盘内的文件ID），与在学在浙大上提交任务相似，你必须先将附件上传至浙大云盘，后再提交作业。
     """
-    cookies = ZjuAsyncClient().load_cookies()
+    cookies = CredentialManager().load_cookies()
+    if not cookies:
+        rprint("Cookies不存在！")
+        logger.error("Cookies不存在！")
+        raise typer.Exit(code=1)
 
     async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
         if await zju_api.assignmentSubmitAPIFits(client.session, activity_id, text, files_id).submit():

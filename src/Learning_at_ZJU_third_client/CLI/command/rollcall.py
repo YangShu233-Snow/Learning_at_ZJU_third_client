@@ -1,6 +1,7 @@
 import asyncio
 import typer
 import uuid
+import logging
 from asyncer import syncify
 from functools import partial
 from typing import Annotated, List, Dict, Optional
@@ -15,7 +16,9 @@ from ...zjuAPI import zju_api
 from ...load_config import load_config
 
 from .subcommand import rollcall_config
-from ...login.login import ZjuAsyncClient
+from ...login.login import ZjuAsyncClient, CredentialManager
+
+logger = logging.getLogger(__name__)
 
 app = typer.Typer(help="""
     处理学在浙大签到任务
@@ -62,7 +65,12 @@ async def answer_radar_rollcall(rollcall_id: int, site: str):
         "longitude": float(longitude),
         "speed": None
     }
-    cookies = ZjuAsyncClient().load_cookies()
+    cookies = CredentialManager().load_cookies()
+    if not cookies:
+        rprint("Cookies不存在！")
+        logger.error("Cookies不存在！")
+        raise typer.Exit(code=1)
+        
 
     async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
         raw_rollcall_answer_list = await zju_api.rollcallAnswerRadarAPIFits(
@@ -138,7 +146,11 @@ async def check_code_worker(
 async def answer_number_rollcall(rollcall_id: int, number_code: str|None):
     code_str = number_code.zfill(4)
     device_id = generate_device_id()
-    cookies = ZjuAsyncClient().load_cookies()
+    cookies = CredentialManager().load_cookies()
+    if not cookies:
+        rprint("Cookies不存在！")
+        logger.error("Cookies不存在！")
+        raise typer.Exit(code=1)
 
     async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
         if number_code:
@@ -235,7 +247,11 @@ async def list_rollcall():
         transient=True
     ) as progress:
         task = progress.add_task(description="请求数据中...", total=2)
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
 
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             raw_rollcalls_list = (await zju_api.rollcallListAPIFits(client.session).get_api_data())[0]

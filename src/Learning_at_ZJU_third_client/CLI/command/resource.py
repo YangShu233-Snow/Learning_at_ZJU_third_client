@@ -14,7 +14,7 @@ from textwrap import dedent
 
 from ..state import state
 from ...zjuAPI import zju_api
-from ...login.login import ZjuAsyncClient
+from ...login.login import ZjuAsyncClient, CredentialManager
 
 # resource 命令组
 app = typer.Typer(help="管理学在浙大云盘资源",
@@ -164,7 +164,11 @@ async def list_resources(
     ) as progress:
         task = progress.add_task(description="拉取资源信息中...", total=1)
 
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
 
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             # 如果启用--all，则先获取文件资源总数
@@ -332,7 +336,11 @@ async def upload_resources(
             HumanReadableTransferColumn(),
             TimeRemainingColumn()
         ) as sub_progress:
-            cookies = ZjuAsyncClient().load_cookies()
+            cookies = CredentialManager().load_cookies()
+            if not cookies:
+                rprint("Cookies不存在！")
+                logger.error("Cookies不存在！")
+                raise typer.Exit(code=1)
 
             async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                 files_uploader = zju_api.resourceUploadAPIFits(client.session)
@@ -421,7 +429,11 @@ async def remove_resources(
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
         if batch:
             task = progress.add_task(description="删除文件中...", total=1)
 
@@ -521,7 +533,11 @@ async def download_resource(
                 HumanReadableTransferColumn(),
                 TimeRemainingColumn()
             ) as sub_progress:
-                cookies = ZjuAsyncClient().load_cookies()
+                cookies = CredentialManager().load_cookies()
+                if not cookies:
+                    rprint("Cookies不存在！")
+                    logger.error("Cookies不存在！")
+                    raise typer.Exit(code=1)
 
                 async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                     resources_downloader = zju_api.resourcesDownloadAPIFits(client.session, output_path=dest, resources_id=files_id, basename=basename)
@@ -563,7 +579,11 @@ async def download_resource(
             HumanReadableTransferColumn(),
             TimeRemainingColumn()
         ) as sub_progress:
-            cookies = ZjuAsyncClient().load_cookies()
+            cookies = CredentialManager().load_cookies()
+            if not cookies:
+                rprint("Cookies不存在！")
+                logger.error("Cookies不存在！")
+                raise typer.Exit(code=1)
 
             async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                 for file_id in files_id:

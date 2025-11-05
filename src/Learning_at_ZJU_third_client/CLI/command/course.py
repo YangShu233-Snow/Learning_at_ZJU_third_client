@@ -18,7 +18,7 @@ from textwrap import dedent
 
 from ..state import state
 from ...zjuAPI import zju_api
-from ...login.login import ZjuAsyncClient
+from ...login.login import ZjuAsyncClient, CredentialManager
 # course 命令组
 app = typer.Typer(help="""
                         管理学在浙大课程信息与章节
@@ -186,7 +186,11 @@ async def list_courses(
         transient=True
     ) as progress:
         
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
 
         task = progress.add_task(description="拉取课程信息中...", total=1)
 
@@ -351,7 +355,11 @@ async def view_syllabus(
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
 
         task = progress.add_task(description="获取课程信息中...", total=1)
     
@@ -721,7 +729,11 @@ async def view_coursewares(
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
 
         task = progress.add_task(description="获取课程信息中...", total=2)
 
@@ -854,7 +866,11 @@ async def view_members(
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
-        cookies = ZjuAsyncClient().load_cookies()
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
         task = progress.add_task(description="请求数据中...", total=2)
 
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:

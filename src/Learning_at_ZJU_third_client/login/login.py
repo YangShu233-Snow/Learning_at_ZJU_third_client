@@ -43,6 +43,67 @@ def generate_encryption_key()->bytes:
         keyring.set_password(service_name=KEYRING_SERVICE_NAME, username=ENCRYPTION_KEY_NAME, password=new_key.hex())
         return new_key        
 
+# 凭据管理器
+class CredentialManager():
+    """加密、解密、加载与保存会话/Cookies文件
+    """
+    def __init__(self):
+        # 初始化加密器
+        logger.info("初始化加密器中...")
+        self._encryption_key = self._generate_encryption_key()
+        self._fernet = Fernet(self._encryption_key)
+        logger.info("初始化加密器成功")
+
+    def _generate_encryption_key(self)->bytes:
+        """提取已有的会话加密密钥，如果不存在则创建并保存
+        """    
+        key_hex = keyring.get_password(service_name=KEYRING_SERVICE_NAME, username=ENCRYPTION_KEY_NAME)
+        if key_hex:
+            return bytes.fromhex(key_hex)
+        else:
+            # 生成新密钥
+            new_key = Fernet.generate_key()
+            # 保存密钥（十六进制）
+            keyring.set_password(service_name=KEYRING_SERVICE_NAME, username=ENCRYPTION_KEY_NAME, password=new_key.hex())
+            return new_key
+        
+    def save_cookies(self, cookies: dict)->bool:
+        """以序列化和加密的方式保存会话Cookies至本地家目录
+        """        
+        logger.info("会话保存中...")
+        try:
+            # 序列化
+            pickled_cookies = pickle.dumps(cookies)
+            # 加密
+            encrypted_pickled_cookies = self._fernet.encrypt(pickled_cookies)
+            with open(SESSION_FILE, 'wb') as f:
+                f.write(encrypted_pickled_cookies)
+            logger.info("会话保存成功！")
+            return True
+        except Exception as e:
+            logger.error(f"会话保存未成功！错误信息: {e}")
+            return False
+        
+    def load_cookies(self)->dict|None:
+        logger.info("Cookies加载中...")
+        if not SESSION_FILE.exists():
+            logger.error("Cookies文件不存在！")
+            return None
+
+        # 读取文件，解密并反序列化        
+        try:
+            with open(SESSION_FILE, 'rb') as f:
+                encrypted_pickled_cookies =f.read()
+            
+            decrypted_pickled_cookies = self._fernet.decrypt(encrypted_pickled_cookies)
+            cookies = pickle.loads(decrypted_pickled_cookies)
+            logger.info("Cookies加载成功！")
+            return cookies
+        except (InvalidToken, pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
+            logger.error(f"Cookies加载失败！错误原因: {e}")
+            logger.info(f"Cookies加载未成功，请检查会话文件是否损坏或密钥已更改")
+            return None
+
 # 异步架构Client类
 class ZjuAsyncClient:
     def __init__(
@@ -83,11 +144,11 @@ class ZjuAsyncClient:
         self.studentid = None
         logger.info("初始化会话成功")
 
-        # 初始化加密器
-        logger.info("初始化加密器中...")
-        self._encryption_key = generate_encryption_key()
-        self._fernet = Fernet(self._encryption_key)
-        logger.info("初始化加密器成功")
+        # # 初始化加密器
+        # logger.info("初始化加密器中...")
+        # self._encryption_key = generate_encryption_key()
+        # self._fernet = Fernet(self._encryption_key)
+        # logger.info("初始化加密器成功")
     
     async def __aenter__(self):
         return self
@@ -244,61 +305,61 @@ class ZjuAsyncClient:
         username = html.xpath(xpath_pattern)
         return username[0]
 
-    def save_session(self):
-        """以序列化和加密的方式保存会话Cookies至本地家目录
-        """        
-        logger.info("会话保存中...")
-        try:
-            # 序列化
-            pickled_session = pickle.dumps(dict(self.session.cookies))
-            # 加密
-            encrypted_pickled_session = self._fernet.encrypt(pickled_session)
-            with open(SESSION_FILE, 'wb') as f:
-                f.write(encrypted_pickled_session)
-            logger.info("会话保存成功！")
-        except Exception as e:
-            logger.error(f"会话保存未成功！错误信息: {e}")
+    # def save_session(self):
+    #     """以序列化和加密的方式保存会话Cookies至本地家目录
+    #     """        
+    #     logger.info("会话保存中...")
+    #     try:
+    #         # 序列化
+    #         pickled_session = pickle.dumps(dict(self.session.cookies))
+    #         # 加密
+    #         encrypted_pickled_session = self._fernet.encrypt(pickled_session)
+    #         with open(SESSION_FILE, 'wb') as f:
+    #             f.write(encrypted_pickled_session)
+    #         logger.info("会话保存成功！")
+    #     except Exception as e:
+    #         logger.error(f"会话保存未成功！错误信息: {e}")
 
-    def load_session(self)->bool:
-        logger.info("会话加载中...")
-        if not SESSION_FILE.exists():
-            logger.error("会话文件不存在！")
-            return False
+    # def load_session(self)->bool:
+    #     logger.info("会话加载中...")
+    #     if not SESSION_FILE.exists():
+    #         logger.error("会话文件不存在！")
+    #         return False
 
-        # 读取文件，解密并反序列化        
-        try:
-            with open(SESSION_FILE, 'rb') as f:
-                encrypted_pickled_session =f.read()
+    #     # 读取文件，解密并反序列化        
+    #     try:
+    #         with open(SESSION_FILE, 'rb') as f:
+    #             encrypted_pickled_session =f.read()
             
-            decrypted_pickled_session = self._fernet.decrypt(encrypted_pickled_session)
-            cookies = pickle.loads(decrypted_pickled_session)
-            self.session.cookies.update(cookies)
-            logger.info("会话加载成功！")
-            return True
-        except (InvalidToken, pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
-            logger.error(f"会话加载失败！错误原因: {e}")
-            logger.info(f"会话加载未成功，请检查会话文件是否损坏或密钥已更改")
-            return False
+    #         decrypted_pickled_session = self._fernet.decrypt(encrypted_pickled_session)
+    #         cookies = pickle.loads(decrypted_pickled_session)
+    #         self.session.cookies.update(cookies)
+    #         logger.info("会话加载成功！")
+    #         return True
+    #     except (InvalidToken, pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
+    #         logger.error(f"会话加载失败！错误原因: {e}")
+    #         logger.info(f"会话加载未成功，请检查会话文件是否损坏或密钥已更改")
+    #         return False
         
-    def load_cookies(self)->dict|None:
-        logger.info("Cookies加载中...")
-        if not SESSION_FILE.exists():
-            logger.error("Cookies文件不存在！")
-            return None
+    # def load_cookies(self)->dict|None:
+    #     logger.info("Cookies加载中...")
+    #     if not SESSION_FILE.exists():
+    #         logger.error("Cookies文件不存在！")
+    #         return None
 
-        # 读取文件，解密并反序列化        
-        try:
-            with open(SESSION_FILE, 'rb') as f:
-                encrypted_pickled_session =f.read()
+    #     # 读取文件，解密并反序列化        
+    #     try:
+    #         with open(SESSION_FILE, 'rb') as f:
+    #             encrypted_pickled_session =f.read()
             
-            decrypted_pickled_session = self._fernet.decrypt(encrypted_pickled_session)
-            cookies = pickle.loads(decrypted_pickled_session)
-            logger.info("Cookies加载成功！")
-            return cookies
-        except (InvalidToken, pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
-            logger.error(f"Cookies加载失败！错误原因: {e}")
-            logger.info(f"Cookies加载未成功，请检查会话文件是否损坏或密钥已更改")
-            return None
+    #         decrypted_pickled_session = self._fernet.decrypt(encrypted_pickled_session)
+    #         cookies = pickle.loads(decrypted_pickled_session)
+    #         logger.info("Cookies加载成功！")
+    #         return cookies
+    #     except (InvalidToken, pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
+    #         logger.error(f"Cookies加载失败！错误原因: {e}")
+    #         logger.info(f"Cookies加载未成功，请检查会话文件是否损坏或密钥已更改")
+    #         return None
 
     async def is_valid_session(self)->bool:
         if not self.session.cookies:

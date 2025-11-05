@@ -9,7 +9,7 @@ from functools import partial
 from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from typing_extensions import Annotated, Optional
-from ..login.login import ZjuAsyncClient
+from ..login.login import ZjuAsyncClient, CredentialManager
 
 from .command import course, resource, assignment, rollcall
 from .state import state
@@ -43,18 +43,21 @@ async def main_callback(
 
     state.trust_env = not no_proxy
 
-    async with ZjuAsyncClient(
-        trust_env=state.trust_env
-    ) as client:
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        task = progress.add_task(description="检查登录状态中...", total=2)
         
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            transient=True
-        ) as progress:
-            task = progress.add_task(description="检查登录状态中...", total=2)
-            # 如果会话存在且有效，则无需登录
-            if client.load_session() and await client.is_valid_session():
+        # 如果会话存在且有效，则无需登录
+        cookies = CredentialManager().load_cookies()
+        async with ZjuAsyncClient(
+            cookies=cookies,
+            trust_env=state.trust_env
+        ) as client:
+            if cookies and await client.is_valid_session():
                 progress.update(task, description="登录有效", completed=2)
                 return 
 
@@ -73,8 +76,12 @@ async def main_callback(
                 raise typer.Exit(code=1)
             
             if await client.login(studentid, password):
-                client.save_session()
-                progress.advance(task)
+                if CredentialManager().save_cookies(dict(client.session.cookies)):
+                    progress.advance(task)
+                else:
+                    rprint(f"Cookies保存失败！")
+                    logger.error("Cookies保存失败！")
+                    raise typer.Exit(code=1)
             else:
                 rprint("[red]登录失败！[/red]请运行'login'命令尝试手动登录。")
                 progress.advance(task)

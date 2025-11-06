@@ -1046,7 +1046,7 @@ async def todo_assignment(
 async def submit_assignment(
     activity_id: Annotated[int, typer.Argument(help="待提交任务ID")],
     text: Annotated[Optional[str], typer.Option("--text", "-t", help="待提交的文本内容")] = "",
-    files_id: Annotated[Optional[List[int]], typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = ""
+    files_id: Annotated[Optional[str], typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = ""
 ):
     """
     提交学在浙大 Homeword 任务，支持传入文本与附件ID。

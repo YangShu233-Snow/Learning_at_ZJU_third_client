@@ -1,0 +1,78 @@
+# 工作流名称
+name: Release Lazy CLI
+
+# 触发条件
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  # 允许s从 "Actions" 标签页手动触发
+  workflow_dispatch:
+
+jobs:
+  # 构建并发布
+  build-release:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        
+    # 指定运行器
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller  # 安装打包工具
+          pip install .            # 安装 'lazy' 项目本身及其所有依赖
+
+      - name: Set platform-specific variables
+        id: vars
+        run: |
+          if [ "${{ runner.os }}" == "Linux" ]; then
+            # Linux 专属的 hidden imports
+            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.SecretService --hidden-import=keyring.backends.chainer" >> $GITHUB_ENV
+            echo "ASSET_NAME=lazy-linux.tar.gz" >> $GITHUB_ENV
+            echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
+          elif [ "${{ runner.os }}" == "macOS" ]; then
+            # macOS 专属的 hidden imports
+            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.macOS.Keyring" >> $GITHUB_ENV
+            echo "ASSET_NAME=lazy-macos.tar.gz" >> $GITHUB_ENV
+            echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
+          elif [ "${{ runner.os }}" == "Windows" ]; then
+            # Windows 专属的 hidden imports
+            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.Windows.WinVaultKeyring" >> $GITHUB_ENV
+            echo "ASSET_NAME=lazy-windows.zip" >> $GITHUB_ENV
+            echo "EXE_PATH=dist/lazy.exe" >> $GITHUB_ENV
+          fi
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --onefile --name lazy \
+            src/lazy_cli_main.py \
+            --add-data "data:data" \
+            ${{ env.HIDDEN_IMPORTS }}
+
+      - name: Archive the executable
+        run: |
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            powershell Compress-Archive -Path ${{ env.EXE_PATH }} -DestinationPath ${{ env.ASSET_NAME }}
+          else
+            # 使用 tar -C 来避免在压缩包中包含 'dist/' 目录结构
+            tar -czvf ${{ env.ASSET_NAME }} -C dist lazy
+          fi
+
+      - name: 🚀 Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ASSET_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

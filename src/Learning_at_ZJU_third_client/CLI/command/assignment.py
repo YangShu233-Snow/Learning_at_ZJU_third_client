@@ -17,6 +17,7 @@ from rich.rule import Rule
 from datetime import datetime, timezone
 from lxml import html
 from lxml.html import HtmlElement
+from textwrap import dedent
 
 from ..state import state
 from ...zjuAPI import zju_api
@@ -743,7 +744,33 @@ async def view_activity(activity_id: int, type_map: dict):
 
     rprint(activity_panel)
 
-@app.command("view")
+@app.command(
+    "vw",
+    help="Alias for 'view'",
+    hidden=True,
+    epilog=dedent("""
+        EXAMPLES:
+        
+          $ lazy assignment view 114514
+            (查看ID为'114514'的任务内容)
+            
+          $ lazy assignment view 114514 -e -P
+            (查看ID为'114514'的测试内容，并预览其测试题目)
+    """),
+    no_args_is_help=True)
+@app.command(
+    "view",
+    help="查看任务内容",
+    epilog=dedent("""
+        EXAMPLES:
+        
+          $ lazy assignment view 114514
+            (查看ID为'114514'的任务内容)
+            
+          $ lazy assignment view 114514 -e -P
+            (查看ID为'114514'的测试内容，并预览其测试题目)
+    """),
+    no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def view_assignment(
     assignment_id: Annotated[int, typer.Argument(help="任务id")],
@@ -753,7 +780,11 @@ async def view_assignment(
     preview: Annotated[Optional[bool], typer.Option("--preview", "-P", help="启用此选项，预览测试或课堂任务题目")] = False
 ):
     """
-    浏览指定任务，显示任务基本信息，任务附件与任务提交记录，启用'--homework', '--exam', '--classroom'以指定访问的任务类型。如果不提供，LAZY会自行猜测任务类型。
+    浏览指定任务，显示任务基本信息，任务附件与任务提交记录。
+
+    通过指定 -c, -e, -H 来指定三种不同类型的任务，更推荐不指定此选项，lazy会自行判断任务类型。
+
+    对于测试与课堂互动型的任务，使用 -P 可以预览其测试题目。
     """
     type_map = {
         "material": "资料",
@@ -788,19 +819,50 @@ async def view_assignment(
     rprint(f"任务 {assignment_id} 不存在！")
     return 
 
-@app.command("todo")
+@app.command(
+    "td",
+    help="Alias for 'todo'",
+    hidden=True,
+    epilog=dedent("""
+        EXAMPLES:
+        
+          $ lazy assignment todo -A       
+            (查看所有待办事项清单)
+        
+          $ lazy assignment todo -p 2 -a 5
+            (查看第 2 页，每页显示 5 个待办事项)
+    """))
+@app.command(
+    "todo",
+    help="查看任务待办清单",
+    epilog=dedent("""
+        EXAMPLES:
+        
+          $ lazy assignment todo -A       
+            (查看所有待办事项清单)
+        
+          $ lazy assignment todo -p 2 -a 5
+            (查看第 2 页，每页显示 5 个待办事项)
+        
+          $ lazy assignment todo -r       
+            (反转排序顺序查看待办事项清单)
+    """))
 @partial(syncify, raise_sync_error=False)
 async def todo_assignment(
-    amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示待办任务数量", callback=is_todo_show_amount_valid)] = 5,
+    amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示待办任务数量", callback=is_todo_show_amount_valid)] = 10,
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="待办任务页面索引")] = 1,
     reverse: Annotated[Optional[bool], typer.Option("--reverse", "-r", help="以任务截止时间降序排列")] = False,
     all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，输出所有待办事项")] = False
 ):
     """
-    列举待办事项清单，默认以任务截止时间作为排序依据，越早截止，排序越靠前。
+    列举待办事项清单
 
-    并不建议将显示数量指定太大，大量输出会淹没你的显示窗口。实际上你可以通过 "--page" 参数实现翻页。
+    默认按分页显示，每页显示 10 个。
+    使用 -A 来显示所有待办清单，这将忽略 -p 与 -a。
+
+    默认以任务截止时间作为排序依据，越早截止，排序越靠前，使用 -r 来反转任务清单排序结果。
     """
+
     type_map = {
         "material": "资料",
         "online_video": "视频",
@@ -953,16 +1015,50 @@ async def todo_assignment(
 
     print(f"本页共 {amount} 个结果，第 {page_index}/{total_pages} 页")
 
-@app.command("submit")
+@app.command(
+    "sm",
+    help="Alias for 'submit'",
+    hidden=True,
+    epilog=dedent("""
+        EXAMPLES:
+
+          $ lazy assignment submit 114514 -t 'Hello World' 
+            (向ID为'114514'的任务提交文本内容为'Hello World'的作业)
+            
+          $ lazy assignment submit 114514 -f '2333, 6666' 
+            (向ID为'114514'的任务提交附件ID为'2333'和'6666'的作业)
+    """),
+    no_args_is_help=True)
+@app.command(
+    "submit",
+    help="提交任务作业",
+    epilog=dedent("""
+        EXAMPLES:
+
+          $ lazy assignment submit 114514 -t 'Hello World' 
+            (向ID为'114514'的任务提交文本内容为'Hello World'的作业)
+            
+          $ lazy assignment submit 114514 -f '2333, 6666' 
+            (向ID为'114514'的任务提交附件ID为'2333'和'6666'的作业)
+    """),
+    no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def submit_assignment(
     activity_id: Annotated[int, typer.Argument(help="待提交任务ID")],
     text: Annotated[Optional[str], typer.Option("--text", "-t", help="待提交的文本内容")] = "",
-    files_id: Annotated[Optional[str], typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = ""
+    files_id: Annotated[Optional[List[int]], typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = ""
 ):
     """
-    提交 Homework 类型的作业，支持传入文本内容（等价于学在浙大提交内容里的文本框输入内容）与携带附件（请使用浙大云盘内的文件ID），与在学在浙大上提交任务相似，你必须先将附件上传至浙大云盘，后再提交作业。
+    提交学在浙大 Homeword 任务，支持传入文本与附件ID。
+
+    在提交任务之前，请先将文件上传至学在浙大云盘，通过指定云盘文件ID来指定附件。
+
+    通过 -f 传入文件ID时，请务必用引号包裹以避免 lazy 的意外行为，如果要传入多个文件，请使用半角逗号或空格分割。
     """
+    if not text and not files_id:
+        rprint("不可空提交！")
+        raise typer.Exit(code=1)
+
     cookies = CredentialManager().load_cookies()
     if not cookies:
         rprint("Cookies不存在！")

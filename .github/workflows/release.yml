@@ -73,8 +73,15 @@ jobs:
           fi
 
       - name: Upload to Release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
+          prerelease: >
+            contains(github.ref_name, '-alpha') ||
+            contains(github.ref_name, '-beta') ||
+            contains(github.ref_name, '-rc')
+
           files: ${{ env.ASSET_NAME }}
         env:
+          # GITHUB_TOKEN 是自动提供的，用于授权
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

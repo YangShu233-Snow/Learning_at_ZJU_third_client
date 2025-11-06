@@ -36,6 +36,7 @@ jobs:
 
       - name: Set platform-specific variables
         id: vars
+        shell: bash
         run: |
           if [ "${{ runner.os }}" == "Linux" ]; then
             # Linux 专属的 hidden imports

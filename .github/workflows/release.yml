@@ -63,6 +63,7 @@ jobs:
             ${{ env.HIDDEN_IMPORTS }}
 
       - name: Archive the executable
+        shell: bash
         run: |
           if [ "${{ runner.os }}" == "Windows" ]; then
             powershell Compress-Archive -Path ${{ env.EXE_PATH }} -DestinationPath ${{ env.ASSET_NAME }}
@@ -71,7 +72,7 @@ jobs:
             tar -czvf ${{ env.ASSET_NAME }} -C dist lazy
           fi
 
-      - name: 🚀 Upload to Release
+      - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.ASSET_NAME }}

@@ -180,6 +180,9 @@ lazy --help
 
 ## Todo
 
-- 实现assignment、course命令组
-- zjuAPI重构，整合与封装
+- ~~实现assignment、course命令组~~
+- ~~zjuAPI重构，整合与封装~~
 - GUI实现
+- 完善 CLI Help 文档
+- 计划另外分发API模块
+- 研究 CI/CD (Github Action)

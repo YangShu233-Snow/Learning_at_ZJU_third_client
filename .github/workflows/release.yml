@@ -59,6 +59,7 @@ jobs:
           fi
 
       - name: Build with PyInstaller
+        shell: bash
         run: |
           pyinstaller --onefile --name lazy \
             src/lazy_cli_main.py \

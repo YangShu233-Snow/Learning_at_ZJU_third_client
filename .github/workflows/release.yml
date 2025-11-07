@@ -55,7 +55,7 @@ jobs:
             # Windows 专属的 hidden imports
             echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.Windows.WinVaultKeyring" >> $GITHUB_ENV
             echo "ASSET_NAME=lazy-windows.zip" >> $GITHUB_ENV
-            echo "EXE_PATH=dist/lazy.exe" >> $GITHUB_ENV
+            echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
           fi
 
       - name: Build with PyInstaller

@@ -61,7 +61,7 @@ jobs:
       - name: Build with PyInstaller
         shell: bash
         run: |
-          pyinstaller --onefile --name lazy \
+          pyinstaller --name lazy \
             src/lazy_cli_main.py \
             --add-data "data:data" \
             ${{ env.HIDDEN_IMPORTS }}

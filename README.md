@@ -10,6 +10,19 @@
 
 以下均为 LAZY CLI 安装指南。
 
+### 预构建的二进制文件
+
+LAZY CLI 预构建好的二进制文件现已发布！[点击这里](https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/releases)获取最新版本！
+
+使用预构建的二进制文件安装是最方便，也是最推荐的安装 LAZY 的方式！
+
+```bash
+# 下载文件至本地后将其解压，这里仅以 Linux 举例
+# Windows 用户推荐使用直观好用的资源管理器找到你的文件，并用压缩软件把.zip文件解压出来。
+wget https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/releases/download/v0.1.0-beta.3/lazy-cli-linux.tar.gz
+tar -
+```
+
 ### 从源码开始打包
 
 LAZY 支持从项目源码打包为一个可执行文件，通常这能使得 LAZY 的启动速度得到提升，同时如果你想对 LAZY 做一些个性的修改，这个安装方法就是最适合你的。

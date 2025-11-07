@@ -9,6 +9,9 @@ on:
   # 允许s从 "Actions" 标签页手动触发
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   # 构建并发布
   build-release:

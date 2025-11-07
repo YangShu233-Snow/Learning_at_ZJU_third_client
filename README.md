@@ -6,7 +6,7 @@
 
 当前项目计划实现 CLI 与 GUI 两个客户端，当前 CLI 版本将以包形式分发，GUI 已新建文件夹。
 
-## Installation
+## Installation CLI
 
 以下均为 LAZY CLI 安装指南。
 
@@ -19,8 +19,38 @@ LAZY CLI 预构建好的二进制文件现已发布！[点击这里](https://git
 ```bash
 # 下载文件至本地后将其解压，这里仅以 Linux 举例
 # Windows 用户推荐使用直观好用的资源管理器找到你的文件，并用压缩软件把.zip文件解压出来。
-wget https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/releases/download/v0.1.0-beta.3/lazy-cli-linux.tar.gz
-tar -
+wget https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/releases/download/v0.1.0-beta.5/lazy-cli-linux.tar.gz
+tar tar -zxvf ./lazy-cli-linux.tar.gz
+
+# 在当前目录下会有一个 lazy 文件夹
+# MacOS 与 Linux 用户可以通过软链接或环境变量的方式来配置
+# 将 lazy 文件夹移动至一个永久存放的位置，我们推荐~/.local/share
+mkdir ~/.local/share/lazy -p
+mv /path/to/your/Learning_at_ZJU_third_client/dist/lazy/* ~/.local/share/lazy
+
+# 创建一个软链接
+sudo ln -s ~/.local/share/lazy/lazy /usr/local/bin/lazy
+
+# 如果你更喜欢环境变量，可以参考以下指引
+# 添加至环境变量
+# Linux & MacOS
+echo 'export PATH="/path/to/your/Learning_at_ZJU_third_client/dist/lazy:$PATH"' >> ~/.bashrc # 如果你用的是bash
+echo 'export PATH="/path/to/your/Learning_at_ZJU_third_client/dist/lazy:$PATH"' >> ~/.zshrc # 如果你用的是zsh
+
+source ~/.bashrc # 应用修改
+source ~/.zshrc  # 应用修改
+```
+
+对于 Windows 用户来说，在解压软件包后，我们更推荐你将 LAZY 添加至环境变量当中。通过设置-高级设置-环境变量-系统-Path，加入 LAZY 可执行文件所在文件夹的路径即可。
+
+完成以上修改后，你的 LAZY 应该就正确安装到系统当中了。
+
+```bash
+# 验证是否安装
+lazy --help
+
+# （可选）为 LAZY 配置补全
+lazy --install-completion
 ```
 
 ### 从源码开始打包
@@ -198,4 +228,4 @@ lazy --help
 - GUI实现
 - 完善 CLI Help 文档
 - 计划另外分发API模块
-- 研究 CI/CD (Github Action)
+- ~~研究 CI/CD (Github Action)~~

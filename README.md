@@ -53,6 +53,22 @@ lazy --help
 lazy --install-completion
 ```
 
+### Arch Linux (AUR)
+
+> 感谢社区贡献者 [@Gvrzizo](https://github.com/Gvrzizo)，LAZY CLI 现已登陆 [Arch User Repository (AUR)](https://aur.archlinux.org/)！
+
+Arch Linux 及其衍生版的用户，现在可以通过你喜欢的 AUR 助手（如 `yay` 或 `paru`）一键安装 LAZY CLI：
+
+```bash
+# 如果你使用 yay
+yay -S lazy-cli
+
+# 如果你使用 paru
+paru -S lazy-cli
+```
+
+该包 `lazy-cli` 会自动安装 LAZY CLI 最新的 `beta` 版预编译二进制文件~
+
 ### 从源码开始打包
 
 LAZY 支持从项目源码打包为一个可执行文件，通常这能使得 LAZY 的启动速度得到提升，同时如果你想对 LAZY 做一些个性的修改，这个安装方法就是最适合你的。

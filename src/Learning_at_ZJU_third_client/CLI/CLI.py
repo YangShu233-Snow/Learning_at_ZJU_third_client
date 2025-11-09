@@ -129,15 +129,18 @@ async def login():
         task = progress.add_task(description="登录中...", total=1)
 
         if await client.login(studentid, password):
-            client.save_session()
-            keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_STUDENTID_NAME, studentid)
-            keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_PASSWORD_NAME, password)
-            logger.info("已更新凭据与本地会话")
-            progress.advance(task)
-            rprint("[green]登录成功！[/green]")
-
+            if CredentialManager().save_cookies(dict(client.session.cookies)):
+                keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_STUDENTID_NAME, studentid)
+                keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_PASSWORD_NAME, password)
+                logger.info("已更新凭据与本地会话")
+                progress.advance(task)
+                rprint("[green]登录成功！[/green]")
+            else:
+                rprint("Cookies保存失败！")
+                logger.error("Cookies保存失败！")
+                raise typer.Exit(code=1)
         else:
-            print("登录失败，请检查你的学号与密码是否正确。")
+            rprint("登录失败，请检查你的学号与密码是否正确。")
             raise typer.Exit(code=1)
     
 # --- Who am I ? ---

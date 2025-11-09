@@ -17,7 +17,7 @@ jobs:
   build-release:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-20.04, macos-latest, windows-latest]
         
     # 指定运行器
     runs-on: ${{ matrix.os }}

@@ -536,8 +536,6 @@ class courseMembersViewAPIFits(coursesAPIFits):
                  ):
         super().__init__(login_session, apis_name)
         self.course_id = course_id
-        logger.info(f"{self.keyword}")
-
 
     def _make_api_url(self, api_config, api_name):
         base_api_url: str = api_config.get("url")

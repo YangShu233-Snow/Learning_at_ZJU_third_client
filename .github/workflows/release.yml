@@ -46,19 +46,19 @@ jobs:
             # Linux 专属的 hidden imports
             echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.SecretService --hidden-import=keyring.backends.chainer --hidden-import=shellingham.posix" >> $GITHUB_ENV
             echo "ARCH_FLAGS=" >> $GITHUB_ENV
-            echo "ASSET_NAME=lazy-linux.tar.gz" >> $GITHUB_ENV
+            echo "ASSET_NAME=lazy-cli-linux-x86_64.tar.gz" >> $GITHUB_ENV
             echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
           elif [ "${{ runner.os }}" == "macOS" ]; then
             # macOS 专属的 hidden imports
             echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.macOS.Keyring --hidden-import=shellingham.posix" >> $GITHUB_ENV
             echo "ARCH_FLAGS=--target-arch=universal2" >> $GITHUB_ENV
-            echo "ASSET_NAME=lazy-macos.tar.gz" >> $GITHUB_ENV
+            echo "ASSET_NAME=lazy-cli-macos-universal2.tar.gz" >> $GITHUB_ENV
             echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
           elif [ "${{ runner.os }}" == "Windows" ]; then
             # Windows 专属的 hidden imports
             echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.Windows.WinVaultKeyring --hidden-import=shellingham.windows --hidden-import=shellingham.nt" >> $GITHUB_ENV
             echo "ARCH_FLAGS=" >> $GITHUB_ENV
-            echo "ASSET_NAME=lazy-windows.zip" >> $GITHUB_ENV
+            echo "ASSET_NAME=lazy-cli-windows-x86_64.zip" >> $GITHUB_ENV
             echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
           fi
 
@@ -91,8 +91,8 @@ jobs:
               pip install -e .[dev] && \
               echo '--- 3. Running PyInstaller...' && \
               pyinstaller --name lazy \
-                src/lazy_cli_main.py
-                --add-data 'data:data'
+                src/lazy_cli_main.py \
+                --add-data 'data:data' \
                 ${HIDDEN_IMPORTS} && \
               echo '--- 4. Linux build complete! ---' \  
           "
@@ -106,20 +106,6 @@ jobs:
             # 使用 tar -C 来避免在压缩包中包含 'dist/' 目录结构
             tar -czvf ${{ env.ASSET_NAME }} -C dist lazy
           fi
-
-      - name: Set platform-specific asset names
-        id: vars
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" == "Linux" ]; then
-            echo "ASSET_NAME=lazy-linux-x86_64.tar.gz"
-          elif [ "${{ runner.os }}" == "macOS" ]; then
-            echo "ASSET_NAME=lazy-macos-universal2.tar.gz"
-          elif [ "${{ runner.os }}" == "Windows" ]; then
-            echo "ASSET_NAME=lazy-windows-x86_64.zip"
-          fi >> $GITHUB_ENV
-          
-          echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
 
       - name: Upload to Release
         if: github.event_name == 'push'

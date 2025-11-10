@@ -23,7 +23,7 @@
             - os: ubuntu-22.04
               arch: x86_64
               asset_sufix: linux-x86_64.tar.gz
-            - os: macos-12
+            - os: macos-15-intel
               arch: x86_64
               asset_sufix: macos-x86_64.tar.gz
             - os: macos-latest

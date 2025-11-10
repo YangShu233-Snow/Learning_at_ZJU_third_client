@@ -64,7 +64,7 @@
           run: |
             python -m pip install --upgrade pip
             pip install pyinstaller  # 安装打包工具
-            pip install -e .[dev]    # 安装 'lazy' 项目本身及其所有依赖
+            pip install .    # 安装 'lazy' 项目本身及其所有依赖
 
         - name: Build with PyInstaller (MacOS & Windows)
           if: matrix.os != 'ubuntu-latest'
@@ -92,7 +92,7 @@
                 source .manylinux_venv/bin/activate && \
                 echo '--- 2. Installing dependencies in container...' && \
                 pip install --upgrade pip && \
-                pip install -e .[dev] && \
+                pip install . && \
                 echo '--- 3. Running PyInstaller...' && \
                 pyinstaller --name lazy \
                   src/lazy_cli_main.py \

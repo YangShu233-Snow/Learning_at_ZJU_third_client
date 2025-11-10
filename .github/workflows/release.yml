@@ -16,8 +16,22 @@
     # 构建并发布
     build-release:
       strategy:
+        # matrix:
+        #   os: [ubuntu-22.04, macos-latest, windows-latest]
         matrix:
-          os: [ubuntu-22.04, macos-latest, windows-latest]
+          include:
+            - os: ubuntu-22.04
+              arch: x86_64
+              asset_sufix: linux-x86_64.tar.gz
+            - os: macos-12
+              arch: x86_64
+              asset_sufix: macos-x86_64.tar.gz
+            - os: macos-latest
+              arch: arm64
+              asset_sufix: macos-arm64.tar.gz
+            - os: windows-latest
+              arch: x86_64
+              asset_sufix: windows-x86_64.zip
           
       # 指定运行器
       runs-on: ${{ matrix.os }}
@@ -30,44 +44,26 @@
           uses: actions/setup-python@v5
           with:
             python-version: '3.12'
-        
-        - name: Install dependencies (Linux & Windows)
-          if: matrix.os != 'macos-latest'
-          shell: bash
-          run: |
-            python -m pip install --upgrade pip
-            pip install pyinstaller  # 安装打包工具
-            pip install -e .[dev]    # 安装 'lazy' 项目本身及其所有依赖
 
         - name: Set platform-specific variables
           id: build_vars
           shell: bash
           run: |
+            echo "ASSET_NAME=lazy-cli-${{ matrix.asset_sufix }}" >> $GITHUB_ENV
+            echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
+
             if [ "${{ runner.os }}" == "Linux" ]; then
               # Linux 专属的 hidden imports
               echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.SecretService --hidden-import=keyring.backends.chainer --hidden-import=shellingham.posix" >> $GITHUB_ENV
-              echo "ARCH_FLAGS=" >> $GITHUB_ENV
-              echo "ASSET_NAME=lazy-cli-linux-x86_64.tar.gz" >> $GITHUB_ENV
-              echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
             elif [ "${{ runner.os }}" == "macOS" ]; then
               # macOS 专属的 hidden imports
               echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.macOS.Keyring --hidden-import=shellingham.posix" >> $GITHUB_ENV
-              echo "PIP_ARCH_FLAGS=-arch arm64 -arch x86_64" >> $GITHUB_ENV
-              echo "PYI_ARCH_FLAGS=--target-arch=universal2" >> $GITHUB_ENV
-              echo "ASSET_NAME=lazy-cli-macos-universal2.tar.gz" >> $GITHUB_ENV
-              echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
             elif [ "${{ runner.os }}" == "Windows" ]; then
               # Windows 专属的 hidden imports
               echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.Windows.WinVaultKeyring --hidden-import=shellingham.windows --hidden-import=shellingham.nt" >> $GITHUB_ENV
-              echo "ARCH_FLAGS=" >> $GITHUB_ENV
-              echo "ASSET_NAME=lazy-cli-windows-x86_64.zip" >> $GITHUB_ENV
-              echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
             fi
             
-        - name: Install dependencies (MacOS)
-          if: matrix.os != 'ubuntu-latest'
-          env:
-            PIP_ARCH_FLAGS: ${{ env.PIP_ARCH_FLAGS }}
+        - name: Install dependencies
           shell: bash            
           run: |
             python -m pip install --upgrade pip
@@ -82,7 +78,6 @@
               src/lazy_cli_main.py \
               --add-data "data:data" \
               ${{ env.HIDDEN_IMPORTS }} \
-              ${{ env.ARCH_FLAGS }} \
 
         - name: Archive the executable
           shell: bash

@@ -112,11 +112,31 @@ pyinstaller --onefile --name lazy src/lazy_cli_main.py --noconfirm
 # --- 内容请新增在文件开头 ---
 import os
 import glob
+import sys
 
 data_files=[]
 for f in glob.glob('data/*'):
-    if os.path.isfile(f): # 只添加文件
+    if os.path.isfile(f):
         data_files.append((f, 'data'))
+
+platform_hiddenimports = []
+if sys.platform.startswith('linux'):
+    platform_hiddenimports = [
+        'keyring.backends.SecretService',
+        'keyring.backends.chainer',
+        'shellingham.posix',
+    ]
+elif sys.platform.startswith('darwin'): # macOS
+    platform_hiddenimports = [
+        'keyring.backends.macOS.Keyring',
+        'shellingham.posix',
+    ]
+elif sys.platform.startswith('win32'): # Windows
+    platform_hiddenimports = [
+        'keyring.backends.Windows.WinVaultKeyring',
+        'shellingham.windows',
+	    'shellingham.nt'
+    ]
 # --- 内容请新增在文件开头 ---
 
 a = Analysis(
@@ -125,12 +145,7 @@ a = Analysis(
     binaries=[],
     datas=data_files, # <--这里请将变量赋值为 data_files
     # ....
-    hiddenimports=[
-        'keyring.backends.SecretService',          # 如果你在 Linux 下打包，请补充这个依赖
-        'keyring.backends.chainer',                # 如果你在 Linux 下打包，请补充这个依赖
-        'keyring.backends.macOS.Keyring'           # 如果你在 MacOS 下打包，请补充这个依赖
-        'keyring.backends.Windows.WinVaultKeyring' # 如果你在 Windows 下打包，请补充这个依赖
-    ],
+    hiddenimports=platform_hiddenimports, # <--这里请将变量赋值为platform_hiddenimports
     # ....
 )
 ```

@@ -123,6 +123,11 @@
                     "conditions": "",
                     "fields": "id,user(id,name),roles"
                 }
+            },
+            "rollcalls": {
+                "url": "https://courses.zju.edu.cn/api/course/<placeholder1>/student/<placeholder2>/rollcalls",
+                "method": "GET",
+                "params": {}
             }
         }
     },

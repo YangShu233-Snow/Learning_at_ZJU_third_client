@@ -20,6 +20,7 @@ USER_AVATAR_PATH = CURRENT_SCRIPT_PATH.parent.parent.parent.parent / "images/use
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_STUDENTID_NAME = "studentid"
 KEYRING_PASSWORD_NAME = "password"
+KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
 ENCRYPTION_KEY_NAME = "session_encryption_key"
 SESSION_FILE = Path.home() / ".lazy_cli_session.enc"
 

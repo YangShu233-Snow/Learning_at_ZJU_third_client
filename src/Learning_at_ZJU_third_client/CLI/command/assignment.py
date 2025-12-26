@@ -3,6 +3,7 @@ import asyncio
 from functools import partial
 import typer
 import logging
+import keyring
 from typing_extensions import Optional, Annotated, List, Tuple
 from rich import filesize
 from rich import print as rprint
@@ -22,6 +23,9 @@ from textwrap import dedent
 from ..state import state
 from ...zjuAPI import zju_api
 from ...login.login import ZjuAsyncClient, CredentialManager
+
+KEYRING_SERVICE_NAME = "lazy"
+KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
 
 # assignment 命令组
 app = typer.Typer(help="""
@@ -568,11 +572,12 @@ async def view_activity(activity_id: int, type_map: dict):
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             # --- 请求阶段 ---
             # 请求预览数据
-            raw_activity_read: dict = (await zju_api.assignmentPreviewAPIFits(client.session, activity_id).post_api_data())[0]
+            # raw_activity_read: dict = (await zju_api.assignmentPreviewAPIFits(client.session, activity_id).post_api_data())[0]
             
-            student_id = raw_activity_read.get("created_for_id")
+            student_id = keyring.get_password(KEYRING_SERVICE_NAME, KEYRING_LAZ_STUDENTID_NAME)
+            
             if not student_id:
-                logger.error(f"{activity_id} 缺少'created_for_id'参数，请将此问题上报给开发者！")
+                logger.error(f"{activity_id} 缺少'laz_studentid'参数，请将此问题上报给开发者！")
                 print(f"{activity_id} 返回存在问题！")
                 raise typer.Exit(code=1)
 

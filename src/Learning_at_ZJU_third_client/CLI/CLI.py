@@ -4,6 +4,7 @@ import httpx
 import asyncio
 import logging
 import sys
+from lxml import etree
 from asyncer import syncify
 from functools import partial
 from rich import print as rprint
@@ -17,6 +18,7 @@ from .state import state
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_STUDENTID_NAME = "studentid"
 KEYRING_PASSWORD_NAME = "password"
+KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
 
 logger = logging.getLogger(__name__)
 
@@ -96,20 +98,16 @@ async def check(
     """
     开发者网址测试检查工具，检验网页返回。
     """
-    temp_client = ZjuAsyncClient(trust_env=state.trust_env)
-    cookies = temp_client.load_cookies()
-
-    client = ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env)
-    session = client.session
-
-    try:
-        response = await session.get(url)
-        response.raise_for_status()
-    except Exception as e:
-        rprint(f"{e}")
-    else:
-        rprint(response.status_code)
-        rprint(response.text)
+    cookies = CredentialManager().load_cookies()
+    async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as temp_client:
+        try:
+            response = await temp_client.session.get(url)
+            response.raise_for_status()
+        except Exception as e:
+            rprint(f"{e}")
+        else:
+            rprint(response.status_code)
+            rprint(response.text)
 
 # --- 手动登录 --- 
 @app.command()
@@ -125,23 +123,35 @@ async def login():
         TextColumn("[progress.description]{task.description}"),
         transient=True
     ) as progress:
-        client = ZjuAsyncClient(trust_env=state.trust_env)
-        task = progress.add_task(description="登录中...", total=1)
+        async with ZjuAsyncClient(trust_env=state.trust_env) as client:
+            task = progress.add_task(description="登录中...", total=1)
 
-        if await client.login(studentid, password):
-            if CredentialManager().save_cookies(dict(client.session.cookies)):
-                keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_STUDENTID_NAME, studentid)
-                keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_PASSWORD_NAME, password)
-                logger.info("已更新凭据与本地会话")
-                progress.advance(task)
-                rprint("[green]登录成功！[/green]")
+            if await client.login(studentid, password):
+                if CredentialManager().save_cookies(dict(client.session.cookies)):
+                    keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_STUDENTID_NAME, studentid)
+                    keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_PASSWORD_NAME, password)
+                    logger.info("已更新凭据与本地会话")
+                    progress.advance(task)
+                    rprint("[green]登录成功！[/green]")
+                else:
+                    rprint("Cookies保存失败！")
+                    logger.error("Cookies保存失败！")
+                    raise typer.Exit(code=1)
+                
+                # 更新学在浙大studentid
+                response = await client.session.get(url="https://courses.zju.edu.cn/user/index")
+                html = etree.HTML(response.text)
+                laz_studentid = html.xpath(r'//span[@id="userId"]/@value')
+
+                if not laz_studentid:
+                    logger.error("学在浙大ID获取失败！")
+                    rprint("[red]学在浙大ID获取失败，请将此问题上报给开发者！[/red]")
+                    raise typer.Exit(code=1)
+                
+                keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_LAZ_STUDENTID_NAME, laz_studentid[0])
             else:
-                rprint("Cookies保存失败！")
-                logger.error("Cookies保存失败！")
+                rprint("登录失败，请检查你的学号与密码是否正确。")
                 raise typer.Exit(code=1)
-        else:
-            rprint("登录失败，请检查你的学号与密码是否正确。")
-            raise typer.Exit(code=1)
     
 # --- Who am I ? ---
 @app.command()

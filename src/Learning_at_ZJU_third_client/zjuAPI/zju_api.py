@@ -405,7 +405,8 @@ class coursesAPIFits(APIFitsAsync):
                     "completeness",
                     "classrooms",
                     "activities_reads",
-                    "coursewares"
+                    "coursewares",
+                    "rollcalls"
                  ],
                  apis_config = None,
                  parent_dir: str = "course",
@@ -548,6 +549,25 @@ class courseMembersViewAPIFits(coursesAPIFits):
             return base_api_url.replace("<placeholder>", str(self.course_id))
         
         return super()._make_api_url(api_config, api_name)
+
+class courseRollcallsViewAPIFits(coursesAPIFits):
+    def __init__(self, 
+                 login_session,
+                 course_id: int,
+                 student_id: int,
+                 apis_name=["rollcalls"]
+                 ):
+        super().__init__(login_session, apis_name)
+        self.course_id = course_id
+
+    def _make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url", None)
+        if not base_api_url:
+            logger.error(f"{api_name}参数url缺失！")
+            return None
+
+        api_url = base_api_url.replace("<placeholder1>", str(self.course_id)).replace("<placeholder2>", str(self.student_id))
+        return api_url
 
 # --- Assignment API ---
 class assignmentAPIFits(APIFitsAsync):

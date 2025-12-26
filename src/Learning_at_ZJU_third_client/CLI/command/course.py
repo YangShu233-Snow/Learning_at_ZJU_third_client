@@ -906,5 +906,32 @@ async def view_members(
         
         progress.update(task, description="渲染完成x    ...", advance=1)
 
+@view_app.command(
+    "rollcalls",
+    help="查看课程点名记录",
+    epilog=dedent(
+        """
+        EXAMPLES:
+
+            $ lazy course view rollcalls 114514
+              (查看课程点名记录)    
+
+            $ lazy course view rollcalls 114514 -A 
+    """),
+    no_args_is_help=True)
+@partial(syncify, raise_sync_error=False)
+async def view_rollcalls(
+    course_id: Annotated[str, typer.Argument(help="课程id")],
+    amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示点名记录的数量")] = 10,
+    page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="点名记录页面索引")] = 1,
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False,
+    summary: Annotated[Optional[bool], typer.Option("--summary", "-S", help="启用此选项，统计点名情况")] = False
+):
+    if summary:
+        pass
+
+    
+    pass
+
 # view 注册入课程命令组
 app.add_typer(view_app, name="view", help="管理学在浙大课程的查看")

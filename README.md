@@ -94,7 +94,7 @@ source .venv/bin/activate
 .venv\Scripts\activate
 
 # Conda也是非常推荐的选择
-# Python版本>=3.8均可，但3.12.3是一个比较稳妥的版本，因为LAZY就是在这个版本下开发的
+# Python版本>=3.10均可，但3.12.3是一个比较稳妥的版本，因为LAZY就是在这个版本下开发的
 conda create -n LAZY python=3.12.3
 conda activate LAZY
 

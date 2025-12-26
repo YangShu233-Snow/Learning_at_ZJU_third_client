@@ -559,6 +559,7 @@ class courseRollcallsViewAPIFits(coursesAPIFits):
                  ):
         super().__init__(login_session, apis_name)
         self.course_id = course_id
+        self.student_id = student_id
 
     def _make_api_url(self, api_config, api_name):
         base_api_url: str = api_config.get("url", None)

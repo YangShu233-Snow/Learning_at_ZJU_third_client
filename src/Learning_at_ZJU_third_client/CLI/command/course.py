@@ -2,6 +2,7 @@ import asyncio
 import httpx
 import typer
 import logging
+import keyring
 from asyncer import syncify
 from functools import partial
 from typing_extensions import Optional, Annotated, List, Tuple
@@ -19,6 +20,10 @@ from textwrap import dedent
 from ..state import state
 from ...zjuAPI import zju_api
 from ...login.login import ZjuAsyncClient, CredentialManager
+
+KEYRING_SERVICE_NAME = "lazy"
+KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
+
 # course 命令组
 app = typer.Typer(help="""
                         管理学在浙大课程信息与章节
@@ -907,6 +912,27 @@ async def view_members(
         progress.update(task, description="渲染完成x    ...", advance=1)
 
 @view_app.command(
+    "rc",
+    help="Alias for 'rollcalls'",
+    hidden=True
+    epilog=dedent(
+        """
+        EXAMPLES:
+
+            $ lazy course view rollcalls 114514
+              (查看课程点名记录)    
+
+            $ lazy course view rollcalls 114514 -A 
+              (查看课程所有点名记录)
+
+            $ lazy course view rollcalls 114514 -p 2 -a 5
+              (查看课程点名记录，每页显示 5 个，显示第 2 页)
+
+            $ lazy course view rollcalls 114514 -S
+              (查看课程点名概况)
+    """),
+    no_args_is_help=True)
+@view_app.command(
     "rollcalls",
     help="查看课程点名记录",
     epilog=dedent(
@@ -917,6 +943,13 @@ async def view_members(
               (查看课程点名记录)    
 
             $ lazy course view rollcalls 114514 -A 
+              (查看课程所有点名记录)
+
+            $ lazy course view rollcalls 114514 -p 2 -a 5
+              (查看课程点名记录，每页显示 5 个，显示第 2 页)
+
+            $ lazy course view rollcalls 114514 -S
+              (查看课程点名概况)
     """),
     no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
@@ -927,11 +960,115 @@ async def view_rollcalls(
     all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False,
     summary: Annotated[Optional[bool], typer.Option("--summary", "-S", help="启用此选项，统计点名情况")] = False
 ):
+    student_id = keyring.get_password(KEYRING_SERVICE_NAME, KEYRING_LAZ_STUDENTID_NAME)
+    rollcall_type_map = {
+        "radar": "雷达点名",
+        "number": "数字点名"
+    }
+    
     if summary:
         pass
 
-    
-    pass
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True
+    ) as progress:
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
+        
+        task = progress.add_task(description="请求数据中...", total=2)
+
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
+            raw_course_rollcalls = (await zju_api.courseRollcallsViewAPIFits(client.session, course_id=course_id, student_id=student_id).get_api_data())[0]
+
+        progress.update(task, description="渲染点名记录中...", completed=1)
+        
+        course_rollcalls: List[dict] = raw_course_rollcalls.get("rollcalls")
+
+        if not course_rollcalls:
+            rprint("暂无点名记录哦~")
+            return 
+
+        total_rollcalls_amount = len(course_rollcalls)
+
+        if summary:
+            on_call_rollcalls_amount = 0
+            
+            for rollcall in course_rollcalls:
+                if rollcall.get("status") == "on_call_fine":
+                    on_call_rollcalls_amount += 1
+
+            rprint(f"签到情况: 共 {total_rollcalls_amount} 次签到，[green]{on_call_rollcalls_amount}[/green] 次已到，[red]{total_rollcalls_amount - on_call_rollcalls_amount}[/red] 次未到")
+            return
+
+        if all:
+            shown_amount = total_rollcalls_amount
+        else:
+            shown_amount = amount
+
+        total_pages = int(total_rollcalls_amount / shown_amount) + 1
+        offset = (page_index - 1) * shown_amount
+
+        if page_index > total_pages:
+            print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
+            raise typer.Exit(code=1)
+
+        if 0 < amount < total_rollcalls_amount:
+            course_rollcalls_shown = course_rollcalls[offset: offset + amount]
+        else:
+            course_rollcalls_shown = course_rollcalls
+
+        rollcalls_table = Table(
+            title=f"课程点名记录 (第 {page_index} / {total_pages})",
+            caption=f"共 {total_rollcalls_amount} 条记录，本页显示 {len(course_rollcalls_shown)}",
+            border_style="bright_black",
+            show_header=True,
+            header_style="bold magenta",
+            expand=True
+        )
+
+        rollcalls_table.add_column("任务ID", style="cyan")
+        rollcalls_table.add_column("签到时间")
+        rollcalls_table.add_column("任务签到状态")
+        rollcalls_table.add_column("签到类型")
+
+        for rollcall in course_rollcalls_shown:
+            rollcall_id = str(rollcall.get("rollcall_id", 0))
+            rollcall_time = transform_time(rollcall.get("rollcall_time"))
+            rollcall_type = rollcall_type_map.get(rollcall.get("source"), "None")
+
+            if rollcall.get("status") == "on_call_fine":
+                rollcall_status_text = Text(
+                    "√ 已签到",
+                    "green"
+                )
+            else:
+                if rollcall.get("rollcall_status") == "finished":   
+                    rollcall_status_text = Text(
+                        "✘ 未签到",
+                        "red"
+                    )
+                else:
+                    rollcall_status_text = Text(
+                        "！ 待签到",
+                        "yellow"
+                    )
+
+            rollcalls_table.add_row(
+                rollcall_id,
+                rollcall_time,
+                rollcall_status_text,
+                rollcall_type
+            )
+        
+        progress.update(task, completed=2)
+
+    rprint(rollcalls_table)
+
 
 # view 注册入课程命令组
 app.add_typer(view_app, name="view", help="管理学在浙大课程的查看")

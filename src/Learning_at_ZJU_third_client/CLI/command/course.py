@@ -914,7 +914,7 @@ async def view_members(
 @view_app.command(
     "rc",
     help="Alias for 'rollcalls'",
-    hidden=True
+    hidden=True,
     epilog=dedent(
         """
         EXAMPLES:

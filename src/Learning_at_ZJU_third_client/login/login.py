@@ -263,6 +263,8 @@ class ZjuAsyncClient:
         str
             return the encrypted password for POST
         """        
+        if not password.isascii():
+            raise ValueError
 
         key_obj = LoginRSA.RSAKeyPython(public_exponent_hex=exponent, modulus_hex=modulus)
         reversed_password = password[::-1]

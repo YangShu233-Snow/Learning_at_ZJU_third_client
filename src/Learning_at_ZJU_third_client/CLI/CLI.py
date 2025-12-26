@@ -118,6 +118,10 @@ async def login():
     studentid = typer.prompt("请输入学号")
     password = typer.prompt("请输入密码", hide_input=True)
 
+    if not password.isascii():
+        rprint("[red]密码应仅包含英文、数字与半角标点符号！[/red]")
+        raise typer.Exit(code=1)
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),

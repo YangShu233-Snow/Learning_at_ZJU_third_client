@@ -772,7 +772,11 @@ class assignmentSubmitAPIFits(assignmentAPIFits):
         
         if api_name == "submissions":
             api_data = default_api_data
-            api_data["comment"] = api_data.get("comment", "").replace("{{{comment}}}", self.comment)
+            if self.comment:
+                api_data["comment"] = api_data.get("comment", "").replace("{{{comment}}}", self.comment)
+            else:
+                api_data["comment"] = None
+                
             api_data["uploads"].extend(self.uploads)
             return api_data
         

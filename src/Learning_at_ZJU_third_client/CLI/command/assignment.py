@@ -919,6 +919,7 @@ async def todo_assignment(
         else:
             amount = total
             page_index = 1
+            total_pages = 1
 
         # 依照截止时间排序
         todo_list = sorted(todo_list, key=lambda todo: datetime.fromisoformat(todo.get("end_time").replace('Z', '+00:00') if todo.get("end_time") else "3000-01-01T00:00:00+00:00"), reverse=reverse)

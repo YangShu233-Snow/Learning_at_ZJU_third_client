@@ -4,7 +4,10 @@
             "type": "LazyFileHandler",
             "params": {
                 "sources_list": [
-                    "data/lazy_backup.json"
+                    "data/lazy_backup.json",
+                    "data/user_backup.json",
+                    "data/log_backup.json",
+                    "data/api_list.json"
                 ],
                 "output_name": "lazy-config.zip"
             }

@@ -1,0 +1,6 @@
+{
+    "files_path": {
+        "api_list": "data/api_list.json",
+        "backup": "data/backup.json"
+    }
+}

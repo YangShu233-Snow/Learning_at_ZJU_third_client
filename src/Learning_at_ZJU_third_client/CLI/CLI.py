@@ -12,7 +12,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from typing_extensions import Annotated, Optional
 from ..login.login import ZjuAsyncClient, CredentialManager
 
-from .command import course, resource, assignment, rollcall
+from .command import course, resource, assignment, rollcall, config
 from .state import state
 
 KEYRING_SERVICE_NAME = "lazy"
@@ -40,7 +40,7 @@ async def main_callback(
     if "--help" in sys.argv or "-h" in sys.argv:
         return 
     
-    if ctx.invoked_subcommand in ["login", "whoami"]:
+    if ctx.invoked_subcommand in ["login", "whoami", "config"]:
         return
 
     state.trust_env = not no_proxy
@@ -196,3 +196,6 @@ app.add_typer(assignment.app, name="assignment", help="管理学在浙大活动�
 
 # 签到命令组
 app.add_typer(rollcall.app, name="rollcall", help="处理学在浙大签到任务")
+
+# 配置命令组
+app.add_typer(config.app, name="config", help="配置相关命令组")

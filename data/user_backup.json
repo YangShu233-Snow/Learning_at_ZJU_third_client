@@ -1,0 +1,13 @@
+{
+    "tasks": [
+        {
+            "type": "LazyUserFileHandler",
+            "params": {
+                "sources_list": [
+                    "data/rollcall_site.json"
+                ],
+                "output_name": "lazy-user-config.zip"
+            }
+        }
+    ]
+}

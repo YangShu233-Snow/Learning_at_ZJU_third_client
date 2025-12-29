@@ -1,0 +1,13 @@
+{
+    "tasks": [
+        {
+            "type": "logFileHandler",
+            "params": {
+                "sources_list": [
+                    ".lazy_cli_logs/lazy_cli.log*"
+                ],
+                "output_name": "lazy-logs.zip"
+            }
+        }
+    ]
+}

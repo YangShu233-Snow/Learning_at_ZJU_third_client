@@ -90,9 +90,17 @@ class apiListConfig(BaseConfig):
     def __init__(self):
         super().__init__("", "api_list.json")
 
-class backupConfig(BaseConfig):
+class userBackupConfig(BaseConfig):
     def __init__(self):
-        super().__init__("", "backup.json")
+        super().__init__("", "user_backup.json")
+
+class lazyBackupConfig(BaseConfig):
+    def __init__(self):
+        super().__init__("", "lazy_backup.json")
+
+class logBackupConfig(BaseConfig):
+    def __init__(self):
+        super().__init__("", "log_backup.json")
 
 class apiConfig(BaseConfig):
     def __init__(self, parent_dir: str ,api_name):

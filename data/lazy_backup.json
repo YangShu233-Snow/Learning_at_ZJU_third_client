@@ -1,0 +1,13 @@
+{
+    "tasks": [
+        {
+            "type": "LazyFileHandler",
+            "params": {
+                "sources_list": [
+                    "data/lazy_backup.json"
+                ],
+                "output_name": "lazy-config.zip"
+            }
+        }
+    ]
+}

@@ -4,7 +4,7 @@
 reminder.md
 !api_list.json
 !global_config.json
-!backup.json
+!*backup.json
 copy_data
 *.jpg
 *.png

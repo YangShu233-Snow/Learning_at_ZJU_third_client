@@ -1,0 +1,157 @@
+import abc
+import json
+import sys
+import zipfile
+import logging
+from typing import List
+from pathlib import Path
+from .load_config import userBackupConfig, lazyBackupConfig, logBackupConfig
+
+logger = logging.getLogger(__name__)
+
+def resource_path(relative_path: str|Path) -> Path:
+    """获取绝对路径，兼容源码和 PyInstaller 打包后环境"""
+    try:
+        # PyInstaller 创建的临时路径
+        base_path = Path(sys._MEIPASS)
+    except Exception:
+        # 不在 PyInstaller 环境中，使用普通路径
+        base_path = Path(__file__).resolve().parent.parent.parent.parent
+    
+    return base_path / relative_path
+
+# 文件备份抽象基类
+class BaseFileBackupHandler(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def backup(self):
+        pass
+
+# 日志文件备份
+class logFileHandler(BaseFileBackupHandler):
+    def __init__(self, 
+                 paths: List[str|Path],
+                 output: str|Path = Path.home()):
+        self.paths: List[Path] = list(map(lambda path: Path.home() / path, paths))
+        self.output = output
+
+    def backup(self)->bool:
+        try:
+            with zipfile.ZipFile(self.output, 'w') as zf:
+                for path in self.paths:
+                    zf.write(path)
+        except Exception as e:
+            logger.error(f"备份出错！{e}")
+            return False
+        
+        logger.info(f"日志备份完成，保存位置: {self.output}")
+        return True
+
+# lazy文件备份
+class LazyFileHandler(BaseFileBackupHandler):
+    def __init__(self, 
+                 paths: List[str|Path],
+                 output: str|Path = Path.home()):
+        self.paths: List[Path] = list(map(resource_path, paths))
+        self.output = output
+
+    def backup(self)->bool:
+        try:
+            with zipfile.ZipFile(self.output, 'w') as zf:
+                for path in self.paths:
+                    logger.info(f"正在备份 {path}")
+                    zf.write(path)
+        except Exception as e:
+            logger.error(f"备份出错！{e}")
+            return False
+        
+        logger.info(f"应用配置备份完成，保存位置: {self.output}")
+        return True
+
+# 用户文件备份
+class LazyUserFileHandler(BaseFileBackupHandler):
+    def __init__(self, 
+                 paths: List[str|Path],
+                 output: str|Path = Path.home()):
+        self.paths: List[Path] = list(map(resource_path, paths))
+        self.output = output
+
+    def backup(self)->bool:
+        try:
+            with zipfile.ZipFile(self.output, 'w') as zf:
+                for path in self.paths:
+                    logger.info(f"正在备份 {path}")
+                    zf.write(path)
+        except Exception as e:
+            logger.error(f"备份出错！{e}")
+            return False
+        
+        logger.info(f"用户配置备份完成，保存位置: {self.output}")
+        return True
+
+class BackupManager:
+    def __init__(self,
+                 output_dir: str|Path = Path.home()):
+        self.user_backup_config = userBackupConfig().load_config()
+        self.lazy_backup_config = lazyBackupConfig().load_config()
+        self.log_backup_config = logBackupConfig().load_config()
+        self.output_dir = output_dir
+
+    def run_for_user(self):
+        for task in self.user_backup_config["tasks"]:
+            class_name = task["type"]
+            sources_list = task["params"]["sources_list"]
+            output = self.output_dir / Path(task["params"]["output_name"])
+
+            cls = globals().get(class_name)
+
+            if cls:
+                instance = cls(sources_list, output)
+                if not instance.backup():
+                    break
+            else:
+                logger.warning(f"未找到 {class_name}")
+        else:
+            return True
+        
+        logger.error("用户配置文件备份过程出错！")
+        return False
+    
+    def run_for_lazy(self):
+        for task in self.lazy_backup_config["tasks"]:
+            class_name = task["type"]
+            sources_list = task["params"]["sources_list"]
+            output = self.output_dir / Path(task["params"]["output_name"])
+
+            cls = globals().get(class_name)
+
+            if cls:
+                instance = cls(sources_list, output)
+                if not instance.backup():
+                    break
+            else:
+                logger.warning(f"未找到 {class_name}")
+        else:
+            return True
+        
+        logger.error("程序配置文件备份过程出错！")
+        return False
+
+    def run_for_log(self):
+        for task in self.log_backup_config["tasks"]:
+            class_name = task["type"]
+            sources_list = task["params"]["sources_list"]
+            output = self.output_dir / Path(task["params"]["output_name"])
+
+            cls = globals().get(class_name)
+
+            if cls:
+                instance = cls(sources_list, output)
+                if not instance.backup():
+                    break
+            else:
+                logger.warning(f"未找到 {class_name}")
+        else:
+            return True
+        
+        logger.error("日志文件备份出错！")
+        return False

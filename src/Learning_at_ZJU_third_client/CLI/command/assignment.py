@@ -243,7 +243,7 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
                 head_submission_id = raw_exam_submission_list.get("submissions")[0].get("id")
                 raw_exam_submission_subjects = (await zju_api.assignmentExanSubmissionViewAPIFits(client.session, exam_id, head_submission_id).get_api_data())[0]
             else:
-                raw_exam_submission_subjects = None
+                raw_exam_submission_subjects = {}
 
         progress.advance(task, 1)
         progress.update(task, description="渲染数据中...")

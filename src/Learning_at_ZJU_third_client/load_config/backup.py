@@ -208,6 +208,7 @@ class LoadManager:
 
     def load(self)->bool:
         for path in self.paths:
+            logger.info(f"正在加载文价: {path}")
             try:
                 with zipfile.ZipFile(path, 'r') as zf:
                     mainfest = json.loads(zf.read("mainfest.json").decode('utf-8'))
@@ -216,12 +217,15 @@ class LoadManager:
                     for file in files:
                         if not self.force:
                             if not self._is_valid(file["archive_path"]):
+                                logger.warning(f"{file["archive_path"]} 被忽略！")
                                 continue
                         
                         file_content = zf.read(file["original_path"]).decode('utf-8')
 
                         with open(self.base_path / file["original_path"], 'w') as f:
                             f.write(file_content)
+
+                        logger.info(f"{file["archieve_path"]} 已载入！")
             except Exception as e:
                 logger.error(f"{path} 配置加载失败。错误原因: {e}")
                 return False

@@ -35,12 +35,18 @@ class logFileHandler(BaseFileBackupHandler):
                  output: str|Path = Path.home()):
         self.paths: List[Path] = list(map(lambda path: Path.home() / path, paths))
         self.output = output
+        self.log_paths = []
+
+        for path in self.paths:
+            logs_to_zip = path.glob("lazy_cli.log*")
+            self.log_paths.extend(logs_to_zip)
 
     def backup(self)->bool:
         try:
             with zipfile.ZipFile(self.output, 'w') as zf:
-                for path in self.paths:
+                for path in self.log_paths:
                     zf.write(path)
+
         except Exception as e:
             logger.error(f"备份出错！{e}")
             return False

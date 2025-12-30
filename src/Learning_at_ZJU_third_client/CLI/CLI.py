@@ -12,7 +12,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from typing_extensions import Annotated, Optional
 from ..login.login import ZjuAsyncClient, CredentialManager
 
-from .command import course, resource, assignment, rollcall, config
+from .command import course, resource, assignment, rollcall, config, log
 from .state import state
 
 KEYRING_SERVICE_NAME = "lazy"
@@ -199,3 +199,6 @@ app.add_typer(rollcall.app, name="rollcall", help="处理学在浙大签到任�
 
 # 配置命令组
 app.add_typer(config.app, name="config", help="配置相关命令组")
+
+# 日志命令组
+app.add_typer(log.app, name="log", help="日志相关命令组")

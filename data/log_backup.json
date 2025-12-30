@@ -4,7 +4,7 @@
             "type": "logFileHandler",
             "params": {
                 "sources_list": [
-                    ".lazy_cli_logs/lazy_cli.log*"
+                    ".lazy_cli_logs"
                 ],
                 "output_name": "lazy-logs.zip"
             }

@@ -96,7 +96,7 @@ def remove_config(
     except Exception as e:
         logger.error(f"{e}")
         print("删除失败！")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
     
     rollcall_site_config["coordinates"] = coordinates_config
     load_config.rollcallSiteConfig().update_config(rollcall_site_config)
@@ -113,11 +113,17 @@ def init_config(
     # 检查文件是否正常
     rollcall_site_config = load_config.rollcallSiteConfig().load_config()
     
-    if not force:
-        if "device_id" in rollcall_site_config and "coordinates" in rollcall_site_config and type(rollcall_site_config.get("coordinates")) == dict:
-            confirmation = typer.confirm("签到配置文件正常，你确定要初始化它吗？")
-            if not confirmation:
-                return
+    # Fix SIM102 nested if
+    valid_config = (
+        "device_id" in rollcall_site_config and
+        "coordinates" in rollcall_site_config
+        and isinstance(rollcall_site_config.get("coordinates"), dict)
+    )
+
+    if not force and valid_config:
+        confirmation = typer.confirm("签到配置文件正常，你确定要初始化它吗？")
+        if not confirmation:
+            return
 
     default_config = {
         "device_id": "",

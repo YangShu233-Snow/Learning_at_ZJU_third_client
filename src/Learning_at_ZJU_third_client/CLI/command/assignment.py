@@ -173,9 +173,9 @@ def parse_files_id(files_id: str)->List[int]:
             files_id_list = list(map(int, files_id.split(' ')))
         else:
             files_id_list = [int(files_id)]
-    except ValueError:
+    except ValueError as e:
         typer.echo("文件ID格式有误！", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
     
     return list(set(files_id_list))
 

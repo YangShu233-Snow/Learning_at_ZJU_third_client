@@ -74,9 +74,9 @@ class BaseConfig:
             
             logger.info(f"{self.config_name}配置更新成功，路径{self.config_path}",)
 
-        except OSError:
+        except OSError as e:
             logger.warning("配置更新失败！",)
-            raise OSError
+            raise OSError from e
 
 class userConfig(BaseConfig):
     def __init__(self):

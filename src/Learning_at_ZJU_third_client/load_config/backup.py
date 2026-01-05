@@ -1,12 +1,13 @@
 import abc
 import json
+import logging
 import sys
 import zipfile
-import logging
-from typing import List
-from pathlib import Path
 from datetime import datetime
-from .load_config import userBackupConfig, lazyBackupConfig, logBackupConfig
+from pathlib import Path
+from typing import List
+
+from .load_config import lazyBackupConfig, logBackupConfig, userBackupConfig
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,9 @@ class BaseFileBackupHandler(metaclass=abc.ABCMeta):
 class logFileHandler(BaseFileBackupHandler):
     def __init__(self, 
                  paths: List[str|Path],
-                 output: str|Path = Path.home()):
+                 output: str|Path = None):
+        if output is None:
+            output = Path.home()
         self.paths: List[Path] = list(map(lambda path: Path.home() / path, paths))
         self.output = output
 
@@ -51,7 +54,9 @@ class logFileHandler(BaseFileBackupHandler):
 class LazyFileHandler(BaseFileBackupHandler):
     def __init__(self, 
                  paths: List[str|Path],
-                 output: str|Path = Path.home()):
+                 output: str|Path = None):
+        if output is None:
+            output = Path.home()
         self.base_path = resource_path()
         self.paths: List[Path] = list(map(resource_path, paths))
         self.output = output
@@ -89,7 +94,9 @@ class LazyFileHandler(BaseFileBackupHandler):
 class LazyUserFileHandler(BaseFileBackupHandler):
     def __init__(self, 
                  paths: List[str|Path],
-                 output: str|Path = Path.home()):
+                 output: str|Path = None):
+        if output is None:
+            output = Path.home()
         self.base_path = resource_path()
         self.paths: List[Path] = list(map(resource_path, paths))
         self.output = output
@@ -125,7 +132,9 @@ class LazyUserFileHandler(BaseFileBackupHandler):
 
 class BackupManager:
     def __init__(self,
-                 output_dir: str|Path = Path.home()):
+                 output_dir: str|Path = None):
+        if output_dir is None:
+            output_dir = Path.home()
         self.user_backup_config = userBackupConfig().load_config()
         self.lazy_backup_config = lazyBackupConfig().load_config()
         self.log_backup_config = logBackupConfig().load_config()
@@ -213,9 +222,8 @@ class LoadManager:
                     files = mainfest["files"]
 
                     for file in files:
-                        if not self.force:
-                            if not self._is_valid(file["archive_path"]):
-                                continue
+                        if not (self.force or self._is_valid(file["archive_path"])):
+                            continue
                         
                         file_content = zf.read(file["original_path"]).decode('utf-8')
 
@@ -229,7 +237,4 @@ class LoadManager:
 
     def _is_valid(self, path: str|Path)->bool:
         filename = Path(path).name
-        if filename in self.lazy_configs:
-            return False
-        
-        return True
+        return filename not in self.lazy_configs

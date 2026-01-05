@@ -1,28 +1,30 @@
-from asyncer import syncify
 import asyncio
-from functools import partial
-import typer
 import logging
+from datetime import datetime, timezone
+from functools import partial
+from textwrap import dedent
+from typing import List, Optional, Tuple
+
 import keyring
-from typing_extensions import Optional, Annotated, List, Tuple
+import typer
+from asyncer import syncify
+from lxml import html
+from lxml.html import HtmlElement
 from rich import filesize
 from rich import print as rprint
 from rich.align import Align
-from rich.table import Table
-from rich.text import Text
-from rich.panel import Panel
-from rich.padding import Padding
 from rich.console import Group
+from rich.padding import Padding
+from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.rule import Rule
-from datetime import datetime, timezone
-from lxml import html
-from lxml.html import HtmlElement
-from textwrap import dedent
+from rich.table import Table
+from rich.text import Text
+from typing_extensions import Annotated
 
-from ..state import state
+from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
-from ...login.login import ZjuAsyncClient, CredentialManager
+from ..state import state
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
@@ -58,17 +60,15 @@ def transform_time(time: str|None)->str:
     if time:
         time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
         return time_local.strftime('%Y-%m-%d %H:%M:%S')
-    else:
-        return "null"
+    return "null"
 
 def extract_comment(raw_content: str|None)->str:
     if not raw_content or not raw_content.strip():
         return ""
     
     doc: HtmlElement = html.fromstring(raw_content)
-    plain_text = doc.text_content()
+    return doc.text_content()
 
-    return plain_text
 
 def extract_uploads(uploads_list: List[dict])->List[Table]:
     content_renderables = []
@@ -173,9 +173,9 @@ def parse_files_id(files_id: str)->List[int]:
             files_id_list = list(map(int, files_id.split(' ')))
         else:
             files_id_list = [int(files_id)]
-    except ValueError:
+    except ValueError as e:
         typer.echo("文件ID格式有误！", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
     
     return list(set(files_id_list))
 
@@ -998,10 +998,7 @@ async def todo_assignment(
 
             panel_title = f"[white][{todo_type}][/white]"
             
-            if style != "dim":
-                panel_border_style = "bright_" + style
-            else:
-                panel_border_style = "dim"
+            panel_border_style = "bright_" + style if style != "dim" else "dim"
 
             todo_panel = Panel(
                 Group(*content_renderables),

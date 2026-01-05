@@ -1,8 +1,10 @@
-import typer
-from ...load_config.backup import BackupManager, LoadManager
-from typing import Annotated, List, Optional
-from rich import print as rprint
 from pathlib import Path
+from typing import Annotated, List, Optional
+
+import typer
+from rich import print as rprint
+
+from ...load_config.backup import BackupManager, LoadManager
 
 app = typer.Typer(help="管理 LAZY CLI 配置文件")
 
@@ -55,14 +57,13 @@ def load(
             if not path.is_file():
                 rprint(f"{path} 文件不存在！")
                 raise typer.Exit(code=1)
-    except TypeError:
+    except TypeError as e:
         rprint("请输入合法路径！")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     manager = LoadManager(sources_path, force)
     
     if manager.load():
         rprint("[green]配置加载成功！[/green]")
         return
-    else:
-        rprint("[red]配置加载失败！[/red]")
+    rprint("[red]配置加载失败！[/red]")

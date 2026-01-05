@@ -79,5 +79,4 @@ def encrypted_string_python(key: RSAKeyPython, s: str) -> str:
     if not result_parts: 
         return ""
     
-    final_result = " ".join(result_parts)
-    return final_result
+    return " ".join(result_parts)

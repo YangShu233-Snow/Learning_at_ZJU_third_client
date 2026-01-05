@@ -36,14 +36,14 @@ class BaseConfig:
         config = None
         # print(self.config_path)
         try:
-            with open(self.config_path, "r") as f:
+            with open(self.config_path) as f:
                 config = json.load(f)
             logger.info(f"配置文件 '{self.config_name}'加载成功",)
         except FileNotFoundError:
             logger.warning(f"配置文件 '{self.config_name}' 未找到！",)
         except json.JSONDecodeError: # 处理 JSON 格式错误
             logger.warning(f"配置文件 '{self.config_name}' 可能为空！",)
-        except IOError as e: # 捕获其他 IO 错误
+        except OSError as e: # 捕获其他 IO 错误
             logger.warning(f"配置读取失败，IO错误: {e}",)
 
         if config == None:
@@ -74,9 +74,9 @@ class BaseConfig:
             
             logger.info(f"{self.config_name}配置更新成功，路径{self.config_path}",)
 
-        except IOError:
+        except OSError as e:
             logger.warning("配置更新失败！",)
-            raise IOError
+            raise OSError from e
 
 class userConfig(BaseConfig):
     def __init__(self):

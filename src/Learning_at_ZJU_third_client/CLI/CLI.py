@@ -1,16 +1,18 @@
-import typer
-import keyring
 import logging
 import sys
-from lxml import etree
-from asyncer import syncify
 from functools import partial
+from typing import Optional
+
+import keyring
+import typer
+from asyncer import syncify
+from lxml import etree
 from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from typing_extensions import Annotated, Optional
-from ..login.login import ZjuAsyncClient, CredentialManager
+from typing_extensions import Annotated
 
-from .command import course, resource, assignment, rollcall, config
+from ..login.login import CredentialManager, ZjuAsyncClient
+from .command import assignment, config, course, resource, rollcall
 from .state import state
 
 KEYRING_SERVICE_NAME = "lazy"

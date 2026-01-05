@@ -36,7 +36,7 @@ jobs:
 
           - os: windows-latest
             platform: windows
-            arch: adm64
+            arch: amd64
             asset_sufix: lazy-windows-amd64.zip
 
     runs-on: ${{ matrix.os }}
@@ -85,10 +85,17 @@ jobs:
           tar -czvf ${{ matrix.asset }} -C dist lazy
           fi
 
+      - name: Upload build artifact (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lazy-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ matrix.asset }}
+
       - name: Upload release asset
+        if: startsWith(github.ref, 'ref/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          file: ${{ matrix.asset }}
-          files: ${{ env.ASSET_NAME }}
+          files: ${{ matrix.asset }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

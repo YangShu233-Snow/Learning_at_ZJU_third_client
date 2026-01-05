@@ -74,11 +74,7 @@ jobs:
             --name lazy \
             --onefile \
             $HIDDEN_IMPORTS \
-            $(python - <<EOF
-            from importlib.metadata import entry_points
-            pirnt("lazy")
-            EOF
-            )
+            -m lazy.cli
 
       - name: Package artifact
         shell: bash

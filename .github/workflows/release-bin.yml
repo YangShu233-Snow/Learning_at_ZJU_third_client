@@ -75,6 +75,7 @@ jobs:
           echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.Windows.WinVaultKeyring --hidden-import=shellingham.windows" >> $GITHUB_ENV
 
       - name: Build binary
+        shell: bash
         run: |
           pyinstaller \
             --name lazy \

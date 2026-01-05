@@ -1,18 +1,18 @@
-import os
-import requests
-import json
-import re
 import asyncio
+import json
+import logging
+import mimetypes
+import os
+import re
+from datetime import datetime
+from pathlib import Path
+from typing import Callable, List, Optional
+from urllib.parse import unquote
+
 import aiofiles
 import httpx
-import mimetypes
-import logging
-from httpx import ConnectTimeout, HTTPError
-from pathlib import Path
-from datetime import datetime
-from urllib.parse import unquote
-from httpx import HTTPStatusError
-from typing_extensions import List, Optional, Callable
+import requests
+from httpx import ConnectTimeout, HTTPError, HTTPStatusError
 
 from ..load_config import load_config
 
@@ -186,10 +186,10 @@ class APIFits:
         return all_api_response
 
     def _make_api_url(self, api_config: dict, api_name):
-        return api_config.get("url", None)
+        return api_config.get("url")
     
     def _make_api_params(self, api_config: dict, api_name: str):
-        return api_config.get("params", None)
+        return api_config.get("params")
     
     def check_api_method(self, apis_config: dict, method: str)->bool:
         for value in apis_config.values():
@@ -373,10 +373,10 @@ class APIFitsAsync:
         return all_api_response
 
     def _make_api_url(self, api_config: dict, api_name):
-        return api_config.get("url", None)
+        return api_config.get("url")
     
     def _make_api_params(self, api_config: dict, api_name: str):
-        return api_config.get("params", None)
+        return api_config.get("params")
     
     def _make_api_data(self, api_config: dict, api_name: str):
         return api_config.get("data", {})
@@ -395,23 +395,13 @@ class APIFitsAsync:
 class coursesAPIFits(APIFitsAsync):
     def __init__(self, 
                  login_session: requests.Session, 
-                 apis_name = [
-                    "list",
-                    "view",
-                    "modules",
-                    "activities",
-                    "exams",
-                    "exam-scores",
-                    "completeness",
-                    "classrooms",
-                    "activities_reads",
-                    "coursewares",
-                    "rollcalls"
-                 ],
+                 apis_name = None,
                  apis_config = None,
                  parent_dir: str = "course",
                  data = None
                  ):
+        if apis_name is None:
+            apis_name = ["list", "view", "modules", "activities", "exams", "exam-scores", "completeness", "classrooms", "activities_reads", "coursewares", "rollcalls"]
         super().__init__(login_session, "course", apis_name, apis_config, parent_dir, data)
 
 class coursesListAPIFits(coursesAPIFits):
@@ -420,8 +410,10 @@ class coursesListAPIFits(coursesAPIFits):
                  keyword: str|None,
                  page: int = 1,
                  show_amount: int = 10,
-                 apis_name=["list"]
+                 apis_name=None
                  ):
+        if apis_name is None:
+            apis_name = ["list"]
         super().__init__(login_session, apis_name)
         self.keyword = keyword
         self.page = page
@@ -445,11 +437,10 @@ class coursePreviewAPIFits(coursesAPIFits):
     def __init__(self, 
                  login_session, 
                  course_id: int,
-                 apis_name=[
-                     "view",
-                     "modules"
-                     ]
+                 apis_name=None
                 ):
+        if apis_name is None:
+            apis_name = ["view", "modules"]
         super().__init__(login_session, apis_name)
         self.course_id = course_id
 
@@ -459,22 +450,16 @@ class coursePreviewAPIFits(coursesAPIFits):
             logger.error(f"{api_name}参数url缺失！")
             return None
         
-        api_url = base_api_url.replace("<placeholder>", str(self.course_id))
-        return api_url
+        return base_api_url.replace("<placeholder>", str(self.course_id))
 
 class courseViewAPIFits(coursesAPIFits):
     def __init__(self, 
                  login_session: requests.Session, 
                  course_id: int,
-                 apis_name=[
-                    "activities",
-                    "exams",
-                    "classrooms",
-                    "activities_reads",
-                    "homework-completeness",
-                    "exam-completeness"
-                ]
+                 apis_name=None
                 ):
+        if apis_name is None:
+            apis_name = ["activities", "exams", "classrooms", "activities_reads", "homework-completeness", "exam-completeness"]
         super().__init__(login_session, apis_name)
         self.course_id = course_id
 
@@ -484,8 +469,7 @@ class courseViewAPIFits(coursesAPIFits):
             logger.error(f"{api_name}参数url缺失！")
             return None
         
-        api_url = base_api_url.replace("<placeholder>", str(self.course_id))
-        return api_url
+        return base_api_url.replace("<placeholder>", str(self.course_id))
 
 class coursewaresViewAPIFits(coursesAPIFits):
     def __init__(self, 
@@ -493,8 +477,10 @@ class coursewaresViewAPIFits(coursesAPIFits):
                  course_id: int,
                  page: int,
                  page_size: int,
-                 apis_name=["coursewares"]
+                 apis_name=None
                  ):
+        if apis_name is None:
+            apis_name = ["coursewares"]
         super().__init__(login_session, apis_name)
         self.course_id = course_id
         self.page = page
@@ -505,7 +491,7 @@ class coursewaresViewAPIFits(coursesAPIFits):
         
         if not base_api_url:
             logger.error(f"{api_name}参数url缺失！")
-            return 
+            return None 
 
         if api_name == "coursewares":
             return base_api_url.replace("<placeholder>", str(self.course_id))
@@ -517,7 +503,7 @@ class coursewaresViewAPIFits(coursesAPIFits):
 
         if not api_params:
             logger.error(f"{api_name}参数params缺失！")
-            return 
+            return None 
         
         if api_name == "coursewares":
             conditions: dict         = api_params.get("conditions", {})
@@ -533,8 +519,10 @@ class courseMembersViewAPIFits(coursesAPIFits):
     def __init__(self, 
                  login_session, 
                  course_id: int,
-                 apis_name=["enrollments"]
+                 apis_name=None
                  ):
+        if apis_name is None:
+            apis_name = ["enrollments"]
         super().__init__(login_session, apis_name)
         self.course_id = course_id
 
@@ -555,8 +543,10 @@ class courseRollcallsViewAPIFits(coursesAPIFits):
                  login_session,
                  course_id: int,
                  student_id: int,
-                 apis_name=["rollcalls"]
+                 apis_name=None
                  ):
+        if apis_name is None:
+            apis_name = ["rollcalls"]
         super().__init__(login_session, apis_name)
         self.course_id = course_id
         self.student_id = student_id
@@ -567,39 +557,29 @@ class courseRollcallsViewAPIFits(coursesAPIFits):
             logger.error(f"{api_name}参数url缺失！")
             return None
 
-        api_url = base_api_url.replace("<placeholder1>", str(self.course_id)).replace("<placeholder2>", str(self.student_id))
-        return api_url
+        return base_api_url.replace("<placeholder1>", str(self.course_id)).replace("<placeholder2>", str(self.student_id))
 
 # --- Assignment API ---
 class assignmentAPIFits(APIFitsAsync):
     def __init__(self, 
                  login_session, 
-                 apis_name = [
-                    "activity",
-                    "activity_read",
-                    "submission_list",
-                    "todo",
-                    "exam",
-                    "exam_submission_list",
-                    "exam_subjects_summary",
-                    "exam_distribute",
-                    "classroom",
-                    "classroom_submissions"
-                 ], 
+                 apis_name = None, 
                  apis_config = None, 
                  parent_dir = "assignment", 
                  data = None
                  ):
+        if apis_name is None:
+            apis_name = ["activity", "activity_read", "submission_list", "todo", "exam", "exam_submission_list", "exam_subjects_summary", "exam_distribute", "classroom", "classroom_submissions"]
         super().__init__(login_session, "assignment", apis_name, apis_config, parent_dir, data)
 
 class assignmentPreviewAPIFits(assignmentAPIFits):
     def __init__(self, 
                  login_session, 
                  activity_id,
-                 apis_name=[
-                     "activity_read"
-                    ]
+                 apis_name=None
                 ):
+        if apis_name is None:
+            apis_name = ["activity_read"]
         super().__init__(login_session, apis_name)
         self.activity_id = activity_id
 
@@ -609,18 +589,17 @@ class assignmentPreviewAPIFits(assignmentAPIFits):
             logger.error(f"{api_name} 缺乏'url'参数")
             return None
         
-        api_url = base_api_url.replace("<placeholder>", str(self.activity_id))
+        return base_api_url.replace("<placeholder>", str(self.activity_id))
 
-        return api_url
 
 class assignmentViewAPIFits(assignmentAPIFits):
     def __init__(self, 
                  login_session, 
                  activity_id,
-                 apis_name=[
-                     "activity"
-                     ]
+                 apis_name=None
                  ):
+        if apis_name is None:
+            apis_name = ["activity"]
         super().__init__(login_session, apis_name)
         self.activity_id = activity_id
 
@@ -640,8 +619,10 @@ class assignmentSubmissionListAPIFits(assignmentAPIFits):
                  login_session, 
                  activity_id,
                  student_id,
-                 apis_name=["submission_list"]
+                 apis_name=None
                  ):
+        if apis_name is None:
+            apis_name = ["submission_list"]
         super().__init__(login_session, apis_name)
         self.activity_id = activity_id
         self.student_id = student_id
@@ -660,20 +641,20 @@ class assignmentSubmissionListAPIFits(assignmentAPIFits):
 class assignmentTodoListAPIFits(assignmentAPIFits):
     def __init__(self, 
                  login_session, 
-                 apis_name=["todo"], 
+                 apis_name=None, 
                  ):
+        if apis_name is None:
+            apis_name = ["todo"]
         super().__init__(login_session, apis_name)
 
 class assignmentExamViewAPIFits(assignmentAPIFits):
     def __init__(self, 
                  login_session, 
                  exam_id: int,
-                 apis_name=[
-                    "exam",
-                    "exam_submission_list",
-                    "exam_distribute"
-                     ] 
+                 apis_name=None 
     ):
+        if apis_name is None:
+            apis_name = ["exam", "exam_submission_list", "exam_distribute"]
         super().__init__(login_session, apis_name)
         self.exam_id = exam_id
 
@@ -694,7 +675,9 @@ class assignmentExanSubmissionViewAPIFits(assignmentAPIFits):
                  login_session, 
                  exam_id: int,
                  submission_id: int,
-                 apis_name=["exam_submission"]):
+                 apis_name=None):
+        if apis_name is None:
+            apis_name = ["exam_submission"]
         super().__init__(login_session, apis_name)
         self.exam_id       = exam_id
         self.submission_id = submission_id
@@ -715,13 +698,10 @@ class assignmentClassroomViewAPIFits(assignmentAPIFits):
     def __init__(self, 
                  login_session, 
                  classroom_id: int,
-                 apis_name=[
-                    "classroom",
-                    "classroom_submissions",
-                    "classroom_subject_result",
-                    "classroom_subject"
-                 ], 
+                 apis_name=None, 
                  ):
+        if apis_name is None:
+            apis_name = ["classroom", "classroom_submissions", "classroom_subject_result", "classroom_subject"]
         super().__init__(login_session, apis_name)
         self.classroom_id = classroom_id
 
@@ -741,11 +721,13 @@ class assignmentSubmitAPIFits(assignmentAPIFits):
                  login_session, 
                  assignment_id: int,
                  comment: str = None,
-                 uploads: List[int] = [],
-                 apis_name=[
-                     "submissions"
-                 ], 
+                 uploads: List[int] = None,
+                 apis_name=None, 
                 ):
+        if apis_name is None:
+            apis_name = ["submissions"]
+        if uploads is None:
+            uploads = []
         super().__init__(login_session, apis_name)
         self.assignment_id = assignment_id
         self.comment = comment
@@ -831,17 +813,13 @@ class assignmentSubmitAPIFits(assignmentAPIFits):
 class resourcesAPIFits(APIFitsAsync):
     def __init__(self, 
                  login_session, 
-                 apis_name=[
-                    "list",
-                    "download",
-                    "remove",
-                    "batch_remove",
-                    "upload"
-                ], 
+                 apis_name=None, 
                 apis_config=None, 
                 parent_dir="resources", 
                 data=None
                 ):
+        if apis_name is None:
+            apis_name = ["list", "download", "remove", "batch_remove", "upload"]
         super().__init__(login_session, "resource", apis_name, apis_config, parent_dir, data)
 
 class resourcesListAPIFits(resourcesAPIFits):
@@ -851,8 +829,10 @@ class resourcesListAPIFits(resourcesAPIFits):
                  page: int = 1,
                  show_amount: int = 10,
                  file_type: str = "all",
-                 apis_name=["list"],
+                 apis_name=None,
                 ):
+        if apis_name is None:
+            apis_name = ["list"]
         super().__init__(login_session, apis_name)
         self.keyword = keyword
         self.page = page
@@ -881,8 +861,10 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                  resource_id: int|None = None,
                  resources_id: List[int]|None = None,
                  basename: str|None = None,
-                 apis_name=["download", "batch_download"]
+                 apis_name=None
                 ):
+        if apis_name is None:
+            apis_name = ["download", "batch_download"]
         super().__init__(login_session, apis_name)
         if output_path:
             self.output_path = output_path
@@ -938,7 +920,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         api_url = self._make_api_url(api_config, api_name)
         if not api_url:
             logger.error(f"{api_name}的{api_url}不存在！")
-            return 
+            return None 
 
         try:
             # 鉴于启用 stream 模式，使用上下文管理器来管理 TCP 连接
@@ -1101,13 +1083,12 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 class resourcesRemoveAPIFits(resourcesAPIFits):
     def __init__(self, 
                  login_session,
-                 apis_name = [
-                     "remove",
-                     "batch_remove"
-                 ],
+                 apis_name = None,
                  resource_id: int|None = None, 
                  resources_id: List[int]|None = None
                  ):
+        if apis_name is None:
+            apis_name = ["remove", "batch_remove"]
         super().__init__(login_session)
         self.resource_id = resource_id
         self.resources_id = resources_id
@@ -1129,7 +1110,7 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
         base_api_url = api_config.get("url")
         if base_api_url == None:
             logger.error(f"{api_name}参数url缺失！")
-            return 
+            return None 
         if api_name == "remove":
             return base_api_url.replace("<placeholder>", str(self.resource_id))
         return super()._make_api_url(api_config, api_name)
@@ -1211,7 +1192,9 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
 class resourceUploadAPIFits(resourcesAPIFits):
     def __init__(self, 
                  login_session, 
-                 apis_name=["upload"]):
+                 apis_name=None):
+        if apis_name is None:
+            apis_name = ["upload"]
         super().__init__(login_session, apis_name)
         self.upload_headers = {
             'Accept': 'application/json, text/plain, */*',
@@ -1363,23 +1346,22 @@ class resourceUploadAPIFits(resourcesAPIFits):
 class rollcallAPIFits(APIFitsAsync):
     def __init__(self, 
                  login_session, 
-                 apis_name = [
-                    "rollcall",
-                    "answer"
-                 ],
+                 apis_name = None,
                  apis_config = None, 
                  parent_dir=None, 
                  data=None
                  ):
+        if apis_name is None:
+            apis_name = ["rollcall", "answer"]
         super().__init__(login_session, "rollcall", apis_name, apis_config, parent_dir, data)
 
 class rollcallListAPIFits(rollcallAPIFits):
     def __init__(self, 
                  login_session, 
-                 apis_name = [
-                    "rollcall"
-                 ],
+                 apis_name = None,
                  ):
+        if apis_name is None:
+            apis_name = ["rollcall"]
         super().__init__(login_session, apis_name)
 
 class rollcallAnswerRadarAPIFits(rollcallAPIFits):
@@ -1387,9 +1369,9 @@ class rollcallAnswerRadarAPIFits(rollcallAPIFits):
                  login_session, 
                  rollcall_id: int,
                  rollcall_data,
-                 apis_name = [
-                     "answer_radar"
-                 ]):
+                 apis_name = None):
+        if apis_name is None:
+            apis_name = ["answer_radar"]
         super().__init__(login_session, apis_name, data=rollcall_data)
         self.rollcall_id = rollcall_id
 
@@ -1397,7 +1379,7 @@ class rollcallAnswerRadarAPIFits(rollcallAPIFits):
         base_api_url: str = api_config.get("url")
         if not base_api_url:
             logger.error(f"{api_name}参数url缺失！")
-            return
+            return None
         
         if api_name == "answer_radar":
             return base_api_url.replace("<placeholder>", str(self.rollcall_id))
@@ -1409,8 +1391,10 @@ class rollcallAnswerNumberAPIFits(rollcallAPIFits):
                  login_session, 
                  rollcall_id,
                  rollcall_data,
-                 apis_name=["answer_number"]
+                 apis_name=None
                  ):
+        if apis_name is None:
+            apis_name = ["answer_number"]
         super().__init__(login_session, apis_name, data=rollcall_data)
         self.rollcall_id = rollcall_id
 
@@ -1418,7 +1402,8 @@ class rollcallAnswerNumberAPIFits(rollcallAPIFits):
         base_api_url: str = api_config.get("url")
         if not base_api_url:
             logger.error(f"{api_name}参数url缺失！")
-            return
+            return None
         
         if api_name == "answer_number":
             return base_api_url.replace("<placeholder>", str(self.rollcall_id))
+        return None

@@ -1,17 +1,18 @@
-import requests
-import keyring
-import pickle
-import httpx
 import logging
+import pickle
 import traceback
-from httpx import HTTPStatusError, ConnectTimeout, RequestError
-from cryptography.fernet import Fernet, InvalidToken
-from lxml import etree
 from pathlib import Path
-from requests.exceptions import HTTPError, ConnectionError
 
-from ..load_config import load_config
+import httpx
+import keyring
+import requests
+from cryptography.fernet import Fernet, InvalidToken
+from httpx import ConnectTimeout, HTTPStatusError, RequestError
+from lxml import etree
+from requests.exceptions import ConnectionError, HTTPError
+
 from ..encrypt import LoginRSA
+from ..load_config import load_config
 
 CURRENT_SCRIPT_PATH = Path(__file__)
 USER_AVATAR_PATH = CURRENT_SCRIPT_PATH.parent.parent.parent.parent / "images/user_avatar.png"
@@ -36,15 +37,14 @@ def generate_encryption_key()->bytes:
     key_hex = keyring.get_password(service_name=KEYRING_SERVICE_NAME, username=ENCRYPTION_KEY_NAME)
     if key_hex:
         return bytes.fromhex(key_hex)
-    else:
-        # 生成新密钥
-        new_key = Fernet.generate_key()
-        # 保存密钥（十六进制）
-        keyring.set_password(service_name=KEYRING_SERVICE_NAME, username=ENCRYPTION_KEY_NAME, password=new_key.hex())
-        return new_key        
+    # 生成新密钥
+    new_key = Fernet.generate_key()
+    # 保存密钥（十六进制）
+    keyring.set_password(service_name=KEYRING_SERVICE_NAME, username=ENCRYPTION_KEY_NAME, password=new_key.hex())
+    return new_key        
 
 # 凭据管理器
-class CredentialManager():
+class CredentialManager:
     """加密、解密、加载与保存会话/Cookies文件
     """
     def __init__(self):
@@ -60,12 +60,11 @@ class CredentialManager():
         key_hex = keyring.get_password(service_name=KEYRING_SERVICE_NAME, username=ENCRYPTION_KEY_NAME)
         if key_hex:
             return bytes.fromhex(key_hex)
-        else:
-            # 生成新密钥
-            new_key = Fernet.generate_key()
-            # 保存密钥（十六进制）
-            keyring.set_password(service_name=KEYRING_SERVICE_NAME, username=ENCRYPTION_KEY_NAME, password=new_key.hex())
-            return new_key
+        # 生成新密钥
+        new_key = Fernet.generate_key()
+        # 保存密钥（十六进制）
+        keyring.set_password(service_name=KEYRING_SERVICE_NAME, username=ENCRYPTION_KEY_NAME, password=new_key.hex())
+        return new_key
         
     def save_cookies(self, cookies: dict)->bool:
         """以序列化和加密的方式保存会话Cookies至本地家目录
@@ -250,9 +249,8 @@ class ZjuAsyncClient:
         if "学在浙大" in response.text:
             logger.info("登录成功！")
             return True
-        else:
-            logger.error("登录失败，可能是学号或密码不正确！")
-            return False
+        logger.error("登录失败，可能是学号或密码不正确！")
+        return False
 
     def _encrypt_password(self, password: str, exponent: str, modulus: str)->str:
         """用RSA算法加密password
@@ -267,9 +265,8 @@ class ZjuAsyncClient:
 
         key_obj = LoginRSA.RSAKeyPython(public_exponent_hex=exponent, modulus_hex=modulus)
         reversed_password = password[::-1]
-        encrypted_password = LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
+        return LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
 
-        return encrypted_password
 
     def _get_execution(self, response: httpx.Response)->str:
         """得到登录的动态口令
@@ -496,9 +493,8 @@ class ZjuClient:
         if "学在浙大" in response.text:
             logger.info(f"登录成功！学号: {self.studentid}")
             return True
-        else:
-            logger.error("登录失败，请检查学号与密码是否正确！")
-            return False
+        logger.error("登录失败，请检查学号与密码是否正确！")
+        return False
 
     def _encrypt_password(self, password: str, exponent: str, modulus: str)->str:
         """用RSA算法加密password
@@ -511,9 +507,8 @@ class ZjuClient:
 
         key_obj = LoginRSA.RSAKeyPython(public_exponent_hex=exponent, modulus_hex=modulus)
         reversed_password = password[::-1]
-        encrypted_password = LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
+        return LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
 
-        return encrypted_password
 
     def _get_execution(self, response: requests.Response)->str:
         """得到登录的动态口令
@@ -748,9 +743,8 @@ class LoginFit:
 
         key_obj = LoginRSA.RSAKeyPython(public_exponent_hex=exponent, modulus_hex=modulus)
         reversed_password = self.password[::-1]
-        encrypted_password = LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
+        return LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
 
-        return encrypted_password
     
     def get_execution(self, response: requests.Response)->str:
         """get the execution for POST

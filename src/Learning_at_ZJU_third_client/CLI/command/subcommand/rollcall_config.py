@@ -1,6 +1,8 @@
-import typer
 import logging
 from typing import Annotated, Optional
+
+import typer
+
 from ....load_config import load_config
 
 logger = logging.getLogger(__name__)

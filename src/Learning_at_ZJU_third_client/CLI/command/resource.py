@@ -1,19 +1,31 @@
-import typer
 import logging
-from asyncer import syncify
-from functools import partial
-from typing_extensions import Optional, Annotated, List
-from rich import filesize
-from rich import print as rprint
-from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn, BarColumn, ProgressColumn, Text, Task
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from textwrap import dedent
+from typing import List, Optional
 
-from ..state import state
+import typer
+from asyncer import syncify
+from rich import filesize
+from rich import print as rprint
+from rich.progress import (
+    BarColumn,
+    Progress,
+    ProgressColumn,
+    SpinnerColumn,
+    Task,
+    TaskProgressColumn,
+    Text,
+    TextColumn,
+    TimeRemainingColumn,
+)
+from rich.table import Table
+from typing_extensions import Annotated
+
+from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
-from ...login.login import ZjuAsyncClient, CredentialManager
+from ..state import state
 
 # resource 命令组
 app = typer.Typer(help="管理学在浙大云盘资源",
@@ -79,8 +91,7 @@ def transform_time(time: str|None)->str:
     if time:
         time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
         return time_local.strftime('%Y-%m-%d %H:%M:%S')
-    else:
-        return "null"
+    return "null"
 
 # 修整并检查文件路径
 def check_files_path(files: List[Path])->List[Path]:

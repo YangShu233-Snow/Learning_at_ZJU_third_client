@@ -56,15 +56,23 @@ jobs:
           pip install pyinstaller
           pip install -e .
 
-      - name: Configure PyInstaller hidden imports
+      - name: Configure PyInstaller hidden imports (Linux)
+        if: matrix.platform == 'linux'
+        shell: bash
         run: |
-          if [ "${{ matrix.platform }}" = "linux" ]; then
-            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.SecretService --hidden-import=shellingham.posix" >> $GITHUB_ENV
-          elif [ "${{ matrix.platform }}" = "macos" ]; then
-            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.macOS.Keyring --hidden-import=shellingham.posix" >> $GITHUB_ENV
-          elif [ "${{ matrix.platform }}" = "windows" ]; then
-            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.Windows.WinVaultKeyring --hidden-import=shellingham.windows" >> $GITHUB_ENV
-          fi
+          echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.SecretService --hidden-import=shellingham.posix" >> $GITHUB_ENV
+
+      - name: Configure PyInstaller hidden imports (Windows)
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.macOS.Keyring --hidden-import=shellingham.posix" >> $GITHUB_ENV
+
+      - name: ConfigurePyInstaller hidden imports (MacOS)
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.Windows.WinVaultKeyring --hidden-import=shellingham.windows" >> $GITHUB_ENV
 
       - name: Build binary
         run: |

@@ -1,28 +1,30 @@
-from asyncer import syncify
 import asyncio
-from functools import partial
-import typer
 import logging
+from datetime import datetime, timezone
+from functools import partial
+from textwrap import dedent
+from typing import List, Optional, Tuple
+
 import keyring
-from typing_extensions import Optional, Annotated, List, Tuple
+import typer
+from asyncer import syncify
+from lxml import html
+from lxml.html import HtmlElement
 from rich import filesize
 from rich import print as rprint
 from rich.align import Align
-from rich.table import Table
-from rich.text import Text
-from rich.panel import Panel
-from rich.padding import Padding
 from rich.console import Group
+from rich.padding import Padding
+from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.rule import Rule
-from datetime import datetime, timezone
-from lxml import html
-from lxml.html import HtmlElement
-from textwrap import dedent
+from rich.table import Table
+from rich.text import Text
+from typing_extensions import Annotated
 
-from ..state import state
+from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
-from ...login.login import ZjuAsyncClient, CredentialManager
+from ..state import state
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
@@ -58,8 +60,7 @@ def transform_time(time: str|None)->str:
     if time:
         time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
         return time_local.strftime('%Y-%m-%d %H:%M:%S')
-    else:
-        return "null"
+    return "null"
 
 def extract_comment(raw_content: str|None)->str:
     if not raw_content or not raw_content.strip():

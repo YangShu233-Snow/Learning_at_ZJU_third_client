@@ -1,18 +1,18 @@
-import os
-import requests
-import json
-import re
 import asyncio
+import json
+import logging
+import mimetypes
+import os
+import re
+from datetime import datetime
+from pathlib import Path
+from typing import Callable, List, Optional
+from urllib.parse import unquote
+
 import aiofiles
 import httpx
-import mimetypes
-import logging
-from httpx import ConnectTimeout, HTTPError
-from pathlib import Path
-from datetime import datetime
-from urllib.parse import unquote
-from httpx import HTTPStatusError
-from typing_extensions import List, Optional, Callable
+import requests
+from httpx import ConnectTimeout, HTTPError, HTTPStatusError
 
 from ..load_config import load_config
 
@@ -186,10 +186,10 @@ class APIFits:
         return all_api_response
 
     def _make_api_url(self, api_config: dict, api_name):
-        return api_config.get("url", None)
+        return api_config.get("url")
     
     def _make_api_params(self, api_config: dict, api_name: str):
-        return api_config.get("params", None)
+        return api_config.get("params")
     
     def check_api_method(self, apis_config: dict, method: str)->bool:
         for value in apis_config.values():
@@ -373,10 +373,10 @@ class APIFitsAsync:
         return all_api_response
 
     def _make_api_url(self, api_config: dict, api_name):
-        return api_config.get("url", None)
+        return api_config.get("url")
     
     def _make_api_params(self, api_config: dict, api_name: str):
-        return api_config.get("params", None)
+        return api_config.get("params")
     
     def _make_api_data(self, api_config: dict, api_name: str):
         return api_config.get("data", {})
@@ -505,7 +505,7 @@ class coursewaresViewAPIFits(coursesAPIFits):
         
         if not base_api_url:
             logger.error(f"{api_name}参数url缺失！")
-            return 
+            return None 
 
         if api_name == "coursewares":
             return base_api_url.replace("<placeholder>", str(self.course_id))
@@ -517,7 +517,7 @@ class coursewaresViewAPIFits(coursesAPIFits):
 
         if not api_params:
             logger.error(f"{api_name}参数params缺失！")
-            return 
+            return None 
         
         if api_name == "coursewares":
             conditions: dict         = api_params.get("conditions", {})
@@ -938,7 +938,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         api_url = self._make_api_url(api_config, api_name)
         if not api_url:
             logger.error(f"{api_name}的{api_url}不存在！")
-            return 
+            return None 
 
         try:
             # 鉴于启用 stream 模式，使用上下文管理器来管理 TCP 连接
@@ -1129,7 +1129,7 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
         base_api_url = api_config.get("url")
         if base_api_url == None:
             logger.error(f"{api_name}参数url缺失！")
-            return 
+            return None 
         if api_name == "remove":
             return base_api_url.replace("<placeholder>", str(self.resource_id))
         return super()._make_api_url(api_config, api_name)
@@ -1397,7 +1397,7 @@ class rollcallAnswerRadarAPIFits(rollcallAPIFits):
         base_api_url: str = api_config.get("url")
         if not base_api_url:
             logger.error(f"{api_name}参数url缺失！")
-            return
+            return None
         
         if api_name == "answer_radar":
             return base_api_url.replace("<placeholder>", str(self.rollcall_id))
@@ -1418,7 +1418,7 @@ class rollcallAnswerNumberAPIFits(rollcallAPIFits):
         base_api_url: str = api_config.get("url")
         if not base_api_url:
             logger.error(f"{api_name}参数url缺失！")
-            return
+            return None
         
         if api_name == "answer_number":
             return base_api_url.replace("<placeholder>", str(self.rollcall_id))

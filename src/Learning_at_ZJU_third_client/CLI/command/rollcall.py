@@ -1,21 +1,28 @@
 import asyncio
-import typer
-import uuid
 import logging
-from asyncer import syncify
+import uuid
 from functools import partial
-from typing import Annotated, List, Optional
-from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn, TaskID
-from rich import print as rprint
 from textwrap import dedent
+from typing import Annotated, List, Optional
 
-from ..state import state
-from ...zjuAPI import zju_api
+import typer
+from asyncer import syncify
+from rich import print as rprint
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskID,
+    TextColumn,
+    TimeElapsedColumn,
+)
+from rich.table import Table
+
 from ...load_config import load_config
-
+from ...login.login import CredentialManager, ZjuAsyncClient
+from ...zjuAPI import zju_api
+from ..state import state
 from .subcommand import rollcall_config
-from ...login.login import ZjuAsyncClient, CredentialManager
 
 logger = logging.getLogger(__name__)
 
@@ -131,8 +138,7 @@ async def check_code_worker(
                 number_found_event.set() # 通知所有其他协程停止
                 progress.update(task_id, description=f"[bold green]🎉 找到了! 签到码: {code_str} 🎉[/bold green]")
                 return code_str
-            else:
-                return None # [False] 或其他错误，继续
+            return None # [False] 或其他错误，继续
         
         except asyncio.CancelledError:
             return None # 任务被取消

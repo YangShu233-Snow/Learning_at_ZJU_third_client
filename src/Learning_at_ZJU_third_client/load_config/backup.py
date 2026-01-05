@@ -1,12 +1,13 @@
 import abc
 import json
+import logging
 import sys
 import zipfile
-import logging
-from typing import List
-from pathlib import Path
 from datetime import datetime
-from .load_config import userBackupConfig, lazyBackupConfig, logBackupConfig
+from pathlib import Path
+from typing import List
+
+from .load_config import lazyBackupConfig, logBackupConfig, userBackupConfig
 
 logger = logging.getLogger(__name__)
 

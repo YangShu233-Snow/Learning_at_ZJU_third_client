@@ -1,23 +1,25 @@
-import typer
 import logging
-import keyring
-from asyncer import syncify
+from datetime import datetime
 from functools import partial
-from typing_extensions import Optional, Annotated, List, Tuple
+from textwrap import dedent
+from typing import List, Optional, Tuple
+
+import keyring
+import typer
+from asyncer import syncify
 from rich import filesize
 from rich import print as rprint
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.tree import Tree
-from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
 from rich.console import Group
-from datetime import datetime
-from textwrap import dedent
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
+from rich.text import Text
+from rich.tree import Tree
+from typing_extensions import Annotated
 
-from ..state import state
+from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
-from ...login.login import ZjuAsyncClient, CredentialManager
+from ..state import state
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
@@ -38,8 +40,7 @@ def transform_time(time: str|None)->str:
     if time:
         time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
         return time_local.strftime('%Y-%m-%d %H:%M:%S')
-    else:
-        return "null"
+    return "null"
 
 def get_status_text(start_status: bool, close_status: bool)->Text:
     if close_status:

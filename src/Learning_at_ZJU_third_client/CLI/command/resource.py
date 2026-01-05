@@ -3,7 +3,6 @@ import logging
 from asyncer import syncify
 from functools import partial
 from typing_extensions import Optional, Annotated, List
-from requests.exceptions import HTTPError
 from rich import filesize
 from rich import print as rprint
 from rich.table import Table

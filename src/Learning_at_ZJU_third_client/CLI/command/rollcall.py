@@ -4,7 +4,7 @@ import uuid
 import logging
 from asyncer import syncify
 from functools import partial
-from typing import Annotated, List, Dict, Optional
+from typing import Annotated, List, Optional
 from rich.table import Table
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn, TaskID

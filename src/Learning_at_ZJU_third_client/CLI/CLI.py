@@ -1,7 +1,5 @@
 import typer
 import keyring
-import httpx
-import asyncio
 import logging
 import sys
 from lxml import etree

@@ -1,5 +1,3 @@
-import asyncio
-import httpx
 import typer
 import logging
 import keyring

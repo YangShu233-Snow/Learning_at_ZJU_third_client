@@ -2,7 +2,6 @@ import requests
 import keyring
 import pickle
 import httpx
-import asyncio
 import logging
 import traceback
 from httpx import HTTPStatusError, ConnectTimeout, RequestError

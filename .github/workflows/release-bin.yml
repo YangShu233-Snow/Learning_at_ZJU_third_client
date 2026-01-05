@@ -79,7 +79,7 @@ jobs:
       - name: Package artifact
         shell: bash
         run: |
-          if [ "${{ matrix.platform }}" == "Windows" ]; then
+          if [ "${{ matrix.platform }}" == "windows" ]; then
             powershell Compress-Archive dist/lazy.exe ${{ matrix.asset }}
           else
           tar -czvf ${{ matrix.asset }} -C dist lazy

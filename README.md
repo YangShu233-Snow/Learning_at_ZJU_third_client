@@ -73,6 +73,12 @@ paru -S lazy-cli
 
 该包 `lazy-cli` 会自动安装 LAZY CLI 最新的 `beta` 版预编译二进制文件~
 
+### Debian / Ubuntu (Deb系)
+
+目前已经支持构建 `.deb` 包，由 [@YardRat](https://github.com/YardRat0117) 作为 maintainer，发版事宜后续会跟进！
+
+急需 `.deb` 包安装的用户，也可以访问 maintainer 的 [fork repo](https://github.com/YardRat0117/lazy) 获取 `.deb` 包.
+
 ### 从源码开始打包
 
 LAZY 支持从项目源码打包为一个可执行文件，通常这能使得 LAZY 的启动速度得到提升，同时如果你想对 LAZY 做一些个性的修改，这个安装方法就是最适合你的。

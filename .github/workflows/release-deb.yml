@@ -66,7 +66,10 @@ jobs:
             -v ${GITHUB_REF_NAME#v} \
             -a ${{ matrix.deb_arch }} \
             --license LGPL-3.0 \
-            --description "Lazy ZJU Client (CLI + WebUI)" \
+            --maintainer "YardRat0117 <yardrat0117@gmail.com>"
+            --url "https://github.com/YangShu232-Snow/Learning_at_ZJU_third_client" \
+            --description "Lazy ZJU Client (CLI + WebUI) is a third-party client for Learning at ZJU." \
+            --deb-no-default-config-files \
             dist/lazy=/usr/bin/lazy
 
           mv *.deb ${{ matrix.asset }}

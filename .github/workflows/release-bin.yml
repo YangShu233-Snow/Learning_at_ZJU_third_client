@@ -1,0 +1,98 @@
+name: Release Lazy (Standalone Binary)
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+            arch: amd64
+            asset: lazy-linux-amd64.tar.gz
+
+          - os: ubuntu-22.04
+            platform: linux
+            arch: arm64
+            asset: lazy-linux-arm64.tar.gz
+
+          - os: macos-15-intel
+            platform: macos
+            arch: amd64
+            asset: lazy-macos-amd64.tar.gz
+
+          - os: macos-latest
+            platform: macos
+            arch: arm64
+            asset: lazy-macos-arm64.tar.gz
+
+          - os: windows-latest
+            platform: windows
+            arch: adm64
+            asset_sufix: lazy-windows-amd64.zip
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -e .
+
+      - name: Configure PyInstaller hidden imports
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "linux" ]; then
+            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.SecretService --hidden-import=shellingham.posix" >> $GITHUB_ENV
+          elif [ "${{ matrix.platform }}" = "macos" ]; then
+            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.macOS.Keyring --hidden-import=shellingham.posix" >> $GITHUB_ENV
+          elif [ "${{ matrix.platform }}" = "windows" ]; then
+            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.Windows.WinVaultKeyring --hidden-import=shellingham.windows" >> $GITHUB_ENV
+          fi
+
+      - name: Build binary
+        shell: bash
+        run: |
+          pyinstaller \
+            --name lazy \
+            --onefile \
+            $HIDDEN_IMPORTS \
+            $(python - <<EOF
+            from importlib.metadata import entry_points
+            pirnt("lazy")
+            EOF
+            )
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" == "Windows" ]; then
+            powershell Compress-Archive dist/lazy.exe ${{ matrix.asset }}
+          else
+          tar -czvf ${{ matrix.asset }} -C dist lazy
+          fi
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          file: ${{ matrix.asset }}
+          files: ${{ env.ASSET_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

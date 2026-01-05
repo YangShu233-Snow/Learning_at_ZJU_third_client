@@ -6,7 +6,6 @@ from asyncer import syncify
 from functools import partial
 from typing import Annotated, List, Optional
 from rich.table import Table
-from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn, TaskID
 from rich import print as rprint
 from textwrap import dedent
@@ -83,17 +82,17 @@ async def answer_radar_rollcall(rollcall_id: int, site: str):
         print(f"{rollcall_id} 签到失败！")
     
     elif raw_rollcall_answer.get("status_name") == "on_call_fine":
-        rprint(f"[bold green]签到成功！[/bold green] ✅")
+        rprint("[bold green]签到成功！[/bold green] ✅")
         rprint(f"  - 纬度: {latitude}")
         rprint(f"  - 经度: {longitude}")
 
     elif raw_rollcall_answer.get("error_code") == "radar_out_of_rollcall_scope":
         distance = raw_rollcall_answer.get('distance', '未知')
-        rprint(f"[bold yellow]签到失败：不在范围内！[/bold yellow] ❌")
+        rprint("[bold yellow]签到失败：不在范围内！[/bold yellow] ❌")
         rprint(f"  - 你选择的地点距离签到点约 [cyan]{distance}米[/cyan]。")
 
     else:
-        rprint(f"[bold red]签到失败！请将此问题上报开发者！[/bold red] 收到未知的API响应:")
+        rprint("[bold red]签到失败！请将此问题上报开发者！[/bold red] 收到未知的API响应:")
         rprint(raw_rollcall_answer)
 
 # --- 数字点名并发worker ---
@@ -214,7 +213,7 @@ async def answer_number_rollcall(rollcall_id: int, number_code: str|None):
             if found_code:
                 rprint(f"[bold green]✅ 爆破成功！ 签到码是: {found_code}[/bold green]")
             else:
-                rprint(f"[bold red]❌ 爆破失败。未找到签到码。[/bold red]")
+                rprint("[bold red]❌ 爆破失败。未找到签到码。[/bold red]")
 
 # --- 注册签到任务查看命令 ---
 @app.command(
@@ -371,15 +370,15 @@ async def answer_rollcall(
 
     # --- 调度 ---
     if site:
-        rprint(f"[bold blue]检测到 --site, 启动 [雷达] 签到...[/bold blue]")
+        rprint("[bold blue]检测到 --site, 启动 [雷达] 签到...[/bold blue]")
         await answer_radar_rollcall(rollcall_id, site)
     
     elif number:
-        rprint(f"[bold blue]检测到 --number, 启动 [数字(单次)] 签到...[/bold blue]")
+        rprint("[bold blue]检测到 --number, 启动 [数字(单次)] 签到...[/bold blue]")
         await answer_number_rollcall(rollcall_id, number)
     
     elif bruteforce:
-        rprint(f"[bold blue]检测到 --bruteforce, 启动 [数字(爆破)] 签到...[/bold blue]")
+        rprint("[bold blue]检测到 --bruteforce, 启动 [数字(爆破)] 签到...[/bold blue]")
         await answer_number_rollcall(rollcall_id, None)
 
 # --- 配置命令组 ---

@@ -79,7 +79,7 @@ async def main_callback(
                 if CredentialManager().save_cookies(dict(client.session.cookies)):
                     progress.advance(task)
                 else:
-                    rprint(f"Cookies保存失败！")
+                    rprint("Cookies保存失败！")
                     logger.error("Cookies保存失败！")
                     raise typer.Exit(code=1)
             else:
@@ -167,7 +167,7 @@ def whoami():
         rprint(f"{keyring.get_password('lazy', 'studentid')}")
         return 
     
-    rprint(f"[red]密码错误[/red]")
+    rprint("[red]密码错误[/red]")
 
 @app.command("whomai", hidden=True)
 @app.command("lazy", hidden=True)

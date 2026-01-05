@@ -43,36 +43,36 @@ def transform_time(time: str|None)->str:
 
 def get_status_text(start_status: bool, close_status: bool)->Text:
     if close_status:
-        return Text(f"🔴 已结束", style="red")
+        return Text("🔴 已结束", style="red")
     
     if start_status:
-        return Text(f"🟢 进行中", style="green")
+        return Text("🟢 进行中", style="green")
     
-    return Text(f"⚪️ 未开始", style="dim")
+    return Text("⚪️ 未开始", style="dim")
 
 def get_completion_text(completion_status: bool, completion_criterion_key: str)->Text:
     if completion_criterion_key == "none":
-        return Text(f"无完成指标", style="dim")
+        return Text("无完成指标", style="dim")
     
     if completion_status:
-        return Text(f"🟢 已完成", style="green")
+        return Text("🟢 已完成", style="green")
     
-    return Text(f"🔴 未完成", style="red")
+    return Text("🔴 未完成", style="red")
 
 def get_classroom_status_text(status: str)->Text:
     if status == "finish":
-        return Text(f"🔴 已结束", style="red")
+        return Text("🔴 已结束", style="red")
     
     if status == "start":
-        return Text(f"🟢 进行中", style="green")
+        return Text("🟢 进行中", style="green")
     
-    return Text(f"⚪️ 未开始", style="dim")
+    return Text("⚪️ 未开始", style="dim")
 
 def get_classroom_completion_text(completion_key: str)->Text:
     if completion_key == "full":
-        return Text(f"🟢 已完成", style="green")
+        return Text("🟢 已完成", style="green")
     
-    return Text(f"🔴 未完成", style="red")
+    return Text("🔴 未完成", style="red")
 
 def make_jump_url(course_id: int, material_id: int, material_type: str):
     if material_type == "material":
@@ -387,7 +387,7 @@ async def view_syllabus(
             
             if not modules_list:
                 logger.error(f"{course_name}(ID: {course_id})中你要查询的章节不存在！")
-                rprint(f"未找到章节！")
+                rprint("未找到章节！")
                 return 
 
             async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
@@ -504,7 +504,7 @@ async def view_syllabus(
                         (f"{activity_title}", "bold bright_magenta"),
                         (" [ID: ", "bright_white"),
                         (f"{activity_id}", "green"),
-                        (f"]", "bright_white"),
+                        ("]", "bright_white"),
                         "\n",
                         completion_text,
                         status_text
@@ -594,7 +594,7 @@ async def view_syllabus(
                         (f"{exam_title}", "bold bright_magenta"),
                         (" [ID: ", "bright_white"),
                         (f"{exam_id}", "green"),
-                        (f"]", "bright_white"),
+                        ("]", "bright_white"),
                         "\n",
                         completion_text,
                         status_text
@@ -647,7 +647,7 @@ async def view_syllabus(
                         (f"{classroom_title}", "bold bright_magenta"),
                         (" [ID: ", "bright_white"),
                         (f"{classroom_id}", "green"),
-                        (f"]", "bright_white"),
+                        ("]", "bright_white"),
                         "\n",
                         classroom_completeness_status_text,
                         classroom_status_text

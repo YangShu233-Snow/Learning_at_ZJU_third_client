@@ -758,9 +758,11 @@ async def view_coursewares(
 
         if total == 0:
             rprint("当前还没有课件哦~\\( ^ ω ^ )/")
+            return
 
         if page > pages:
             rprint(f"当前仅有 {pages} 页，你都索引到 {page} 页啦！[○･｀Д´･ ○]")
+            raise typer.Exit(code=1)
 
         # 提取并拼装所有文件
         coursewares_list: List[dict] = raw_coursewares.get("activities", [])

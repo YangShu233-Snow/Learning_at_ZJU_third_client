@@ -1,2 +1,2 @@
-lint.select = ["F"]
-lint.ignore = ["E501"]
+lint.select = ["F", "B", "UP", "I", "SIM", "RET"]
+lint.fixable = ["ALL"]

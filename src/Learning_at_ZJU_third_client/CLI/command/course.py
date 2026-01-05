@@ -105,14 +105,14 @@ def parse_indices(indices: str|None)->List[int]:
             except ValueError as e:
                 logger.error(f"{item} 格式有误，错误信息: {e}")
                 typer.echo(f"{item} 格式错误，请使用 'start_index - end_index' 的格式！", err=True)
-                raise typer.Exit(code=1)
+                raise typer.Exit(code=1) from e
         else:
             try:
                 result.append(int(item)-1)
             except ValueError as e:
                 logger.error(f"{item} 格式有误，错误信息: {e}")
                 typer.echo(f"{item} 应为整数！", err=True)
-                raise typer.Exit(code=1)
+                raise typer.Exit(code=1) from e
     
     # 去重，排序
     return sorted(list(set(result)))
@@ -442,7 +442,8 @@ async def view_syllabus(
         course_tree = Tree(f"[bold yellow]{course_name}[/bold yellow][dim] 课程ID: {course_id}[/dim]")
         
         if modules_id or indices or last:
-            for index, (module, activities_list, exams_list, classrooms_list) in enumerate(course_modules_node_list):
+            # _index is unused, thus named with a prefix "_"
+            for _index, (module, activities_list, exams_list, classrooms_list) in enumerate(course_modules_node_list):
                 module_name = module.get("name", "null")
                 module_tree = course_tree.add(f"[green]{module_name}[/green][dim] 章节ID: {module_id}[/dim]")
                 type_map = {

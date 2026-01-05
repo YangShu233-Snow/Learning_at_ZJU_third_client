@@ -511,7 +511,7 @@ async def remove_resources(
 async def download_resource(
     files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
     basename: Annotated[List[int], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
-    dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = Path().home() / "Downloads",
+    dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = None,
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False
 ):
     """
@@ -523,6 +523,9 @@ async def download_resource(
 
     课程资源下载不支持 -b 选项。
     """
+    # Fix B008
+    if dest is None:
+        dest = Path().home() / "Downloads"
 
     files_id_amount = len(files_id)
     success_amount = 0

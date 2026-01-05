@@ -57,9 +57,9 @@ def load(
             if not path.is_file():
                 rprint(f"{path} 文件不存在！")
                 raise typer.Exit(code=1)
-    except TypeError:
+    except TypeError as e:
         rprint("请输入合法路径！")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     manager = LoadManager(sources_path, force)
     

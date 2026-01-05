@@ -154,12 +154,12 @@ def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Pa
 
 def get_status_text(start_status: bool, close_status: bool)->Text:
     if close_status:
-        return Text(f"🔴 已结束", style="red")
+        return Text("🔴 已结束", style="red")
     
     if start_status:
-        return Text(f"🟢 进行中", style="green")
+        return Text("🟢 进行中", style="green")
     
-    return Text(f"⚪️ 未开始", style="dim")
+    return Text("⚪️ 未开始", style="dim")
 
 def parse_files_id(files_id: str)->List[int]:
     if not files_id:
@@ -173,8 +173,8 @@ def parse_files_id(files_id: str)->List[int]:
             files_id_list = list(map(int, files_id.split(' ')))
         else:
             files_id_list = [int(files_id)]
-    except ValueError as e:
-        typer.echo(f"文件ID格式有误！", err=True)
+    except ValueError:
+        typer.echo("文件ID格式有误！", err=True)
         raise typer.Exit(code=1)
     
     return list(set(files_id_list))
@@ -329,10 +329,10 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
 
                 # --- 准备Panel内容 ---
                 submission_head_text = Text.assemble(
-                    (f"提交时间: ", "cyan"),
+                    ("提交时间: ", "cyan"),
                     (f"{submission_submitted_time}", "bright_white"),
                     "\n",
-                    (f"测试得分: ", "bright_magenta"),
+                    ("测试得分: ", "bright_magenta"),
                     (f"{submission_score} / {exam_total_points}", "bright_white")
                 )
 
@@ -363,9 +363,9 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
             
             if not raw_exam_distribute and not raw_exam_submission_subjects.get("subjects_data"):
                 preview_error_text = Text.assemble(
-                    (f"(╥╯^╰╥) 预览失效了……", "red"),
+                    ("(╥╯^╰╥) 预览失效了……", "red"),
                     "\n",
-                    (f"测试未开放、测试已结束但未公布或作答次数达到上限等情况均无法预览题目。", "dim")
+                    ("测试未开放、测试已结束但未公布或作答次数达到上限等情况均无法预览题目。", "dim")
                 )
 
                 exam_subjects_renderables.append(preview_error_text)
@@ -508,9 +508,9 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
 
             if not raw_classroom_subjects_result and not raw_classroom_subjects:
                 preview_error_text = Text.assemble(
-                    (f"(╥╯^╰╥) 预览失效了……", "red"),
+                    ("(╥╯^╰╥) 预览失效了……", "red"),
                     "\n",
-                    (f"未知错误导致无法预览题目。", "dim")
+                    ("未知错误导致无法预览题目。", "dim")
                 )
 
                 classroom_subjects_renderables.append(preview_error_text)
@@ -694,7 +694,7 @@ async def view_activity(activity_id: int, type_map: dict):
                     ("提交时间: ", "cyan"),
                     submission_created_time,
                     "\n",
-                    (f"得分: ", "bold bright_magenta"),
+                    ("得分: ", "bold bright_magenta"),
                     (f"{submission_score} / {activity_highest_score}")
                 )
 
@@ -900,7 +900,7 @@ async def todo_assignment(
         todo_list: List[dict] = raw_todo_list.get("todo_list", [])
         
         if type(todo_list) != list:
-            logger.error(f"todo_list存在错误，请将此日志上报给开发者！")
+            logger.error("todo_list存在错误，请将此日志上报给开发者！")
             print("待办事项清单解析存在异常！")
             raise typer.Exit(code=1)
         
@@ -944,7 +944,7 @@ async def todo_assignment(
                 (title, "bold bright_magenta"),
                 (" [ID: ", "bright_white"),
                 (f"{todo_id}", "green"),
-                (f"]", "bright_white"),
+                ("]", "bright_white"),
                 "\n",
                 (f"{course_name} {course_id}", "dim")
             )
@@ -1073,6 +1073,6 @@ async def submit_assignment(
 
     async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
         if await zju_api.assignmentSubmitAPIFits(client.session, activity_id, text, files_id).submit():
-            rprint(f"[green]提交成功！[/green]")
+            rprint("[green]提交成功！[/green]")
         else:
-            rprint(f"[red]提交失败！[/red]")
+            rprint("[red]提交失败！[/red]")

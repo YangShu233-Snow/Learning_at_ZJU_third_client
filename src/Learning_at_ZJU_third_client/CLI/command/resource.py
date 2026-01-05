@@ -3,7 +3,6 @@ import logging
 from asyncer import syncify
 from functools import partial
 from typing_extensions import Optional, Annotated, List
-from requests.exceptions import HTTPError
 from rich import filesize
 from rich import print as rprint
 from rich.table import Table
@@ -446,8 +445,8 @@ async def remove_resources(
                 rprint(f"删除完成，共删除 {files_id_amount} 个文件")
                 return 
             
-            logger.error(f"删除失败")
-            rprint(f"[blod red]删除失败[/blod red]")
+            logger.error("删除失败")
+            rprint("[blod red]删除失败[/blod red]")
             progress.advance(task, 1)
             raise typer.Exit(code=1)
         
@@ -465,7 +464,7 @@ async def remove_resources(
                 logger.error(f"{file_id} 删除失败")
                 rprint(f"{file_id} 删除失败")
 
-        logger.info(f"删除完成")
+        logger.info("删除完成")
         rprint(f"删除完成，{success_delete_amount} 个文件被成功删除，{files_id_amount - success_delete_amount} 个文件删除失败。")
         return
 
@@ -543,7 +542,7 @@ async def download_resource(
                     resources_downloader = zju_api.resourcesDownloadAPIFits(client.session, output_path=dest, resources_id=files_id, basename=basename)
                 
                 # 子任务，跟踪文件下载进度
-                download_task = sub_progress.add_task(description=f"下载文件中...", start=False)
+                download_task = sub_progress.add_task(description="下载文件中...", start=False)
                 
                 # 创建回调函数
                 def update_progress(downloaded: int, total_size: int, filename: int, task_id: int = download_task):
@@ -555,10 +554,10 @@ async def download_resource(
                     sub_progress.update(task_id, completed=downloaded)
                 
                 if await resources_downloader.batch_download(progress_callback=update_progress):
-                    rprint(f"[green]下载成功！")
-                    rprint(f"[green]下载完成！[/green]")
+                    rprint("[green]下载成功！")
+                    rprint("[green]下载完成！[/green]")
                 else:
-                    rprint(f"[bold red]下载失败!")
+                    rprint("[bold red]下载失败!")
 
                 progress.update(main_task, advance=1)                
 

@@ -1,4 +1,3 @@
-from ..login.login import ZjuClient, ZjuAsyncClient
 
 # 维护全局登录状态
 class State:

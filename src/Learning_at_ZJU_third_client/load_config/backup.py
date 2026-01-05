@@ -5,7 +5,6 @@ import zipfile
 import logging
 from typing import List
 from pathlib import Path
-from textwrap import dedent
 from datetime import datetime
 from .load_config import userBackupConfig, lazyBackupConfig, logBackupConfig
 

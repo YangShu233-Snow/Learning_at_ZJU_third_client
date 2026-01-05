@@ -1,0 +1,2 @@
+lint.select = ["F"]
+lint.ignore = ["E501"]

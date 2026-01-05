@@ -75,7 +75,7 @@ class BaseConfig:
             logger.info(f"{self.config_name}配置更新成功，路径{self.config_path}",)
 
         except IOError:
-            logger.warning(f"配置更新失败！",)
+            logger.warning("配置更新失败！",)
             raise IOError
 
 class userConfig(BaseConfig):

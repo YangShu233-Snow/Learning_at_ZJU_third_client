@@ -59,11 +59,20 @@ jobs:
 
       - name: Build deb package
         run: |
+          # manually triggered would be labeled as 0.0.0
+          if [[ "${GITHUB_REF_NAME} == refs/tags/" ]]; then
+            VERSION="${GITHUB_REF_NAME#refs/tags/v}"
+          else
+            VERSION="0.0.0"
+          fi
+
+          echo "Building deb package version: $VERSION (0.0.0 for test)"
+
           fpm \
             -s dir \
             -t deb \
             -n lazy \
-            -v ${GITHUB_REF_NAME#v} \
+            -v "$VERSION" \
             -a ${{ matrix.deb_arch }} \
             --license LGPL-3.0 \
             --maintainer "YardRat0117 <yardrat0117@gmail.com>" \
@@ -88,4 +97,3 @@ jobs:
           files: ${{ matrix.asset }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

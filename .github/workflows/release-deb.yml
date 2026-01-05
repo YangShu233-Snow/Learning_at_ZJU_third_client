@@ -60,7 +60,7 @@ jobs:
       - name: Build deb package
         run: |
           # manually triggered would be labeled as 0.0.0
-          if [[ "${GITHUB_REF_NAME} == refs/tags/" ]]; then
+          if [[ "${GITHUB_REF_NAME}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#refs/tags/v}"
           else
             VERSION="0.0.0"
@@ -76,7 +76,7 @@ jobs:
             -a ${{ matrix.deb_arch }} \
             --license LGPL-3.0 \
             --maintainer "YardRat0117 <yardrat0117@gmail.com>" \
-            --url "https://github.com/YangShu232-Snow/Learning_at_ZJU_third_client" \
+            --url "https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client" \
             --description "Lazy ZJU Client (CLI + WebUI) is a third-party client for Learning at ZJU." \
             --deb-no-default-config-files \
             dist/lazy=/usr/bin/lazy

@@ -253,9 +253,10 @@ class APIFitsAsync:
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         results_json = []
-        for api_response in responses:
+        for index, api_response in enumerate(responses):
             if isinstance(api_response, Exception):
-                logger.error(f"请求时发生错误: {api_response}")
+                error_url = api_urls[index] if index < len(api_urls) else "Unkown_URL"
+                logger.error(f"请求时发生错误 | URL: {error_url} | 异常: {type(api_response)} | 详情: {repr(api_response)}")
                 results_json.append({})
                 continue
 
@@ -267,7 +268,7 @@ class APIFitsAsync:
                 results_json.append({})
                 continue
             except ConnectTimeout as e:
-                logger.error(f"请求{api_url}超时！{e}")
+                logger.error(f"请求{api_response.url}超时！{e}")
                 results_json.append({})
                 continue
 

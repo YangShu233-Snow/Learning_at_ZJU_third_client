@@ -10,7 +10,8 @@ app = typer.Typer(help="管理 LAZY CLI 配置文件")
 
 @app.command(
     "backup",
-    help="备份 LAZY CLI 配置文件"
+    help="备份 LAZY CLI 配置文件",
+    no_args_is_help=True
 )
 def backup(
     user: Annotated[Optional[bool], typer.Option("--user", "-u", help="启用此选项，备份用户配置")] = False,
@@ -45,7 +46,8 @@ def backup(
 
 @app.command(
     "load",
-    help="加载 LAZY CLI 配置文件"
+    help="加载 LAZY CLI 配置文件",
+    no_args_is_help=True
 )
 def load(
     sources: Annotated[List[str], typer.Argument(help="待加载配置路径")],

@@ -739,24 +739,18 @@ async def view_coursewares(
         task = progress.add_task(description="获取课程信息中...", total=2)
 
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
-            if all:
-                pre_raw_coursewares = (await zju_api.coursewaresViewAPIFits(client.session, course_id, 1, 1).get_api_data())[0]
-                page = 1
-                page_size = pre_raw_coursewares.get("total", 0)
+            # 预请求，检查一下有多少章节
+            pre_raw_coursewares = (await zju_api.coursewaresViewAPIFits(client.session, course_id, 1, 1).get_api_data())[0]
+            total_syllabuses = pre_raw_coursewares.get("total", 0)
+            
+            if total_syllabuses == 0:
+                rprint("当前还没有课件哦~\\( ^ ω ^ )/")
+                return
 
-            raw_coursewares = (await zju_api.coursewaresViewAPIFits(client.session, course_id, page, page_size).get_api_data())[0]
+            # 一次性拉取所有章节
+            raw_coursewares = (await zju_api.coursewaresViewAPIFits(client.session, course_id, 1, total_syllabuses).get_api_data())[0]
         
         progress.update(task, description="渲染任务信息中...", advance=1)
-        
-        # 检验返回结果
-        total: int = raw_coursewares.get("total", 0)
-        pages: int = raw_coursewares.get("pages", 0)
-
-        if total == 0:
-            rprint("当前还没有课件哦~\\( ^ ω ^ )/")
-
-        if page > pages:
-            rprint(f"当前仅有 {pages} 页，你都索引到 {page} 页啦！[○･｀Д´･ ○]")
 
         # 提取并拼装所有文件
         coursewares_list: List[dict] = raw_coursewares.get("activities", [])
@@ -764,15 +758,27 @@ async def view_coursewares(
         for courseware in coursewares_list:
             coursewares_uploads.extend(courseware.get("uploads", []))
 
+        total: int = len(coursewares_uploads)
+        pages: int = int(total / page_size) + 1
+
+        if page > pages:
+            rprint(f"当前仅有 {pages} 页，你都索引到 {page} 页啦！[○･｀Д´･ ○]")
+            raise typer.Exit(code=1)
+        
+        start_index = (page - 1) * page_size
+        end_index = start_index + page_size
+        
+        coursewares_uploads_shown = coursewares_uploads[start_index: end_index]
+
         if quiet:
-            courseware_ids = [str(courseware_upload.get("id", "null")) for courseware_upload in coursewares_uploads]
+            courseware_ids = [str(courseware_upload.get("id", "null")) for courseware_upload in coursewares_uploads_shown]
             print(" ".join(courseware_ids))
             return
 
         # --- 准备表格 ---
         coursewares_table = Table(
             title=f"资源列表 (第 {page} / {pages} 页)",
-            caption=f"本页显示 {len(coursewares_uploads)} 个，共 {total} 个结果。",
+            caption=f"本页显示 {len(coursewares_uploads_shown)} 个，共 {total} 个结果。",
             border_style="bright_black",
             show_header=True,
             header_style="bold magenta",
@@ -788,7 +794,7 @@ async def view_coursewares(
             coursewares_table.add_column("上传时间", ratio=1)
             coursewares_table.add_column("文件大小", ratio=1)
 
-        for courseware_upload in coursewares_uploads:
+        for courseware_upload in coursewares_uploads_shown:
             courseware_id   = str(courseware_upload.get("id", "null"))
             courseware_name = courseware_upload.get("name", "null")
 

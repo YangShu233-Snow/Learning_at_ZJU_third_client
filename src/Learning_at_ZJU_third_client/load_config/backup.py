@@ -37,12 +37,18 @@ class logFileHandler(BaseFileBackupHandler):
             output = Path.home()
         self.paths: List[Path] = list(map(lambda path: Path.home() / path, paths))
         self.output = output
+        self.log_paths = []
+
+        for path in self.paths:
+            logs_to_zip = path.glob("lazy_cli.log*")
+            self.log_paths.extend(logs_to_zip)
 
     def backup(self)->bool:
         try:
             with zipfile.ZipFile(self.output, 'w') as zf:
-                for path in self.paths:
+                for path in self.log_paths:
                     zf.write(path)
+
         except Exception as e:
             logger.error(f"备份出错！{e}")
             return False
@@ -216,19 +222,24 @@ class LoadManager:
 
     def load(self)->bool:
         for path in self.paths:
+            logger.info(f"正在加载文价: {path}")
             try:
                 with zipfile.ZipFile(path, 'r') as zf:
                     mainfest = json.loads(zf.read("mainfest.json").decode('utf-8'))
                     files = mainfest["files"]
 
                     for file in files:
-                        if not (self.force or self._is_valid(file["archive_path"])):
-                            continue
+                        if not self.force:
+                            if not self._is_valid(file["archive_path"]):
+                                logger.warning(f'{file["archive_path"]} 被忽略！')
+                                continue
                         
                         file_content = zf.read(file["original_path"]).decode('utf-8')
 
                         with open(self.base_path / file["original_path"], 'w') as f:
                             f.write(file_content)
+
+                        logger.info(f'{file["archieve_path"]} 已载入！')
             except Exception as e:
                 logger.error(f"{path} 配置加载失败。错误原因: {e}")
                 return False

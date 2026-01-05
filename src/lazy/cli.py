@@ -1,5 +1,5 @@
-from .printlog.print_log import setup_global_logging
 from .CLI.CLI import app
+from .printlog.print_log import setup_global_logging
 
 
 def main():

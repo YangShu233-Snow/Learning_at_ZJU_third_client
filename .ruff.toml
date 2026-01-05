@@ -1,2 +1,2 @@
-select = ["F401", "F821"]
-ignore = ["E501"]
+lint.select = ["F401", "F821"]
+lint.ignore = ["E501"]

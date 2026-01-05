@@ -14,17 +14,17 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             platform: linux
             arch: amd64
             asset: lazy-linux-amd64.tar.gz
 
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             platform: linux
             arch: arm64
             asset: lazy-linux-arm64.tar.gz
 
-          - os: macos-15-intel
+          - os: macos-latest
             platform: macos
             arch: amd64
             asset: lazy-macos-amd64.tar.gz
@@ -37,7 +37,7 @@ jobs:
           - os: windows-latest
             platform: windows
             arch: amd64
-            asset_sufix: lazy-windows-amd64.zip
+            asset: lazy-windows-amd64.zip
 
     runs-on: ${{ matrix.os }}
 
@@ -57,7 +57,6 @@ jobs:
           pip install -e .
 
       - name: Configure PyInstaller hidden imports
-        shell: bash
         run: |
           if [ "${{ matrix.platform }}" = "linux" ]; then
             echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.SecretService --hidden-import=shellingham.posix" >> $GITHUB_ENV
@@ -68,7 +67,6 @@ jobs:
           fi
 
       - name: Build binary
-        shell: bash
         run: |
           pyinstaller \
             --name lazy \
@@ -76,14 +74,17 @@ jobs:
             $HIDDEN_IMPORTS \
             src/lazy/__main__.py
 
-      - name: Package artifact
+      - name: Package artifact (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          Compress-Archive dist/lazy.exe ${{ matrix.asset }}
+
+      - name: Package artifact (Unix)
+        if: matrix.platform != 'windows'
         shell: bash
         run: |
-          if [ "${{ matrix.platform }}" == "windows" ]; then
-            powershell Compress-Archive dist/lazy.exe ${{ matrix.asset }}
-          else
           tar -czvf ${{ matrix.asset }} -C dist lazy
-          fi
 
       - name: Upload build artifact (manual run)
         if: github.event_name == 'workflow_dispatch'
@@ -93,7 +94,7 @@ jobs:
           path: ${{ matrix.asset }}
 
       - name: Upload release asset
-        if: startsWith(github.ref, 'ref/tags/')
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.asset }}

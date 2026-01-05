@@ -1,0 +1,27 @@
+name: Lint with ruff
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ruff:
+    name: Ruff (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Run ruff (non-blocking)
+        run: ruff check .

@@ -1157,7 +1157,7 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
         try:
             api_respone = await self.login_session.delete(url=api_url, follow_redirects=True)
             api_respone.raise_for_status()
-            logger.info(f"删除成功")
+            logger.info("删除成功")
             return True
         except HTTPError as e:
             if api_respone.status_code == 404:
@@ -1195,7 +1195,7 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
         try:
             api_respone = await self.login_session.delete(url=api_url, json=api_params, follow_redirects=True)
             api_respone.raise_for_status()
-            logger.info(f"删除成功")
+            logger.info("删除成功")
             return True
         except HTTPError as e:
             if api_respone.status_code == 404:

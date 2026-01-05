@@ -2,7 +2,6 @@ import requests
 import keyring
 import pickle
 import httpx
-import asyncio
 import logging
 import traceback
 from httpx import HTTPStatusError, ConnectTimeout, RequestError
@@ -102,7 +101,7 @@ class CredentialManager():
             return cookies
         except (InvalidToken, pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
             logger.error(f"Cookies加载失败！错误原因: {e}")
-            logger.info(f"Cookies加载未成功，请检查会话文件是否损坏或密钥已更改")
+            logger.info("Cookies加载未成功，请检查会话文件是否损坏或密钥已更改")
             return None
 
 # 异步架构Client类
@@ -124,9 +123,9 @@ class ZjuAsyncClient:
         logger.info("初始化会话中...")
         
         if trust_env:
-            logger.info(f"启用全局代理")
+            logger.info("启用全局代理")
         else:
-            logger.info(f"全局代理关闭")
+            logger.info("全局代理关闭")
 
         self.session = httpx.AsyncClient(trust_env=trust_env)
 
@@ -216,14 +215,14 @@ class ZjuAsyncClient:
         try:
             encrypted_password = self._encrypt_password(password=self.password, exponent=exponent, modulus=modulus)
         
-        except ValueError as e:
-            logger.error(f"密码值错误！发生在RSA加密时。")
+        except ValueError:
+            logger.error("密码值错误！发生在RSA加密时。")
 
         # 获取execution
         execution = self._get_execution(response=login_response)
 
         # 构建POST表单
-        logger.info(f"构建POST表单中...")
+        logger.info("构建POST表单中...")
         data = {
             'username': self.studentid,
             'password': encrypted_password,
@@ -232,7 +231,7 @@ class ZjuAsyncClient:
             '_eventId': 'submit'
         }
 
-        logger.info(f"POST登录请求中...")
+        logger.info("POST登录请求中...")
         
         try:
             response = await self.session.post(
@@ -249,10 +248,10 @@ class ZjuAsyncClient:
             return False
 
         if "学在浙大" in response.text:
-            logger.info(f"登录成功！")
+            logger.info("登录成功！")
             return True
         else:
-            logger.error(f"登录失败，可能是学号或密码不正确！")
+            logger.error("登录失败，可能是学号或密码不正确！")
             return False
 
     def _encrypt_password(self, password: str, exponent: str, modulus: str)->str:
@@ -473,14 +472,14 @@ class ZjuClient:
         try:
             encrypted_password = self._encrypt_password(password=password, exponent=exponent, modulus=modulus)
         
-        except ValueError as e:
-            logger.error(f"密码值错误！发生在RSA加密时。")
+        except ValueError:
+            logger.error("密码值错误！发生在RSA加密时。")
 
         # 获取execution
         execution = self._get_execution(response=login_response)
 
         # 构建POST表单
-        logger.info(f"构建POST表单中...")
+        logger.info("构建POST表单中...")
         data = {
             'username': self.studentid,
             'password': encrypted_password,
@@ -489,7 +488,7 @@ class ZjuClient:
             '_eventId': 'submit'
         }
 
-        logger.info(f"POST登录请求中...")
+        logger.info("POST登录请求中...")
         response = self.session.post(
             url=login_response.url, 
             data=data)
@@ -498,7 +497,7 @@ class ZjuClient:
             logger.info(f"登录成功！学号: {self.studentid}")
             return True
         else:
-            logger.error(f"登录失败，请检查学号与密码是否正确！")
+            logger.error("登录失败，请检查学号与密码是否正确！")
             return False
 
     def _encrypt_password(self, password: str, exponent: str, modulus: str)->str:
@@ -584,7 +583,7 @@ class ZjuClient:
             return True
         except (InvalidToken, pickle.UnpicklingError, EOFError, FileNotFoundError) as e:
             logger.error(f"会话加载失败！错误原因: {e}")
-            logger.info(f"会话加载未成功，请检查会话文件是否损坏或密钥已更改")
+            logger.info("会话加载未成功，请检查会话文件是否损坏或密钥已更改")
             return False
 
     def is_valid_session(self)->bool:
@@ -674,14 +673,14 @@ class LoginFit:
         try:
             encrypted_password = self.encrypt_password(exponent=exponent, modulus=modulus)
         
-        except ValueError as e:
-            logger.error(f"密码值错误！发生在RSA加密时。")
+        except ValueError:
+            logger.error("密码值错误！发生在RSA加密时。")
 
         # 获取execution
         execution = self.get_execution(response=login_response)
 
         # 构建POST表单
-        logger.info(f"构建POST表单中...")
+        logger.info("构建POST表单中...")
         data = {
             'username': self.studentid,
             'password': encrypted_password,
@@ -690,10 +689,10 @@ class LoginFit:
             '_eventId': 'submit'
         }
         
-        logger.info(f"构建成功！")
+        logger.info("构建成功！")
         
         # POST登录
-        logger.info(f"POST登录请求中...")
+        logger.info("POST登录请求中...")
         login_response = self.login_session.post(url=login_response.url, headers=self.headers, data=data)
         
         if "学在浙大" in login_response.text:
@@ -703,7 +702,7 @@ class LoginFit:
             self.get_user_avatar(login_response)
             logger.info("用户头像更新成功")
         else:
-            logger.error(f"登录失败！")
+            logger.error("登录失败！")
 
         return self.login_session
     
@@ -812,9 +811,9 @@ def creat_login_session(headers=None)->requests.Session:
     login_session = requests.session()
 
     if headers == None:
-        logger.info(f"未检测到登录需求headers，启用默认headers")
+        logger.info("未检测到登录需求headers，启用默认headers")
         headers = default_headers
-        logger.info(f"已启用默认headers")
+        logger.info("已启用默认headers")
 
     login_session.headers.update(headers)
     

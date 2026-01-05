@@ -1,19 +1,31 @@
-import typer
 import logging
-from asyncer import syncify
-from functools import partial
-from typing_extensions import Optional, Annotated, List
-from rich import filesize
-from rich import print as rprint
-from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn, TaskProgressColumn, TimeRemainingColumn, BarColumn, ProgressColumn, Text, Task
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from textwrap import dedent
+from typing import List, Optional
 
-from ..state import state
+import typer
+from asyncer import syncify
+from rich import filesize
+from rich import print as rprint
+from rich.progress import (
+    BarColumn,
+    Progress,
+    ProgressColumn,
+    SpinnerColumn,
+    Task,
+    TaskProgressColumn,
+    Text,
+    TextColumn,
+    TimeRemainingColumn,
+)
+from rich.table import Table
+from typing_extensions import Annotated
+
+from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
-from ...login.login import ZjuAsyncClient, CredentialManager
+from ..state import state
 
 # resource 命令组
 app = typer.Typer(help="管理学在浙大云盘资源",
@@ -79,8 +91,7 @@ def transform_time(time: str|None)->str:
     if time:
         time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
         return time_local.strftime('%Y-%m-%d %H:%M:%S')
-    else:
-        return "null"
+    return "null"
 
 # 修整并检查文件路径
 def check_files_path(files: List[Path])->List[Path]:
@@ -500,7 +511,7 @@ async def remove_resources(
 async def download_resource(
     files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
     basename: Annotated[List[int], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
-    dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = Path().home() / "Downloads",
+    dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = None,
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False
 ):
     """
@@ -512,6 +523,9 @@ async def download_resource(
 
     课程资源下载不支持 -b 选项。
     """
+    # Fix B008
+    if dest is None:
+        dest = Path().home() / "Downloads"
 
     files_id_amount = len(files_id)
     success_amount = 0

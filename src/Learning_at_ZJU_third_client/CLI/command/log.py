@@ -1,8 +1,10 @@
-import typer
-from ...load_config.backup import BackupManager
-from typing import Annotated, Optional
-from rich import print as rprint
 from pathlib import Path
+from typing import Annotated, Optional
+
+import typer
+from rich import print as rprint
+
+from ...load_config.backup import BackupManager
 
 app =  typer.Typer(help="管理 LAZY CLI 日志文件")
 

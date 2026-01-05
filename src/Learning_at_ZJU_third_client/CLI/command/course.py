@@ -1,23 +1,25 @@
-import typer
 import logging
-import keyring
-from asyncer import syncify
+from datetime import datetime
 from functools import partial
-from typing_extensions import Optional, Annotated, List, Tuple
+from textwrap import dedent
+from typing import List, Optional, Tuple
+
+import keyring
+import typer
+from asyncer import syncify
 from rich import filesize
 from rich import print as rprint
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich.tree import Tree
-from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
 from rich.console import Group
-from datetime import datetime
-from textwrap import dedent
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
+from rich.text import Text
+from rich.tree import Tree
+from typing_extensions import Annotated
 
-from ..state import state
+from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
-from ...login.login import ZjuAsyncClient, CredentialManager
+from ..state import state
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
@@ -38,8 +40,7 @@ def transform_time(time: str|None)->str:
     if time:
         time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
         return time_local.strftime('%Y-%m-%d %H:%M:%S')
-    else:
-        return "null"
+    return "null"
 
 def get_status_text(start_status: bool, close_status: bool)->Text:
     if close_status:
@@ -87,10 +88,7 @@ def parse_indices(indices: str|None)->List[int]:
     if not indices:
         return []
     
-    if ',' in indices:
-        indices = indices.split(',')
-    else:
-        indices = [indices]
+    indices = indices.split(',') if ',' in indices else [indices]
 
     result = []
     for item in indices:
@@ -107,14 +105,14 @@ def parse_indices(indices: str|None)->List[int]:
             except ValueError as e:
                 logger.error(f"{item} 格式有误，错误信息: {e}")
                 typer.echo(f"{item} 格式错误，请使用 'start_index - end_index' 的格式！", err=True)
-                raise typer.Exit(code=1)
+                raise typer.Exit(code=1) from e
         else:
             try:
                 result.append(int(item)-1)
             except ValueError as e:
                 logger.error(f"{item} 格式有误，错误信息: {e}")
                 typer.echo(f"{item} 应为整数！", err=True)
-                raise typer.Exit(code=1)
+                raise typer.Exit(code=1) from e
     
     # 去重，排序
     return sorted(list(set(result)))
@@ -129,9 +127,8 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
         if index in safe_indices or module.get("id") in safe_modules_id:
             result.append((module.get("id"), module))
 
-    if last:
-        if modules[-1] not in result:
-            result.append((modules[-1].get("id"), modules[-1]))
+    if last and modules[-1] not in result:
+        result.append((modules[-1].get("id"), modules[-1]))
 
     return result
 
@@ -445,7 +442,8 @@ async def view_syllabus(
         course_tree = Tree(f"[bold yellow]{course_name}[/bold yellow][dim] 课程ID: {course_id}[/dim]")
         
         if modules_id or indices or last:
-            for index, (module, activities_list, exams_list, classrooms_list) in enumerate(course_modules_node_list):
+            # _index is unused, thus named with a prefix "_"
+            for _index, (module, activities_list, exams_list, classrooms_list) in enumerate(course_modules_node_list):
                 module_name = module.get("name", "null")
                 module_tree = course_tree.add(f"[green]{module_name}[/green][dim] 章节ID: {module_id}[/dim]")
                 type_map = {
@@ -465,7 +463,7 @@ async def view_syllabus(
                     activity_type = type_map.get(activity.get("type", "null"), activity.get("type", "null"))
                     activity_id = activity.get("id", "null")
                     activity_completion_criterion_key = activity.get("completion_criterion_key", "none")
-                    completion_status = True if activity_id in activities_completeness else False
+                    completion_status = activity_id in activities_completeness
                     # 活动的start_time和end_time都可能是null值，必须多做一次判断
                     # is_started 和 is_closed 来判断活动是否开始或者截止
                     # 开放日期
@@ -558,7 +556,7 @@ async def view_syllabus(
                     exam_type = type_map.get(exam.get("type", "null"), exam.get("type", "null"))
                     exam_id = exam.get("id", "null")
                     exam_completion_criterion_key = exam.get("completion_criterion_key", "none")
-                    completion_status = True if exam_id in exams_completeness else False
+                    completion_status = exam_id in exams_completeness
 
                     # 理由同上
                     # 开放日期
@@ -1009,10 +1007,7 @@ async def view_rollcalls(
             rprint(f"签到情况: 共 {total_rollcalls_amount} 次签到，[green]{on_call_rollcalls_amount}[/green] 次已到，[red]{total_rollcalls_amount - on_call_rollcalls_amount}[/red] 次未到")
             return
 
-        if all:
-            shown_amount = total_rollcalls_amount
-        else:
-            shown_amount = amount
+        shown_amount = total_rollcalls_amount if all else amount
 
         total_pages = int(total_rollcalls_amount / shown_amount) + 1
         offset = (page_index - 1) * shown_amount

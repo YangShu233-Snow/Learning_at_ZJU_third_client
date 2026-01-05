@@ -5,12 +5,13 @@ scores = []
 def calculator(num1, operation, num2):
     if operation == "add":
         return num1 + num2
-    elif operation == "subtract":
+    if operation == "subtract":
         return num1 - num2
-    elif operation == "multiply":
+    if operation == "multiply":
         return num1 * num2
-    elif operation == "divide":
+    if operation == "divide":
         return num1 / num2
+    return None
 
 app = gr.Interface(
     calculator,

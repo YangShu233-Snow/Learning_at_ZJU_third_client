@@ -229,10 +229,9 @@ class LoadManager:
                     files = mainfest["files"]
 
                     for file in files:
-                        if not self.force:
-                            if not self._is_valid(file["archive_path"]):
-                                logger.warning(f'{file["archive_path"]} 被忽略！')
-                                continue
+                        if not self.force and (not self._is_valid(file["archive_path"])):
+                            logger.warning(f'{file["archive_path"]} 被忽略！')
+                            continue
                         
                         file_content = zf.read(file["original_path"]).decode('utf-8')
 

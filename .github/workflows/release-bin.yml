@@ -74,7 +74,7 @@ jobs:
             --name lazy \
             --onefile \
             $HIDDEN_IMPORTS \
-            -m lazy.cli
+            src/lazy/__main__.py
 
       - name: Package artifact
         shell: bash

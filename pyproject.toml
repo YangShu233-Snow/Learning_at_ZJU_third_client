@@ -32,7 +32,7 @@ gui = ["PySide6>=6.7.0", "gradio>=5.49.1"]
 dev = ["pyinstaller==6.16.0"]
 
 [project.scripts]
-lazy = "lazy.cli:app"
+lazy = "lazy.cli:main"
 lazy-gui = "lazy.gui:main"
 
 [tool.setuptools]

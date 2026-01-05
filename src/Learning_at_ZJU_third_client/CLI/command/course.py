@@ -88,10 +88,7 @@ def parse_indices(indices: str|None)->List[int]:
     if not indices:
         return []
     
-    if ',' in indices:
-        indices = indices.split(',')
-    else:
-        indices = [indices]
+    indices = indices.split(',') if ',' in indices else [indices]
 
     result = []
     for item in indices:
@@ -130,9 +127,8 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
         if index in safe_indices or module.get("id") in safe_modules_id:
             result.append((module.get("id"), module))
 
-    if last:
-        if modules[-1] not in result:
-            result.append((modules[-1].get("id"), modules[-1]))
+    if last and modules[-1] not in result:
+        result.append((modules[-1].get("id"), modules[-1]))
 
     return result
 
@@ -466,7 +462,7 @@ async def view_syllabus(
                     activity_type = type_map.get(activity.get("type", "null"), activity.get("type", "null"))
                     activity_id = activity.get("id", "null")
                     activity_completion_criterion_key = activity.get("completion_criterion_key", "none")
-                    completion_status = True if activity_id in activities_completeness else False
+                    completion_status = activity_id in activities_completeness
                     # 活动的start_time和end_time都可能是null值，必须多做一次判断
                     # is_started 和 is_closed 来判断活动是否开始或者截止
                     # 开放日期
@@ -559,7 +555,7 @@ async def view_syllabus(
                     exam_type = type_map.get(exam.get("type", "null"), exam.get("type", "null"))
                     exam_id = exam.get("id", "null")
                     exam_completion_criterion_key = exam.get("completion_criterion_key", "none")
-                    completion_status = True if exam_id in exams_completeness else False
+                    completion_status = exam_id in exams_completeness
 
                     # 理由同上
                     # 开放日期
@@ -1004,10 +1000,7 @@ async def view_rollcalls(
             rprint(f"签到情况: 共 {total_rollcalls_amount} 次签到，[green]{on_call_rollcalls_amount}[/green] 次已到，[red]{total_rollcalls_amount - on_call_rollcalls_amount}[/red] 次未到")
             return
 
-        if all:
-            shown_amount = total_rollcalls_amount
-        else:
-            shown_amount = amount
+        shown_amount = total_rollcalls_amount if all else amount
 
         total_pages = int(total_rollcalls_amount / shown_amount) + 1
         offset = (page_index - 1) * shown_amount

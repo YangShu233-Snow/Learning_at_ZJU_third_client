@@ -67,9 +67,8 @@ def extract_comment(raw_content: str|None)->str:
         return ""
     
     doc: HtmlElement = html.fromstring(raw_content)
-    plain_text = doc.text_content()
+    return doc.text_content()
 
-    return plain_text
 
 def extract_uploads(uploads_list: List[dict])->List[Table]:
     content_renderables = []
@@ -999,10 +998,7 @@ async def todo_assignment(
 
             panel_title = f"[white][{todo_type}][/white]"
             
-            if style != "dim":
-                panel_border_style = "bright_" + style
-            else:
-                panel_border_style = "dim"
+            panel_border_style = "bright_" + style if style != "dim" else "dim"
 
             todo_panel = Panel(
                 Group(*content_renderables),

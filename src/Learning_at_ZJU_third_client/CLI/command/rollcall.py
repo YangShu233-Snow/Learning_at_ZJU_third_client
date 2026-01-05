@@ -288,10 +288,7 @@ async def list_rollcall():
             rollcall_id = str(rollcall.get("rollcall_id", "null"))
             rollcall_is_radar = rollcall.get("is_radar", False)
 
-            if rollcall_is_radar:
-                rollcall_description = "雷达点名"
-            else:
-                rollcall_description = "非雷达点名"
+            rollcall_description = "雷达点名" if rollcall_is_radar else "非雷达点名"
 
             rollcall_list_table.add_row(
                 rollcall_id,

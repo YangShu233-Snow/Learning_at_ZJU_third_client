@@ -265,9 +265,8 @@ class ZjuAsyncClient:
 
         key_obj = LoginRSA.RSAKeyPython(public_exponent_hex=exponent, modulus_hex=modulus)
         reversed_password = password[::-1]
-        encrypted_password = LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
+        return LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
 
-        return encrypted_password
 
     def _get_execution(self, response: httpx.Response)->str:
         """得到登录的动态口令
@@ -508,9 +507,8 @@ class ZjuClient:
 
         key_obj = LoginRSA.RSAKeyPython(public_exponent_hex=exponent, modulus_hex=modulus)
         reversed_password = password[::-1]
-        encrypted_password = LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
+        return LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
 
-        return encrypted_password
 
     def _get_execution(self, response: requests.Response)->str:
         """得到登录的动态口令
@@ -745,9 +743,8 @@ class LoginFit:
 
         key_obj = LoginRSA.RSAKeyPython(public_exponent_hex=exponent, modulus_hex=modulus)
         reversed_password = self.password[::-1]
-        encrypted_password = LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
+        return LoginRSA.encrypted_string_python(key=key_obj, s=reversed_password)
 
-        return encrypted_password
     
     def get_execution(self, response: requests.Response)->str:
         """get the execution for POST

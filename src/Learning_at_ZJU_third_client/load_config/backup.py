@@ -230,7 +230,4 @@ class LoadManager:
 
     def _is_valid(self, path: str|Path)->bool:
         filename = Path(path).name
-        if filename in self.lazy_configs:
-            return False
-        
-        return True
+        return filename not in self.lazy_configs

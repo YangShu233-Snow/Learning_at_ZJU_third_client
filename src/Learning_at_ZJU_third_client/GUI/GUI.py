@@ -11,6 +11,7 @@ def calculator(num1, operation, num2):
         return num1 * num2
     if operation == "divide":
         return num1 / num2
+    return None
 
 app = gr.Interface(
     calculator,

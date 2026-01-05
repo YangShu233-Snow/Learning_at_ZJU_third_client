@@ -222,7 +222,7 @@ class LoadManager:
                     for file in files:
                         if not self.force:
                             if not self._is_valid(file["archive_path"]):
-                                logger.warning(f"{file["archive_path"]} 被忽略！")
+                                logger.warning(f'{file["archive_path"]} 被忽略！')
                                 continue
                         
                         file_content = zf.read(file["original_path"]).decode('utf-8')
@@ -230,7 +230,7 @@ class LoadManager:
                         with open(self.base_path / file["original_path"], 'w') as f:
                             f.write(file_content)
 
-                        logger.info(f"{file["archieve_path"]} 已载入！")
+                        logger.info(f'{file["archieve_path"]} 已载入！')
             except Exception as e:
                 logger.error(f"{path} 配置加载失败。错误原因: {e}")
                 return False

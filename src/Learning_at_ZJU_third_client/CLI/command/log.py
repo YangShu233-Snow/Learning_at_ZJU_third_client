@@ -1,6 +1,6 @@
 import typer
 from ...load_config.backup import BackupManager
-from typing import Annotated, List, Optional
+from typing import Annotated, Optional
 from rich import print as rprint
 from pathlib import Path
 

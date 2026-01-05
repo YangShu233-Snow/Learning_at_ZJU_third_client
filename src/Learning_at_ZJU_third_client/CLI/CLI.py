@@ -11,7 +11,7 @@ from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from typing_extensions import Annotated
 
-from .command import course, resource, assignment, rollcall, config, log
+from .command import assignment, config, course, log, resource, rollcall
 from .state import state
 
 KEYRING_SERVICE_NAME = "lazy"

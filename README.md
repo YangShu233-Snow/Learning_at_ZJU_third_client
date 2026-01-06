@@ -1,11 +1,12 @@
 # Learning_at_ZJU_third_client
 
-*Not lazy, laz yes!*
+> *Not lazy, laz yes!*
 
-学在浙大第三方客户端，争取实现绝大部分网页端功能，并且获得比网页端更加流畅的体验。
+## 项目简介
+
+学在浙大第三方客户端，项目名为**LAZY**，即 Learning at ZJU yes! 的缩写，期望这个项目可以帮助你获得更好学在浙大使用体验！
 
 当前项目计划实现 CLI 与 GUI 两个客户端，当前 CLI 版本将以包形式分发，GUI 已新建文件夹。
-
 ## FAQ
 
 如果你在使用与安装中遇到了某些问题，可以先在项目Issue里找找是否已经有了解决办法，当然你也可以查看[FAQ](https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/blob/main/FAQ.md)，这里面有一些比较常见的问题。

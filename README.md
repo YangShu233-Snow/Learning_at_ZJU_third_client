@@ -78,7 +78,7 @@ paru -S lazy-cli
 
 > 感谢社区贡献者 [@YardRat](https://github.com/YardRat0117)，LAZY CLI 现已支持构建`.deb`包，他将作为 maintainer 持续跟进新版本发布事宜！
 
-当然Releases版本不包含`.deb`包，急需 `.deb` 包安装的用户，可以访问 maintainer 的 [fork repo](https://github.com/YardRat0117/lazy) 的 [release](https://github.com/YardRat0117/lazy/releases/tag/v0.1.0) 获取 `.deb` 包。
+当前Releases版本不包含`.deb`包，急需 `.deb` 包安装的用户，可以访问 maintainer 的 [fork repo](https://github.com/YardRat0117/lazy) 的 [release](https://github.com/YardRat0117/lazy/releases/tag/v0.1.0) 获取 `.deb` 包。
 
 ### 从源码开始打包
 

@@ -75,9 +75,9 @@ paru -S lazy-cli
 
 ### Debian / Ubuntu (Deb系)
 
-目前已经支持构建 `.deb` 包，由 [@YardRat](https://github.com/YardRat0117) 作为 maintainer，发版事宜后续会跟进！
+> 感谢社区贡献者 [@YardRat](https://github.com/YardRat0117)，LAZY CLI 现已支持构建`.deb`包，他将作为 maintainer 持续跟进新版本发布事宜！
 
-急需 `.deb` 包安装的用户，也可以访问 maintainer 的 [fork repo](https://github.com/YardRat0117/lazy) 的 [release](https://github.com/YardRat0117/lazy/releases/tag/v0.1.0) 获取 `.deb` 包。
+当然Releases版本不包含`.deb`包，急需 `.deb` 包安装的用户，可以访问 maintainer 的 [fork repo](https://github.com/YardRat0117/lazy) 的 [release](https://github.com/YardRat0117/lazy/releases/tag/v0.1.0) 获取 `.deb` 包。
 
 ### 从源码开始打包
 
@@ -109,9 +109,9 @@ pip install -e '.[dev]'
 
 # 如果你想做一些修改再打包，完全没有问题，记得保存你的修改
 # 接下来开始打包 LAZY，请确保你在 LAZY 项目根目录下，首先pyinstaller会分析 LAZY 项目。
-pyinstaller --name lazy src/lazy_cli_main.py --noconfirm
+pyinstaller --name lazy src/lazy/__main__.py --noconfirm
 # 使用单文件模式可以将 LAZY 打包为单个可执行文件，但是会带来不可避免的启动延迟。
-pyinstaller --onefile --name lazy src/lazy_cli_main.py --noconfirm
+pyinstaller --onefile --name lazy src/lazy/__main__.py --noconfirm
 ```
 
 接下来你需要修改 LAZY 项目根目录下生成的 `lazy.spec`，具体的需求可见下方。

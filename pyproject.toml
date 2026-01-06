@@ -1,7 +1,7 @@
 # pyproject.toml
 
 [project]
-description = "学在浙大第三方客户端，提供 CLI 和 WebUI。"
+description = "学在浙大第三方客户端，提供 CLI 。"
 name = "lazy-zju-client"
 version = "0.1.0"
 
@@ -29,7 +29,8 @@ dependencies = [
 [project.optional-dependencies]
 gui = ["PySide6>=6.7.0", "gradio>=5.49.1"]
 
-dev = ["pyinstaller==6.16.0"]
+# 开发时需要的工具 (用于格式化、检查、测试等)
+dev = ["pyinstaller==6.16.0", "ruff==0.14.4"]
 
 [project.scripts]
 lazy = "lazy.cli:main"

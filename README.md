@@ -1,11 +1,12 @@
 # Learning_at_ZJU_third_client
 
-*Not lazy, laz yes!*
+> *Not lazy, laz yes!*
 
-学在浙大第三方客户端，争取实现绝大部分网页端功能，并且获得比网页端更加流畅的体验。
+## 项目简介
+
+学在浙大第三方客户端，项目名为**LAZY**，即 Learning at ZJU yes! 的缩写，期望这个项目可以帮助你获得更好学在浙大使用体验！
 
 当前项目计划实现 CLI 与 GUI 两个客户端，当前 CLI 版本将以包形式分发，GUI 已新建文件夹。
-
 ## FAQ
 
 如果你在使用与安装中遇到了某些问题，可以先在项目Issue里找找是否已经有了解决办法，当然你也可以查看[FAQ](https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/blob/main/FAQ.md)，这里面有一些比较常见的问题。
@@ -73,6 +74,12 @@ paru -S lazy-cli
 
 该包 `lazy-cli` 会自动安装 LAZY CLI 最新的 `beta` 版预编译二进制文件~
 
+### Debian / Ubuntu (Deb系)
+
+> 感谢社区贡献者 [@YardRat](https://github.com/YardRat0117)，LAZY CLI 现已支持构建`.deb`包，他将作为 maintainer 持续跟进新版本发布事宜！
+
+当然Releases版本不包含`.deb`包，急需 `.deb` 包安装的用户，可以访问 maintainer 的 [fork repo](https://github.com/YardRat0117/lazy) 的 [release](https://github.com/YardRat0117/lazy/releases/tag/v0.1.0) 获取 `.deb` 包。
+
 ### 从源码开始打包
 
 LAZY 支持从项目源码打包为一个可执行文件，通常这能使得 LAZY 的启动速度得到提升，同时如果你想对 LAZY 做一些个性的修改，这个安装方法就是最适合你的。
@@ -103,9 +110,9 @@ pip install -e '.[dev]'
 
 # 如果你想做一些修改再打包，完全没有问题，记得保存你的修改
 # 接下来开始打包 LAZY，请确保你在 LAZY 项目根目录下，首先pyinstaller会分析 LAZY 项目。
-pyinstaller --name lazy src/lazy_cli_main.py --noconfirm
+pyinstaller --name lazy src/lazy/__main__.py --noconfirm
 # 使用单文件模式可以将 LAZY 打包为单个可执行文件，但是会带来不可避免的启动延迟。
-pyinstaller --onefile --name lazy src/lazy_cli_main.py --noconfirm
+pyinstaller --onefile --name lazy src/lazy/__main__.py --noconfirm
 ```
 
 接下来你需要修改 LAZY 项目根目录下生成的 `lazy.spec`，具体的需求可见下方。

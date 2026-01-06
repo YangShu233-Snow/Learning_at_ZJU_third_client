@@ -1,20 +1,20 @@
 # pyproject.toml
 
 [project]
-# --- 基础信息 (请修改) ---
+description = "学在浙大第三方客户端，提供 CLI 。"
 name = "lazy-zju-client"
 version = "0.1.0"
-description = "学在浙大第三方客户端，提供CLI和GUI两种使用方式。"
-authors = [
-    { name = "Yangshu233", email = "gm.yangshu233@gmail.com" },
-]
-# readme = "README.md"  # 如果你有README文件的话
-requires-python = ">=3.8"
-license = { text = "LGPLv3.0" }
 
-# --- 核心依赖 (CLI版本 和 后端逻辑所必需) ---
+authors = [{ name = "Yangshu233", email = "gm.yangshu233@gmail.com" }]
+
+maintainers = [{ name = "YardRat0117", email = "yardrat0117@gmail.com" }]
+
+readme = "README.md"
+license = { text = "LGPLv3.0" }
+requires-python = ">=3.8"
+
 dependencies = [
-    "typer[all]>=0.9.0",
+    "typer>=0.9.0",
     "requests>=2.30.0",
     "lxml>=5.0.0",
     "keyring>=24.0.0",
@@ -23,26 +23,21 @@ dependencies = [
     "httpx[socks]==0.28.1",
     "anyio==4.11.0",
     "aiofiles==24.1.0",
-    "socksio==1.0.0"
+    "socksio==1.0.0",
 ]
 
-# --- 可选依赖 (Extras) ---
 [project.optional-dependencies]
-# GUI版本需要的额外依赖
-gui = [
-    "PySide6>=6.7.0",
-    "gradio>=5.49.1"
-]
+gui = ["PySide6>=6.7.0", "gradio>=5.49.1"]
 
 # 开发时需要的工具 (用于格式化、检查、测试等)
-dev = [
-    "pyinstaller==6.16.0",
-    "ruff==0.14.4"
-]
+dev = ["pyinstaller==6.16.0", "ruff==0.14.4"]
 
-# --- 命令行入口配置 ---
 [project.scripts]
-lazy = "Learning_at_ZJU_third_client.main_CLI:app"
-lazy-gui = "Learning_at_ZJU_third_client.main_GUI:main"
+lazy = "lazy.cli:main"
+lazy-gui = "lazy.gui:main"
 
-# --- 项目构建工具配置 ---
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptoools.packages.find]
+where = ["src"]

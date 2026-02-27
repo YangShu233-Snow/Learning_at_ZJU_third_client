@@ -40,6 +40,15 @@ app = typer.Typer(help="""
 
 logger = logging.getLogger(__name__)
 
+def print_with_json(status: bool, description: str|None = None, result = None):
+    import json
+    text = {
+        "status": status,
+        "description": description,
+        "result": result
+    }
+    print(json.dumps(text, ensure_ascii=False))
+
 def is_todo_show_amount_valid(amount: int):
     if amount <= 0:
         print("显示数量应为正数！")
@@ -91,6 +100,51 @@ def extract_uploads(uploads_list: List[dict])->List[Table]:
         content_renderables.append(upload_table)
 
     return content_renderables
+
+def extract_subjects_json(subjects: List[dict], subject_type_map: dict)->List[dict]|None:
+    subjects_list = []
+    
+    if not subjects:
+        return None
+    
+       
+    for index, subject in enumerate(subjects):
+        subject_description: str = subject.get("description")
+        subject_point: int = subject.get("point", 0)
+        subject_type: str = subject_type_map.get(subject.get("type"), subject.get("type"))
+        subject_options: List[str] = []
+        subject_answers: List[str] = []
+
+        if subject_type == "填空":
+            answers: List[dict] = subject.get("correct_answers", [])
+            for answer in answers:
+                answer_content = answer.get("content")
+                subject_answers.append(f"{answer_content}")
+
+        for option_index, option in enumerate(subject.get("options"), start=65):
+            raw_content = extract_comment(option.get("content"))
+            is_answer: bool = option.get("is_answer", False)
+            
+            if is_answer:
+                subject_answers.append(f"{chr(option_index)}. {raw_content}")
+                subject_options.append(f"{chr(option_index)}. {raw_content}")
+            else:
+                subject_options.append(f"{chr(option_index)}. {raw_content}")
+
+        subject_note = subject.get("note")
+        subject_json = {
+            "index": index,
+            "type": subject_type,
+            "point": subject_point,
+            "content": subject_description,
+            "options": subject_options,
+            "answer": ' '.join(subject_answers),
+            "note": subject_note
+        }
+
+        subjects_list.append(subject_json)
+
+    return subjects_list
 
 def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Padding|str]:
     content_renderables = []
@@ -179,17 +233,24 @@ def parse_files_id(files_id: str)->List[int]:
     
     return list(set(files_id_list))
 
-async def guess_assignment_type(assignment_id: int)->Tuple[bool, bool, bool]:
+async def guess_assignment_type(assignment_id: int, json: bool)->Tuple[bool, bool, bool]:
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         cookies = CredentialManager().load_cookies()
         if not cookies:
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+                logger.error("Cookies不存在！")
+                raise typer.Exit(code=1)
+            
             rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
+        
         task = progress.add_task(description="正在猜测任务类型...",total=1)
 
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
@@ -218,15 +279,21 @@ async def guess_assignment_type(assignment_id: int)->Tuple[bool, bool, bool]:
     
     return (False, False, False)
 
-async def view_exam(exam_id: int, type_map: dict, preview: bool):
+async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         task = progress.add_task(description="请求数据中...", total=2)
         cookies = CredentialManager().load_cookies()
         if not cookies:
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+                logger.error("Cookies不存在！")
+                raise typer.Exit(code=1)
+            
             rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
@@ -236,6 +303,10 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
             raw_exam, raw_exam_submission_list, raw_exam_distribute = await zju_api.assignmentExamViewAPIFits(client.session, exam_id).get_api_data()
         
             if not raw_exam:
+                if json:
+                    print_with_json(False, f"Exam whose ID {exam_id} does not exist.")
+                    raise typer.Exit(code=1)
+                
                 rprint(f"[red]请求测试 [green]{exam_id}[/green] 不存在！[/red]")
                 raise typer.Exit(code=1)
 
@@ -264,6 +335,72 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
 
         # 结束时间
         exam_end_time: str = transform_time(raw_exam.get("end_time"))
+
+        if json:
+            if preview:
+                exam_subjects_renderables = []
+            
+                if not raw_exam_distribute and not raw_exam_submission_subjects.get("subjects_data"):
+                    preview_text = "Preview Failed."
+                else:
+                    if raw_exam_distribute:
+                        exam_subjects: List[dict] = raw_exam_distribute.get("subjects", [])
+                    else:
+                        exam_subjects: List[dict] = raw_exam_submission_subjects.get("subjects_data").get("subjects")
+                    
+                    subject_type_map = {
+                        "single_selection": "单选",
+                        "short_answer": "简答",
+                        "multiple_selection": "多选",
+                        "true_or_false": "判断",
+                        "fill_in_blank": "填空"
+                    }
+
+                    preview_text = extract_subjects_json(exam_subjects, subject_type_map, json)
+
+            result = {
+                "title": exam_title,
+                "total_points": exam_total_points,
+                "type": exam_type,
+                "start_status": exam_start_status,
+                "start_time": exam_start_time,
+                "close_status": exam_close_status,
+                "end_time": exam_end_time,
+                "description": exam_description,
+                "submit_time_limit": exam_submit_times_limit,
+                "submitted_times": exam_submitted_times,
+                "preview": preview_text
+            }
+
+            return result
+
+        # --- 解析预览内容 ---
+        if preview:
+            exam_subjects_renderables = []
+            
+            if not raw_exam_distribute and not raw_exam_submission_subjects.get("subjects_data"):
+                preview_error_text = Text.assemble(
+                    ("(╥╯^╰╥) 预览失效了……", "red"),
+                    "\n",
+                    ("测试未开放、测试已结束但未公布或作答次数达到上限等情况均无法预览题目。", "dim")
+                )
+
+                exam_subjects_renderables.append(preview_error_text)
+            else:
+                if raw_exam_distribute:
+                    exam_subjects: List[dict] = raw_exam_distribute.get("subjects", [])
+                else:
+                    exam_subjects: List[dict] = raw_exam_submission_subjects.get("subjects_data").get("subjects")
+                
+                subject_type_map = {
+                    "single_selection": "单选",
+                    "short_answer": "简答",
+                    "multiple_selection": "多选",
+                    "true_or_false": "判断",
+                    "fill_in_blank": "填空"
+                }
+
+                exam_subjects_renderables = extract_subjects(exam_subjects, subject_type_map)
 
         # 组装文本
         title_line = Align.center(
@@ -356,34 +493,6 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
         else:
             content_renderables.append("")
             content_renderables.append("无提交记录")
-
-        # --- 解析预览内容 ---
-        if preview:
-            exam_subjects_renderables = []
-            
-            if not raw_exam_distribute and not raw_exam_submission_subjects.get("subjects_data"):
-                preview_error_text = Text.assemble(
-                    ("(╥╯^╰╥) 预览失效了……", "red"),
-                    "\n",
-                    ("测试未开放、测试已结束但未公布或作答次数达到上限等情况均无法预览题目。", "dim")
-                )
-
-                exam_subjects_renderables.append(preview_error_text)
-            else:
-                if raw_exam_distribute:
-                    exam_subjects: List[dict] = raw_exam_distribute.get("subjects", [])
-                else:
-                    exam_subjects: List[dict] = raw_exam_submission_subjects.get("subjects_data").get("subjects")
-                
-                subject_type_map = {
-                    "single_selection": "单选",
-                    "short_answer": "简答",
-                    "multiple_selection": "多选",
-                    "true_or_false": "判断",
-                    "fill_in_blank": "填空"
-                }
-
-                exam_subjects_renderables = extract_subjects(exam_subjects, subject_type_map)
 
             
             exam_preview_subjects_panel = Panel(
@@ -782,7 +891,8 @@ async def view_assignment(
     exam: Annotated[Optional[bool], typer.Option("--exam", "-e", help="启用此选项，将查询对应的考试")] = False,
     classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")] = False,
     homework: Annotated[Optional[bool], typer.Option("--homework", "-H", help="启用此选项，将查询对应作业")] = False,
-    preview: Annotated[Optional[bool], typer.Option("--preview", "-P", help="启用此选项，预览测试或课堂任务题目")] = False
+    preview: Annotated[Optional[bool], typer.Option("--preview", "-P", help="启用此选项，预览测试或课堂任务题目")] = False,
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     浏览指定任务，显示任务基本信息，任务附件与任务提交记录。
@@ -802,27 +912,34 @@ async def view_assignment(
     }
     # 猜测任务类型
     if not (homework or exam or classroom):
-        homework, exam, classroom = await guess_assignment_type(assignment_id)
+        homework, exam, classroom = await guess_assignment_type(assignment_id, json)
 
     # 按照指定分配至相应任务
     if homework:
         if preview:
+            if json:
+                print_with_json(False, "Assignment whose type is 'Homework' cannot be previewed.")
+                raise typer.Exit(code=1)
+            
             rprint("[red]'homework' 类型不可预览！[/red]")
             raise typer.Exit(code=1)
         
-        await view_activity(assignment_id, type_map)
+        await view_activity(assignment_id, type_map, json)
         return 
 
     if exam:
-        await view_exam(assignment_id, type_map, preview)
+        await view_exam(assignment_id, type_map, preview, json)
         return 
     
     if classroom:
-        await view_classroom(assignment_id, type_map, preview)
+        await view_classroom(assignment_id, type_map, preview, json)
         return
     
+    if json:
+        print_with_json(True, f"Assignment with ID {assignment_id} do not exist.")
+        return
+
     rprint(f"任务 {assignment_id} 不存在！")
-    return 
 
 @app.command(
     "td",
@@ -857,7 +974,8 @@ async def todo_assignment(
     amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示待办任务数量", callback=is_todo_show_amount_valid)] = 10,
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="待办任务页面索引")] = 1,
     reverse: Annotated[Optional[bool], typer.Option("--reverse", "-r", help="以任务截止时间降序排列")] = False,
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，输出所有待办事项")] = False
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，输出所有待办事项")] = False,
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     列举待办事项清单
@@ -880,13 +998,19 @@ async def todo_assignment(
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         
         task = progress.add_task(description="获取待办事项信息中...", total=1)
         
         cookies = CredentialManager().load_cookies()
         if not cookies:
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+                logger.error("Cookies不存在！")
+                raise typer.Exit(code=1)
+            
             rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
@@ -900,6 +1024,10 @@ async def todo_assignment(
         todo_list: List[dict] = raw_todo_list.get("todo_list", [])
         
         if type(todo_list) != list:
+            if json:
+                print_with_json(False, "todo list resolving occur error.")
+                raise typer.Exit(code=1)
+            
             logger.error("todo_list存在错误，请将此日志上报给开发者！")
             print("待办事项清单解析存在异常！")
             raise typer.Exit(code=1)
@@ -908,12 +1036,20 @@ async def todo_assignment(
         total = len(todo_list)
         
         if total == 0:
+            if json:
+                print_with_json(True, "There are currently no todos.")
+                return
+            
             print("当前没有待办任务哦~")
             return 
         
         if not all:
             total_pages = int(total / amount) + 1
             if page_index > total_pages:
+                if json:
+                    print_with_json(False, f"Index Exceeded! Index page {page_index} of {total}")
+                    raise typer.Exit(code=1)
+                
                 print(f"页面索引超限！共 {total} 页，你都索引到第 {page_index} 页啦！")
                 raise typer.Exit(code=1)
         else:
@@ -927,6 +1063,8 @@ async def todo_assignment(
         start = amount * (page_index - 1)
         todo_list = todo_list[start:]
 
+        json_result = []
+
         for index, todo in enumerate(todo_list):
             if index > amount - 1:
                 amount = index
@@ -938,6 +1076,18 @@ async def todo_assignment(
             todo_id = todo.get("id", "null")
             end_time = datetime.fromisoformat(todo.get("end_time").replace('Z', '+00:00')) if todo.get("end_time") else None
             todo_type = type_map.get(todo.get("type", "null"), todo.get("type", "null"))
+
+            if json:
+                json_todo = {
+                    "title": title,
+                    "course_name": course_name,
+                    "course_id": course_id,
+                    "todo_id": todo_id,
+                    "end_time": end_time,
+                    "todo_type": todo_type
+                }
+
+                json_result.append(json_todo)
 
             # 创建标题内容
             title_text = Text.assemble(
@@ -1013,9 +1163,12 @@ async def todo_assignment(
             amount = index + 1
 
         progress.advance(task, advance=1)
-
+    
+    if json:
+        print_with_json(True, "Todo List", json_result)
+        return 
+    
     rprint(*todo_panel_list)
-
     print(f"本页共 {amount} 个结果，第 {page_index}/{total_pages} 页")
 
 @app.command(
@@ -1049,7 +1202,8 @@ async def todo_assignment(
 async def submit_assignment(
     activity_id: Annotated[int, typer.Argument(help="待提交任务ID")],
     text: Annotated[Optional[str], typer.Option("--text", "-t", help="待提交的文本内容")] = "",
-    files_id: Annotated[Optional[str], typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = ""
+    files_id: Annotated[Optional[str], typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = "",
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True, help="启用JSON输出")] = False
 ):
     """
     提交学在浙大 Homeword 任务，支持传入文本与附件ID。
@@ -1059,17 +1213,38 @@ async def submit_assignment(
     通过 -f 传入文件ID时，请务必用引号包裹以避免 lazy 的意外行为，如果要传入多个文件，请使用半角逗号或空格分割。
     """
     if not text and not files_id:
+        if json:
+            print_with_json(False, "Cannot submit blank context.")
+            raise typer.Exit(code=1)
+
         rprint("不可空提交！")
         raise typer.Exit(code=1)
 
     cookies = CredentialManager().load_cookies()
     if not cookies:
+        if json:
+            print_with_json(False, "Cookies is unacceptable.")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
+        
         rprint("Cookies不存在！")
         logger.error("Cookies不存在！")
         raise typer.Exit(code=1)
 
     async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
-        if await zju_api.assignmentSubmitAPIFits(client.session, activity_id, text, files_id).submit():
+        status = await zju_api.assignmentSubmitAPIFits(client.session, activity_id, text, files_id).submit()
+        
+        if json:
+            if status:
+                description = "Success"
+            else: 
+                description = "Failed"
+
+            print_with_json(status=status, description=description)
+            
+            return
+
+        if status:
             rprint("[green]提交成功！[/green]")
         else:
             rprint("[red]提交失败！[/red]")

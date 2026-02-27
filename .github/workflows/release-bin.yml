@@ -1,9 +1,9 @@
-name: Release Lazy (Standalone Binary)
+name: Release Lazy CLI
 
 on:
   push:
     tags:
-      - "v*.*.*"
+      - 'v*.*.*'
   workflow_dispatch:
 
 permissions:
@@ -11,100 +11,110 @@ permissions:
 
 jobs:
   build-release:
+    name: Build on ${{ matrix.os }} (${{ matrix.arch }})
+    # 根据 matrix 动态选择运行器
+    runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            platform: linux
-            arch: amd64
-            asset: lazy-linux-amd64.tar.gz
-
-          - os: ubuntu-latest
-            platform: linux
+          # Linux x86_64 (amd64)
+          - os: linux
+            runner: ubuntu-22.04
+            arch: x86_64
+            asset_suffix: linux-x86_64.tar.gz
+            
+          # Linux ARM64 (使用 GitHub 官方提供的 ARM 运行器)
+          - os: linux
+            runner: ubuntu-24.04-arm
             arch: arm64
-            asset: lazy-linux-arm64.tar.gz
-
-          - os: macos-latest
-            platform: macos
-            arch: amd64
-            asset: lazy-macos-amd64.tar.gz
-
-          - os: macos-latest
-            platform: macos
+            asset_suffix: linux-arm64.tar.gz
+            
+          # macOS x86_64 (macOS 13 仍为 Intel 芯片)
+          - os: macos
+            runner: macos-13
+            arch: x86_64
+            asset_suffix: macos-x86_64.tar.gz
+            
+          # macOS ARM64 (macOS 14+ 默认为 M 系列 Apple Silicon 芯片)
+          - os: macos
+            runner: macos-latest
             arch: arm64
-            asset: lazy-macos-arm64.tar.gz
-
-          - os: windows-latest
-            platform: windows
-            arch: amd64
-            asset: lazy-windows-amd64.zip
-
-    runs-on: ${{ matrix.os }}
+            asset_suffix: macos-arm64.tar.gz
+            
+          # Windows x86_64
+          - os: windows
+            runner: windows-latest
+            arch: x86_64
+            asset_suffix: windows-x86_64.zip
 
     steps:
-      - name: Checkout
+      - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
+
+      - name: Set platform-specific variables
+        id: build_vars
+        shell: bash
+        run: |
+          echo "ASSET_NAME=lazy-cli-${{ matrix.asset_suffix }}" >> $GITHUB_ENV
+          echo "EXE_PATH=dist/lazy" >> $GITHUB_ENV
+
+          # 针对不同系统配置隐藏依赖和数据打包路径分隔符
+          # Unix 系统的 add-data 使用 ":" 分隔，Windows 使用 ";" 分隔
+          if [ "${{ matrix.os }}" == "linux" ]; then
+            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.SecretService --hidden-import=keyring.backends.chainer --hidden-import=shellingham.posix" >> $GITHUB_ENV
+            echo "ADD_DATA=--add-data=data:data" >> $GITHUB_ENV
+          elif [ "${{ matrix.os }}" == "macos" ]; then
+            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.macOS.Keyring --hidden-import=shellingham.posix" >> $GITHUB_ENV
+            echo "ADD_DATA=--add-data=data:data" >> $GITHUB_ENV
+          elif [ "${{ matrix.os }}" == "windows" ]; then
+            echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.Windows.WinVaultKeyring --hidden-import=shellingham.windows --hidden-import=shellingham.nt" >> $GITHUB_ENV
+            echo "ADD_DATA=--add-data=data;data" >> $GITHUB_ENV
+          fi
 
       - name: Install dependencies
+        shell: bash            
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          pip install -e .
+          # 安装当前项目本身及其在 pyproject.toml 中定义的 dev 依赖
+          pip install -e .[dev]
 
-      - name: Configure PyInstaller hidden imports (Linux)
-        if: matrix.platform == 'linux'
+      - name: Build with PyInstaller
         shell: bash
         run: |
-          echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.SecretService --hidden-import=shellingham.posix" >> $GITHUB_ENV
-
-      - name: Configure PyInstaller hidden imports (Windows)
-        if: matrix.platform == 'windows'
-        shell: bash
-        run: |
-          echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.Windows.WinVaultKeyring--hidden-import=shellingham.posix" >> $GITHUB_ENV
-
-      - name: ConfigurePyInstaller hidden imports (MacOS)
-        if: matrix.platform == 'macos'
-        shell: bash
-        run: |
-          echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.macOS.Keyring --hidden-import=shellingham.windows" >> $GITHUB_ENV
-
-      - name: Build binary
-        shell: bash
-        run: |
-          pyinstaller \
-            --name lazy \
-            $HIDDEN_IMPORTS \
+          # 默认打包为一个文件夹 (包含 exe/可执行文件及依赖的 dll/so)
+          pyinstaller --name lazy \
+            ${{ env.ADD_DATA }} \
+            ${{ env.HIDDEN_IMPORTS }} \
             src/lazy/__main__.py
 
-      - name: Package artifact (Windows)
-        if: matrix.platform == 'windows'
-        shell: pwsh
-        run: |
-          Compress-Archive dist/lazy.exe ${{ matrix.asset }}
-
-      - name: Package artifact (Unix)
-        if: matrix.platform != 'windows'
+      - name: Archive the executable
         shell: bash
         run: |
-          tar -czvf ${{ matrix.asset }} -C dist lazy
+          if [ "${{ matrix.os }}" == "windows" ]; then
+            # Windows 使用 powershell 将整个 dist/lazy 文件夹打包进 ZIP
+            powershell Compress-Archive -Path ${{ env.EXE_PATH }} -DestinationPath ${{ env.ASSET_NAME }}
+          else
+            # Linux 和 macOS 使用 tar 压缩 dist/lazy 文件夹
+            tar -czvf ${{ env.ASSET_NAME }} -C dist lazy
+          fi
 
-      - name: Upload build artifact (manual run)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: lazy-${{ matrix.platform }}-${{ matrix.arch }}
-          path: ${{ matrix.asset }}
-
-      - name: Upload release asset
+      - name: Upload to Release
+        # 仅在打 tag 时执行上传发布
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.asset }}
+          name: LAZY CLI ${{ github.ref_name }}
+          prerelease: >
+            contains(github.ref_name, '-alpha') ||
+            contains(github.ref_name, '-beta') ||
+            contains(github.ref_name, '-rc')
+          files: ${{ env.ASSET_NAME }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

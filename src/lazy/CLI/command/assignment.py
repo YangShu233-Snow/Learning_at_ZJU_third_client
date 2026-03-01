@@ -78,6 +78,21 @@ def extract_comment(raw_content: str|None)->str:
     doc: HtmlElement = html.fromstring(raw_content)
     return doc.text_content()
 
+def extract_uploads_json(uploads_list: List[dict])->List[dict]:
+    uploads = []
+
+    for upload in uploads_list:
+        file_name = upload.get("name", "null")
+        file_id = upload.get("id", "null")
+        file_size = filesize.decimal(upload.get("size", 0))
+        
+        uploads.append({
+            "filename": file_name,
+            "id": file_id,
+            "file_size": file_size
+        })
+
+    return uploads
 
 def extract_uploads(uploads_list: List[dict])->List[Table]:
     content_renderables = []
@@ -336,12 +351,12 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
         # 结束时间
         exam_end_time: str = transform_time(raw_exam.get("end_time"))
 
+
+        # --- JSON FORMAT HEAD ---
         if json:
-            if preview:
-                exam_subjects_renderables = []
-            
+            if preview:            
                 if not raw_exam_distribute and not raw_exam_submission_subjects.get("subjects_data"):
-                    preview_text = "Preview Failed."
+                    preview_content = "Preview Failed."
                 else:
                     if raw_exam_distribute:
                         exam_subjects: List[dict] = raw_exam_distribute.get("subjects", [])
@@ -356,7 +371,33 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
                         "fill_in_blank": "填空"
                     }
 
-                    preview_text = extract_subjects_json(exam_subjects, subject_type_map, json)
+                    preview_content = extract_subjects_json(exam_subjects, subject_type_map, json)
+
+            if raw_exam_submission_list:
+                # 测试最终成绩
+                exam_final_score: int|None = raw_exam_submission_list.get("exam_final_score")
+                if not exam_final_score:
+                    exam_final_score: int|str = raw_exam_submission_list.get("exam_score") if raw_exam_submission_list.get("exam_score") else "null"
+            
+                submissions_list = []
+                exam_submission_list: List[dict] = raw_exam_submission_list.get("submissions")
+
+                for submission in exam_submission_list:
+                    submission_submitted_time = submission.get("submitted_at")
+                    submission_score = submission.get("score") if submission.get("score") else "未公布"
+
+                    if submission_submitted_time:
+                        submission_submitted_time = datetime.fromisoformat(exam_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        submission_submitted_time = "null"
+
+                    submissions_list.append({
+                        "submmited_time": submission_submitted_time,
+                        "score": submission_score
+                    })
+            else:
+                exam_final_score = None
+                submissions_list = None
 
             result = {
                 "title": exam_title,
@@ -369,10 +410,14 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
                 "description": exam_description,
                 "submit_time_limit": exam_submit_times_limit,
                 "submitted_times": exam_submitted_times,
-                "preview": preview_text
+                "final_score": exam_final_score,
+                "submissions": submissions_list,
+                "preview": preview_content
             }
 
-            return result
+            print_with_json(True, "Exam View", result)
+            return 
+        # --- JSON FORMAT END ---
 
         # --- 解析预览内容 ---
         if preview:
@@ -391,7 +436,7 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
                     exam_subjects: List[dict] = raw_exam_distribute.get("subjects", [])
                 else:
                     exam_subjects: List[dict] = raw_exam_submission_subjects.get("subjects_data").get("subjects")
-                
+            
                 subject_type_map = {
                     "single_selection": "单选",
                     "short_answer": "简答",
@@ -521,15 +566,28 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
 
         rprint(exam_panel)
 
-async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
+async def view_classroom(
+        classroom_id: int, 
+        type_map: dict, 
+        preview: bool,
+        json: bool
+    ):
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         task = progress.add_task(description="请求数据中...", total=2)
         cookies = CredentialManager().load_cookies()
+        
         if not cookies:
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+                logger.error("Cookies不存在！")
+                raise typer.Exit(code=1)
+            
             rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
@@ -540,6 +598,10 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
             classroom_message, raw_classroom_submissions_list, raw_classroom_subjects_result, raw_classroom_subjects = await zju_api.assignmentClassroomViewAPIFits(client.session, classroom_id).get_api_data()
 
             if not classroom_message:
+                if json:
+                    print_with_json(False, f"Classroom Test whose ID {classroom_id} does not exist.")
+                    raise typer.Exit(code=1)
+                
                 rprint(f"[red]请求课堂测试 [green]{classroom_id}[/green] 不存在！[/red]")
                 raise typer.Exit(code=1)
             
@@ -557,6 +619,57 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
         
         classroom_start_time = transform_time(classroom_message.get("start_at"))
         classroom_finish_time = transform_time(classroom_message.get("finish_at"))
+
+        # --- JSON FORMAT HEAD ---
+        if json:
+            # --- 解析提交列表 ---
+            if classroom_submissions_list:
+                submissions_list = []
+                
+                for submission in classroom_submissions_list:
+                    submission_created_time = transform_time(submission.get("created_at"))
+                    submission_score: int|str = submission.get("quiz_score") if submission.get("quiz_score") else "null"
+
+                    submissions_list.append({
+                        "submitted_time": submission_created_time,
+                        "score": submission_score
+                    })
+            else:
+                submissions_list = None
+
+            # --- 解析预览内容 ---
+            if preview:
+                if not raw_classroom_subjects_result and not raw_classroom_subjects:
+                    preview_content = "Preview Failed."
+                else:
+                    if raw_classroom_subjects_result.get("correct_answers_data", {}).get("correct_answers"):
+                        classroom_subjects: List[dict] = raw_classroom_subjects_result.get("subjects_data", {}).get("subjects", [])
+                    else:
+                        classroom_subjects: List[dict] = raw_classroom_subjects.get("subjects")
+                                    
+                    subject_type_map = {
+                        "single_selection": "单选",
+                        "short_answer": "简答",
+                        "multiple_selection": "多选",
+                        "true_or_false": "判断",
+                        "fill_in_blank": "填空"
+                    }
+
+                    preview_content = extract_subjects_json(classroom_subjects, subject_type_map)
+            
+            result = {
+                "title": classroom_title,
+                "type": classroom_type,
+                "start_time": classroom_start_time,
+                "end_time": classroom_finish_time,
+                "submissions": submissions_list,
+                "preview": preview_content
+
+            }
+
+            print_with_json(True, "Classroom Test View", result)
+            return 
+        # --- JSON FORMAT END ---
 
         classroom_start_time_text = Text.assemble(
             ("开始时间: ", "cyan"),
@@ -663,17 +776,28 @@ async def view_classroom(classroom_id: int, type_map: dict, preview: bool):
 
         rprint(classroom_panel)
 
-async def view_activity(activity_id: int, type_map: dict):
+async def view_activity(
+        activity_id: int, 
+        type_map: dict,
+        json: bool
+    ):
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         
         task = progress.add_task(description="请求数据中...", total=1)
 
         cookies = CredentialManager().load_cookies()
         if not cookies:
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+                logger.error("Cookies不存在！")
+                raise typer.Exit(code=1)
+            
             rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
@@ -687,6 +811,10 @@ async def view_activity(activity_id: int, type_map: dict):
             
             if not student_id:
                 logger.error(f"{activity_id} 缺少'laz_studentid'参数，请将此问题上报给开发者！")
+                if json:
+                    print_with_json(False, "STUDENT_ID does not exist. Report it to developer,")
+                    raise typer.Exit(code=1)
+                
                 print(f"{activity_id} 返回存在问题！")
                 raise typer.Exit(code=1)
 
@@ -703,16 +831,6 @@ async def view_activity(activity_id: int, type_map: dict):
                     raw_submission_list = {}
             else:
                 raw_submission_list = {}
-
-        activity_highest_score: int                  = raw_activity.get("highest_score", 0) if raw_activity.get("highest_score", 0) is not None else "N/A"
-        activity_description: str                    = extract_comment(raw_activity.get("data", {}).get("description", ""))
-        activity_content: str                        = extract_comment(raw_activity.get("data", {}).get("content", ""))
-        activity_all_students_average_score: int|str = raw_activity.get("average_score", "N/A")
-
-        activity_description_text = Text.assemble(
-            activity_description
-        )
-        activity_description_block = Padding(activity_description_text, (0, 0, 0, 2))
             
         progress.advance(task, advance=1)
 
@@ -720,14 +838,68 @@ async def view_activity(activity_id: int, type_map: dict):
 
         # 解析返回内容
         # 任务名称
-        activity_title = raw_activity.get("title", "null")
-        activity_type = type_map.get(raw_activity.get("type", "null"), raw_activity.get("type", "null"))
-
+        activity_title                               = raw_activity.get("title", "null")
+        activity_type                                = type_map.get(raw_activity.get("type", "null"), raw_activity.get("type", "null"))
+        activity_highest_score: int                  = raw_activity.get("highest_score", 0) if raw_activity.get("highest_score", 0) is not None else "N/A"
+        activity_description: str                    = extract_comment(raw_activity.get("data", {}).get("description", ""))
+        activity_content: str                        = extract_comment(raw_activity.get("data", {}).get("content", ""))
+        activity_all_students_average_score: int|str = raw_activity.get("average_score", "N/A")
         # 开放时间
         activity_start_time = transform_time(raw_activity.get("start_time"))
         
         # 截止日期
         activity_end_time = transform_time(raw_activity.get("end_time"))
+
+        if json:
+            # 读取提交列表（如果有的话）
+            if raw_submission_list:
+                # 准备Submission的Panel内容
+                submissions = []
+                submissions_list: List[dict] = raw_submission_list.get("list")
+                
+                for submission in submissions_list:
+                    submission_created_time = datetime.fromisoformat(submission.get("created_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+                    submission_comment = submission.get("comment")
+                    submission_instructor_comment: str = submission.get("instructor_comment", None)
+                    submission_score: int|None = submission.get("score") if submission.get("score") else "未评分"
+                    submission_uploads_list: List[dict]|None = submission.get("uploads", None)
+
+                    if submission_uploads_list:
+                        submission_uploads = extract_uploads_json(submission_uploads_list)
+                    else:
+                        submission_uploads = None
+                    
+                    submissions.append({
+                        "submmited_time": submission_created_time,
+                        "comment": submission_comment,
+                        "instructor_comment": submission_instructor_comment,
+                        "score": submission_score,
+                        "uploads": submission_uploads
+                    })
+            else:
+                submissions = None
+
+            uploads_list = raw_activity.get("uploads", None)
+            if uploads_list:
+                uploads = extract_uploads_json(uploads_list)
+            else:
+                uploads = None
+
+            result = {
+                "title": activity_title,
+                "type": activity_type,
+                "start_time": activity_start_time,
+                "end_time": activity_end_time,
+                "description": raw_activity.get("data", {}).get("description", ""),
+                "content": raw_activity.get("data", {}).get("description", ""),
+                "highest_score": activity_highest_score,
+                "all_students_average_score": activity_all_students_average_score,
+                "uploads": uploads,
+                "submissions": submissions
+            }
+
+            print_with_json(True, "Activity View", result)
+            return 
 
         start_time_text = Text.assemble(
             ("开放时间: ", "cyan"),
@@ -737,6 +909,11 @@ async def view_activity(activity_id: int, type_map: dict):
             ("截止时间: ", "cyan"),
             (activity_end_time, "bright_white")
         )
+
+        activity_description_text = Text.assemble(
+            activity_description
+        )
+        activity_description_block = Padding(activity_description_text, (0, 0, 0, 2))
 
         if type(activity_all_students_average_score) == float:
             average_score_text = Text.assemble(

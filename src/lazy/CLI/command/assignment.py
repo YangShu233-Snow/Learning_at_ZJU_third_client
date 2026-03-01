@@ -25,7 +25,12 @@ from typing_extensions import Annotated
 from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
 from ..state import state
-from ..utils.utils import print_with_json, transform_time, make_jump_url, get_status_text
+from ..utils.utils import (
+    get_status_text,
+    make_jump_url,
+    print_with_json,
+    transform_time,
+)
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
@@ -848,10 +853,7 @@ async def view_activity(
                 submissions = None
 
             uploads_list = raw_activity.get("uploads", None)
-            if uploads_list:
-                uploads = extract_uploads_json(uploads_list)
-            else:
-                uploads = None
+            uploads = extract_uploads_json(uploads_list) if uploads_list else None
 
             result = {
                 "title": activity_title,
@@ -1380,10 +1382,7 @@ async def submit_assignment(
         status = await zju_api.assignmentSubmitAPIFits(client.session, activity_id, text, files_id).submit()
         
         if json:
-            if status:
-                description = "Success"
-            else: 
-                description = "Failed"
+            description = "Success" if status else "Failed"
 
             print_with_json(status=status, description=description)
             

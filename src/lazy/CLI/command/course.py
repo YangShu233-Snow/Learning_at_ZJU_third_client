@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 from functools import partial
 from textwrap import dedent
 from typing import List, Optional, Tuple
@@ -20,7 +19,12 @@ from typing_extensions import Annotated
 from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
 from ..state import state
-from ..utils.utils import print_with_json, transform_time, make_jump_url, get_status_text
+from ..utils.utils import (
+    get_status_text,
+    make_jump_url,
+    print_with_json,
+    transform_time,
+)
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
@@ -74,10 +78,7 @@ def get_classroom_status_text(status: str)->Text:
     return Text("⚪️ 未开始", style="dim")
 
 def get_classroom_completion_json(completion_key: str)->bool:
-    if completion_key == "full":
-        return True
-    
-    return False
+    return completion_key == "full"
 
 def get_classroom_completion_text(completion_key: str)->Text:
     if completion_key == "full":

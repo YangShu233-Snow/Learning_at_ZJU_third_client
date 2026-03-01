@@ -1,6 +1,5 @@
 import logging
 import pickle
-import traceback
 from pathlib import Path
 
 import httpx

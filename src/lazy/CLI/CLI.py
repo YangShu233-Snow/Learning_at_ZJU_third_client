@@ -49,7 +49,8 @@ async def main_callback(
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable= "--json" in sys.argv or "-J" in sys.argv
     ) as progress:
         task = progress.add_task(description="检查登录状态中...", total=2)
         

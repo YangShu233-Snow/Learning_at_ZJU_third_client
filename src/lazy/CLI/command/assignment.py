@@ -25,6 +25,7 @@ from typing_extensions import Annotated
 from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
 from ..state import state
+from ..utils.utils import print_with_json, transform_time, make_jump_url, get_status_text
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
@@ -40,36 +41,12 @@ app = typer.Typer(help="""
 
 logger = logging.getLogger(__name__)
 
-def print_with_json(status: bool, description: str|None = None, result = None):
-    import json
-    text = {
-        "status": status,
-        "description": description,
-        "result": result
-    }
-    print(json.dumps(text, ensure_ascii=False))
-
 def is_todo_show_amount_valid(amount: int):
     if amount <= 0:
         print("显示数量应为正数！")
         raise typer.Exit(code=1)
     
     return amount
-
-def make_jump_url(course_id: int, material_id: int, material_type: str)->str:
-    if material_type == "material":
-        return ""
-    
-    if material_type == "online_video" or material_type == "homework":
-        return f"https://courses.zju.edu.cn/course/{course_id}/learning-activity/full-screen#/{material_id}"
-
-    return f"https://courses.zju.edu.cn/course/{course_id}/learning-activity/full-screen#/{material_type}/{material_id}"
-
-def transform_time(time: str|None)->str:
-    if time:
-        time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
-        return time_local.strftime('%Y-%m-%d %H:%M:%S')
-    return "null"
 
 def extract_comment(raw_content: str|None)->str:
     if not raw_content or not raw_content.strip():
@@ -220,15 +197,6 @@ def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Pa
             content_renderables.append("")
 
     return content_renderables
-
-def get_status_text(start_status: bool, close_status: bool)->Text:
-    if close_status:
-        return Text("🔴 已结束", style="red")
-    
-    if start_status:
-        return Text("🟢 进行中", style="green")
-    
-    return Text("⚪️ 未开始", style="dim")
 
 def parse_files_id(files_id: str)->List[int]:
     if not files_id:

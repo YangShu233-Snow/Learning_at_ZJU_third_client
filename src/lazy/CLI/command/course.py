@@ -20,6 +20,7 @@ from typing_extensions import Annotated
 from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
 from ..state import state
+from ..utils.utils import print_with_json, transform_time, make_jump_url, get_status_text
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
@@ -36,20 +37,14 @@ logger = logging.getLogger(__name__)
 # view 子命令组
 view_app = typer.Typer(help="学在浙大课程查看相关命令组，支持对课程多维信息的查看。", no_args_is_help=True)
 
-def transform_time(time: str|None)->str:
-    if time:
-        time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
-        return time_local.strftime('%Y-%m-%d %H:%M:%S')
-    return "null"
-
-def get_status_text(start_status: bool, close_status: bool)->Text:
-    if close_status:
-        return Text("🔴 已结束", style="red")
+def get_completion_json(completion_status: bool, completion_criterion_key: str)->str:
+    if completion_criterion_key == "none":
+        return "No need to complete"
     
-    if start_status:
-        return Text("🟢 进行中", style="green")
+    if completion_status:
+        return "Completed"
     
-    return Text("⚪️ 未开始", style="dim")
+    return "Incomplete"
 
 def get_completion_text(completion_status: bool, completion_criterion_key: str)->Text:
     if completion_criterion_key == "none":
@@ -60,6 +55,15 @@ def get_completion_text(completion_status: bool, completion_criterion_key: str)-
     
     return Text("🔴 未完成", style="red")
 
+def get_classroom_status_json(status: str)->str:
+    if status == "finish":
+        return "Closed"
+    
+    if status == "start":
+        return "In Progress"
+    
+    return "Not Started"
+
 def get_classroom_status_text(status: str)->Text:
     if status == "finish":
         return Text("🔴 已结束", style="red")
@@ -69,20 +73,17 @@ def get_classroom_status_text(status: str)->Text:
     
     return Text("⚪️ 未开始", style="dim")
 
+def get_classroom_completion_json(completion_key: str)->bool:
+    if completion_key == "full":
+        return True
+    
+    return False
+
 def get_classroom_completion_text(completion_key: str)->Text:
     if completion_key == "full":
         return Text("🟢 已完成", style="green")
     
     return Text("🔴 未完成", style="red")
-
-def make_jump_url(course_id: int, material_id: int, material_type: str):
-    if material_type == "material":
-        return ""
-    
-    if material_type == "online_video" or material_type == "homework":
-        return f"https://courses.zju.edu.cn/course/{course_id}/learning-activity/full-screen#/{material_id}"
-
-    return f"https://courses.zju.edu.cn/course/{course_id}/learning-activity/full-screen#/{material_type}/{material_id}"
 
 def parse_indices(indices: str|None)->List[int]:
     if not indices:
@@ -171,7 +172,8 @@ async def list_courses(
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="课程页面索引")] = 1,
     short: Annotated[Optional[bool], typer.Option("--short", "-s", help="简化输出内容，仅显示课程名与课程id")] = False,
     quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="仅输出课程id")] = False,
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False,
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
     ):
     """
     列举学在浙大内的课程信息，并按条件筛选。
@@ -183,15 +185,19 @@ async def list_courses(
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         
         cookies = CredentialManager().load_cookies()
         if not cookies:
-            rprint("Cookies不存在！")
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+            else:
+                rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
-
+        
         task = progress.add_task(description="拉取课程信息中...", total=1)
 
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
@@ -207,7 +213,12 @@ async def list_courses(
 
         total_pages = results.get("pages", 0)
         if page_index > total_pages and total_pages > 0:
-            print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
+            
+            if json:
+                print_with_json(False, f"Index Exceeded! Index page {page_index} of {total_pages}")
+            else:
+                rprint(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
+            
             raise typer.Exit(code=1)
 
         courses_list = results.get("courses", [])
@@ -215,15 +226,60 @@ async def list_courses(
 
         # 如果搜索没有结果，则直接退出
         if total_results_amount == 0:
-            print("啊呀！没有找到课程呢。")
+            if json:
+                print_with_json(True, "Not Found")    
+            else:
+                rprint("啊呀！没有找到课程呢。")
+            
             return
-        
+
         # quiet 模式仅打印课程id，并且不换行
         if quiet:
             course_ids = [str(course.get("id", "")) for course in courses_list]
-            print(" ".join(course_ids))
+            if json:
+                print_with_json(True, "Courses List", course_ids)
+            else:
+                print(" ".join(course_ids))
+            
             return 
         
+        if json:
+            results = []
+            for course in courses_list:
+                course_id = str(course.get("id"))
+                course_name = course.get("name")
+
+                if short:
+                    results.append({
+                        "name": course_name,
+                        "id": course_id
+                    })
+                    
+                    continue
+
+                course_attributes = course.get("course_attributes")
+                course_time = course_attributes.get("teaching_class_name", "N/A") if course_attributes.get("teaching_class_name", "N/A") else "N/A"
+                course_time = ", ".join(course_time.split(";"))
+                teachers = course.get("instructors", [])
+                teachers_name = ', '.join([t.get("name", "") for t in teachers]) or "N/A"
+                department = course.get("department")
+                course_department_name = department.get("name", "N/A") if department else "N/A"
+                academic_year = course.get("academic_year")
+                course_academic_year_name = academic_year.get("name", "N/A") if academic_year else "N/A"
+
+                results.append({
+                    "name": course_name,
+                    "id": course_id,
+                    "time": course_time,
+                    "teachers": teachers_name,
+                    "department_name": course_department_name,
+                    "academic_year": course_academic_year_name
+                })
+
+            print_with_json(True, "Courses List", results)
+            return
+
+
         courses_list_table = Table(
             title=f"课程列表 (第 {page_index} / {total_pages} 页)",
             caption=f"共找到 {total_results_amount} 个结果，本页显示 {len(courses_list)} 个。",
@@ -341,7 +397,8 @@ async def view_syllabus(
     only_activity: Annotated[Optional[bool], typer.Option("--activity", "-a", help="启用此选项，只展示活动内容")] = False,
     only_classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，只展示课堂任务")] = False,
     only_exam: Annotated[Optional[bool], typer.Option("--exam", "-e", help="启用此选项，只展示测试内容")] = False,
-    only_homework: Annotated[Optional[bool], typer.Option("--homework", "-H", help="启用此选项，只展示作业")] = False
+    only_homework: Annotated[Optional[bool], typer.Option("--homework", "-H", help="启用此选项，只展示作业")] = False,
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     浏览指定课程的目录，并按条件进行筛选。
@@ -353,11 +410,15 @@ async def view_syllabus(
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         cookies = CredentialManager().load_cookies()
         if not cookies:
-            rprint("Cookies不存在！")
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+            else:
+                rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
 
@@ -371,7 +432,11 @@ async def view_syllabus(
         course_modules: List[dict] = raw_course_modules.get("modules", [])
 
         if not course_modules:
-            rprint(f"课程{course_name} (ID: {course_id}) 无章节内容")
+            if json:
+                print_with_json(True, "Not Content")
+            else:
+                rprint(f"课程{course_name} (ID: {course_id}) 无章节内容")
+
             return
         
         if all:
@@ -383,8 +448,11 @@ async def view_syllabus(
             course_modules_node_list: List[Tuple[dict, dict, dict, dict]] = []
             
             if not modules_list:
-                logger.error(f"{course_name}(ID: {course_id})中你要查询的章节不存在！")
-                rprint("未找到章节！")
+                if json:
+                    print_with_json(True, "Not Found")
+                else:
+                    rprint("未找到章节！")
+
                 return 
 
             async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
@@ -398,10 +466,7 @@ async def view_syllabus(
                 activities_completeness: List[int] = [homework_activitie.get("id") for homework_activitie in raw_homework_completeness.get("homework_activities", {}) if homework_activitie.get("status") == "已交"]
                 classrooms_completeness: List[dict] = [activity_read for activity_read in raw_course_activities_reads.get("activity_reads") if activity_read.get("activity_type") == "classroom_activity"]
 
-                logger.info(f"{activities_completeness}")
-
                 # 筛选目标activities, exams 和 classrooms
-                
                 activities_list: List[dict] = []
                 if not (only_classroom or only_exam):
                     for course_activity in course_activities:
@@ -424,8 +489,12 @@ async def view_syllabus(
                             classrooms_list.append(course_classroom)
 
                 if len(activities_list) == 0 and len(exams_list) == 0 and len(classrooms_list) == 0:
-                    rprint(f"章节 {module_id} 无内容")
-                    continue
+                    if json:
+                        print_with_json(True, f"Module {module_id} Not Content")
+                    else:
+                        rprint(f"章节 {module_id} 无内容")
+                    
+                    return
                 
                 course_modules_node_list.append((module, activities_list, exams_list, classrooms_list))
 
@@ -438,12 +507,158 @@ async def view_syllabus(
 
         task = progress.add_task(description="加载内容中...", total=1)
 
+        if json:
+            modules = []
+            if modules_id or indices or last:
+                for _, (module, activities_list, exams_list, classrooms_list) in enumerate(course_modules_node_list):
+                    module_name = module.get("name", "null")
+                    type_map = {
+                        "material": "资料",
+                        "online_video": "视频",
+                        "homework": "作业",
+                        "questionnaire": "问卷",
+                        "exam": "测试",
+                        "page": "页面",
+                        "classroom": "课堂任务"
+                    }
+
+                    activities = []
+                    for activity in activities_list: # type: ignore
+                        # 标题、类型与ID
+                        activity_title = activity.get("title")
+                        activity_type = type_map.get(activity.get("type"), activity.get("type"))
+                        activity_id = activity.get("id")
+                        activity_completion_criterion_key = activity.get("completion_criterion_key")
+                        completion_status = activity_id in activities_completeness
+                        completion_text = get_completion_json(completion_status, activity_completion_criterion_key)
+
+                        # 开放日期
+                        activity_start_time = transform_time(activity.get("start_time"))
+                        activity_is_started: bool = activity.get("is_started", False)
+                        
+                        # 截止日期
+                        activity_end_time = transform_time(activity.get("end_time"))
+                        activity_is_closed: bool = activity.get("is_closed", False)
+                        
+                        # 跳转链接
+                        url_jump = make_jump_url(course_id, activity_id, activity.get("type"))
+
+                        # 附件
+                        activity_uploads: List[dict]= activity.get("uploads", [])
+                        uploads = []
+                        for upload in activity_uploads:
+                            file_name = upload.get("name")
+                            file_id = upload.get("id")
+                            file_size = filesize.decimal(upload.get("size", 0))
+
+                            uploads.append({
+                                "filename": file_name,
+                                "id": file_id,
+                                "size": file_size
+                            })
+
+                        activities.append({
+                            "title": activity_title,
+                            "type": activity_type,
+                            "id": activity_id,
+                            "completion": completion_text,
+                            "start_time": activity_start_time,
+                            "is_started": activity_is_started,
+                            "end_time": activity_end_time,
+                            "is_closed": activity_is_closed,
+                            "uploads": uploads
+                        })
+                    
+                    exams = []
+                    for exam in exams_list:
+                        exam_title = exam.get("title", "null")
+                        exam_type = type_map.get(exam.get("type", "null"), exam.get("type", "null"))
+                        exam_id = exam.get("id", "null")
+                        exam_completion_criterion_key = exam.get("completion_criterion_key", "none")
+                        completion_status = exam_id in exams_completeness
+                        completion_text = get_completion_json(completion_status, exam_completion_criterion_key)
+                        # 开放日期
+                        exam_start_time = transform_time(exam.get("start_time"))
+                        exam_is_started: bool = exam.get("is_started", False)
+                        # 截止日期
+                        exam_end_time = transform_time(exam.get("end_time"))
+                        exam_is_closed: bool = exam.get("is_closed", False)
+                        url_jump = make_jump_url(course_id, exam_id, exam.get("type", "null"))
+                        
+                        exams.append({
+                            "title": exam_title,
+                            "type": exam_type,
+                            "id": exam_id,
+                            "completion": completion_text,
+                            "start_time": exam_start_time,
+                            "is_started": exam_is_started,
+                            "end_time": exam_end_time,
+                            "is_closed": exam_is_closed,
+                            "uploads": uploads
+                        })
+                        
+
+                    classrooms = []
+                    for classroom in classrooms_list:
+                        classroom_title = classroom.get("title", "null")
+                        classroom_type = type_map.get(classroom.get("type", "null"), classroom.get("type", "null"))
+                        classroom_id = classroom.get("id", "null")
+                        classroom_status = classroom.get("status")
+                        
+                        for classroom_completeness in classrooms_completeness:
+                            if classroom_completeness.get("activity_id") == classroom_id:
+                                classroom_completeness_status = "full"
+                                break
+                        else:
+                            classroom_completeness_status = ""
+
+                        classroom_start_time: str = transform_time(classroom.get("start_at"))
+
+                        classroom_status_text = get_classroom_status_json(classroom_status)
+                        classroom_completeness_status_text = get_classroom_completion_json(classroom_completeness_status)
+
+                        classrooms.append({
+                            "title": classroom_title,
+                            "type": classroom_type,
+                            "id": classroom_id,
+                            "start_time": classroom_start_time,
+                            "status": classroom_status_text,
+                            "completion": classroom_completeness_status_text
+                        })
+                    
+                    modules.append({
+                        "name": module_name,
+                        "activities": activities,
+                        "exams": exams,
+                        "classroom_tests": classrooms
+                    })
+            else:
+                for index, module in enumerate(modules_list):
+                    module_name = module.get("name", "null")
+                    module_id = module.get("id", "null")
+
+                    modules.append({
+                        "index": index,
+                        "id": module_id,
+                        "name": module_name
+                    })
+            
+            result = {
+                "course_name": course_name,
+                "course_id": course_id,
+                "modules": modules
+            }
+
+            print_with_json(True, "Syllabus View", result)
+
+            return 
+
         # 装填树状图
         course_tree = Tree(f"[bold yellow]{course_name}[/bold yellow][dim] 课程ID: {course_id}[/dim]")
         
         if modules_id or indices or last:
             # _index is unused, thus named with a prefix "_"
-            for _index, (module, activities_list, exams_list, classrooms_list) in enumerate(course_modules_node_list):
+            for _, (module, activities_list, exams_list, classrooms_list) in enumerate(course_modules_node_list):
                 module_name = module.get("name", "null")
                 module_tree = course_tree.add(f"[green]{module_name}[/green][dim] 章节ID: {module_id}[/dim]")
                 type_map = {

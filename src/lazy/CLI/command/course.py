@@ -1,6 +1,6 @@
 import logging
-from functools import partial
 import math
+from functools import partial
 from textwrap import dedent
 from typing import List, Optional, Tuple
 

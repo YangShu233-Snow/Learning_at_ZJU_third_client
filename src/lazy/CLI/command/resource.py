@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 from functools import partial
 from pathlib import Path
 from textwrap import dedent
@@ -26,7 +25,7 @@ from typing_extensions import Annotated
 from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
 from ..state import state
-from ..utils.utils import transform_time, print_with_json
+from ..utils.utils import print_with_json, transform_time
 
 # resource 命令组
 app = typer.Typer(help="管理学在浙大云盘资源",
@@ -206,7 +205,7 @@ async def list_resources(
 
         if current_results_amount == 0:
             if json:
-                print_with_json(True, f"Not Found Resources")
+                print_with_json(True, "Not Found Resources")
             else:
                 rprint("啊呀！没有找到文件呢。")
             

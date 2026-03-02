@@ -1,6 +1,5 @@
 import logging
 import pickle
-import traceback
 from pathlib import Path
 
 import httpx
@@ -109,7 +108,7 @@ class ZjuAsyncClient:
         self, 
         headers   = None, 
         cookies   = None,
-        trust_env = True
+        trust_env = False
     ):
         """初始化会话
 
@@ -194,21 +193,15 @@ class ZjuAsyncClient:
             if exponent is None or modulus is None:
                 logger.error("PubKey API调用存在问题，请将此问题报告给开发者！")
 
-        except HTTPError as errh:
-            logger.error(f"HTTP错误: {errh}")
+        except httpx.RequestError as exc:
+            # 这样可以精准捕获连接错误、超时、代理错误等所有 httpx 网络层面的异常
+            logger.error(f"网络请求错误 ({exc.__class__.__name__}): 请求 {exc.request.url} 时发生异常。")
             return False
-        except ConnectTimeout as errt:
-            logger.error(f"超时错误: {errt}")
-            return False
-        except ValueError as e: # 当响应不是有效JSON时，.json()会抛出json.JSONDecodeError，它是ValueError的子类
+        except ValueError as e: 
             logger.error(f"无法解析JSON数据: {e}")
             return False
         except Exception as e:
-            # 【关键修正】: 打印异常的类型、原始表示(repr)和完整的堆栈信息
             logger.error(f"捕获到未知异常，类型: {type(e)}")
-            logger.error(f"异常的 repr: {repr(e)}")
-            logger.error(f"完整的 Traceback:\n{traceback.format_exc()}")
-            return False
         
         # 加密password
         try:

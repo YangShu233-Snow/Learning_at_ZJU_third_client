@@ -30,10 +30,10 @@ app = typer.Typer(help="LAZY CLI - 学在浙大第三方客户端的命令行工
 @partial(syncify, raise_sync_error=False)
 async def main_callback(
     ctx: typer.Context,
-    no_proxy: Annotated[Optional[bool], typer.Option(
-        "--no-proxy",
-        help="启用此选项，禁用 lazy 使用系统代理"
-    )] = False
+    proxy: Annotated[Optional[bool], typer.Option(
+        "--proxy",
+        help="启用此选项，允许 lazy 使用系统代理"
+    )] = True
 ):
 
     # 如果是login，whoami子命令，或查询--help时候，无需检查登录状态
@@ -43,13 +43,14 @@ async def main_callback(
     if ctx.invoked_subcommand in ["login", "whoami", "config"]:
         return
 
-    state.trust_env = not no_proxy
+    state.trust_env = not proxy
 
     
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable= "--json" in sys.argv or "-J" in sys.argv
     ) as progress:
         task = progress.add_task(description="检查登录状态中...", total=2)
         

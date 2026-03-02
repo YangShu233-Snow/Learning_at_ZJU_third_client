@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 from functools import partial
 from pathlib import Path
 from textwrap import dedent
@@ -26,6 +25,7 @@ from typing_extensions import Annotated
 from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
 from ..state import state
+from ..utils.utils import print_with_json, transform_time
 
 # resource 命令组
 app = typer.Typer(help="管理学在浙大云盘资源",
@@ -85,13 +85,6 @@ def is_download_dest_dir(dest: Path):
         raise typer.Exit(code=1)
     
     return dest
-
-# 转换时间
-def transform_time(time: str|None)->str:
-    if time:
-        time_local = datetime.fromisoformat(time.replace('Z', '+00:00')).astimezone()
-        return time_local.strftime('%Y-%m-%d %H:%M:%S')
-    return "null"
 
 # 修整并检查文件路径
 def check_files_path(files: List[Path])->List[Path]:
@@ -158,7 +151,8 @@ async def list_resources(
     file_type: Annotated[Optional[str], typer.Option("--type", "-t", help="文件类型", callback=is_list_resoureces_file_type_valid)] = None,
     short: Annotated[Optional[bool], typer.Option("--short", "-s", help="简化输出内容，仅显示文件名与文件id")] = False,
     quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="仅输出文件id")] = False,
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False,
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
     ):
     """
     列举学在浙大云盘内的文件资源，并通过指定条件进行筛选。
@@ -170,13 +164,17 @@ async def list_resources(
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         task = progress.add_task(description="拉取资源信息中...", total=1)
 
         cookies = CredentialManager().load_cookies()
         if not cookies:
-            rprint("Cookies不存在！")
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+            else:
+                rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
 
@@ -195,20 +193,61 @@ async def list_resources(
         total_pages = results.get("pages", 0)
 
         if page_index > total_pages and total_pages > 0:
-            print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
+            if json:
+                print_with_json(True, f"Index Exceeded! Index page {page_index} of {total_pages}")
+            else:
+                rprint(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
+            
             raise typer.Exit(code=1)
 
         resources_list = results.get("uploads", [])
         current_results_amount = len(resources_list)
 
         if current_results_amount == 0:
-            print("啊呀！没有找到文件呢。")
+            if json:
+                print_with_json(True, "Not Found Resources")
+            else:
+                rprint("啊呀！没有找到文件呢。")
+            
             return
         
         if quiet:
             resourse_ids = [str(resource.get('id', 'null')) for resource in resources_list]
-            print(" ".join(resourse_ids))
+            if json:
+                print_with_json(True, "Resources List", resourse_ids)
+            else:
+                print(" ".join(resourse_ids))
+
             return
+
+        # --- JSON FORMAT HEAD ---
+        if json:
+            results = []
+            for resource in resources_list:
+                resource_id = str(resource.get('id', 'null'))
+                resource_name = resource.get('name', 'null')
+                
+                if short:
+                    results.append({
+                        "id": resource_id,
+                        "name": resource_name
+                    })
+                    
+                    continue
+                
+                resource_size = filesize.decimal(resource.get('size', 0))
+                resource_update_time = transform_time(resource.get("updated_at", "1900-01-01T00:00:00Z"))
+                
+                results.append({
+                    "id": resource_id,
+                    "name": resource_name,
+                    "size": resource_size,
+                    "update_time": resource_update_time
+                })
+            
+            print_with_json(True, "Resources List", results)
+            return 
+        # --- JSON FORMAT END ---
 
         resources_list_table = Table(
             title=f"资源列表 (第 {page_index} / {total_pages} 页)",
@@ -289,7 +328,8 @@ async def list_resources(
 @partial(syncify, raise_sync_error=False)
 async def upload_resources(
     files: Annotated[List[Path], typer.Argument(help="一个或多个文件路径", callback=check_files_path)],
-    recursion: Annotated[Optional[bool], typer.Option("--recursion", "-r", help="启用此参数以解析文件夹")] = False
+    recursion: Annotated[Optional[bool], typer.Option("--recursion", "-r", help="启用此参数以解析文件夹")] = False,
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     将本地指定文件上传云盘。
@@ -316,7 +356,8 @@ async def upload_resources(
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         TaskProgressColumn(),
-        transient=True   
+        transient=True   ,
+        disable=json
     ) as progress:        
         pre_task = progress.add_task(description="[green]正在载入文件...[/green]", total=len(files))
         
@@ -325,7 +366,11 @@ async def upload_resources(
             if Path.is_dir(file):
                 if not recursion:
                     logger.warning(f"{file} 为文件夹，但是 --recursion未启用")
-                    print(f"{file} 是一个文件夹，但是你没有启用 --recursion，它不会被解包为文件上传！")
+                    if json:
+                        print_with_json(False, f"{file} is a directory, but you do not enable '--recursion', so it will be ignored.")
+                    else:
+                        print(f"{file} 是一个文件夹，但是你没有启用 --recursion，它不会被解包为文件上传！")
+
                     progress.advance(pre_task)
                     continue
 
@@ -344,14 +389,19 @@ async def upload_resources(
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
             HumanReadableTransferColumn(),
-            TimeRemainingColumn()
+            TimeRemainingColumn(),
+            disable=json
         ) as sub_progress:
             cookies = CredentialManager().load_cookies()
             if not cookies:
-                rprint("Cookies不存在！")
+                if json:
+                    print_with_json(False, "Cookies is unacceptable.")
+                else:
+                    rprint("Cookies不存在！")
                 logger.error("Cookies不存在！")
                 raise typer.Exit(code=1)
 
+            results = []
             async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                 files_uploader = zju_api.resourceUploadAPIFits(client.session)
                 
@@ -369,14 +419,33 @@ async def upload_resources(
                         sub_progress.update(task_id, completed=uploaded)
 
                     if await files_uploader.upload(to_upload_file, update_progress):
+                        if json:
+                            results.append({
+                                "file": str(to_upload_file),
+                                "status": "Success"
+                            })
                         success_amount += 1
                         sub_progress.update(upload_task, description=f"[green]√ {sub_progress.tasks[upload_task].description}[/green]", completed=sub_progress.tasks[upload_task].total)
                     else:
+                        if json:
+                            results.append({
+                                "file": str(to_upload_file),
+                                "status": "Failed"
+                            })
                         sub_progress.update(upload_task, description=f"[red]上传失败: {str(to_upload_file)} o(￣ヘ￣o＃)[/red]")
 
                     progress.advance(main_task, advance=1)
-            
-        rprint(f"[green]文件上传完成！[/green]成功上传 {success_amount} 个文件，失败 {total_amount - success_amount} 个文件。")
+
+        if json:
+            final_result = {
+                "total": total_amount,
+                "upload_amount": success_amount,
+                "results": results
+            }    
+
+            print_with_json(True, "Upload Results", final_result)
+        else:
+            rprint(f"[green]文件上传完成！[/green]成功上传 {success_amount} 个文件，失败 {total_amount - success_amount} 个文件。")
     
     return 
     
@@ -412,7 +481,8 @@ async def upload_resources(
 async def remove_resources(
     files_id: Annotated[List[int], typer.Argument(help="需删除文件的id")],
     force: Annotated[Optional[bool], typer.Option("--force", "-f", help="启用 --force 以关闭二次确认")] = False,
-    batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用 --batch 则使用快速批量模式，但此模式存在缺陷，服务端不会对文件id做任何校验，倘若你输入一个不存在的文件id也会返回删除成功")] = False
+    batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用 --batch 则使用快速批量模式，但此模式存在缺陷，服务端不会对文件id做任何校验，倘若你输入一个不存在的文件id也会返回删除成功")] = False,
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     删除学在浙大云盘内的指定文件。
@@ -437,13 +507,18 @@ async def remove_resources(
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         cookies = CredentialManager().load_cookies()
         if not cookies:
-            rprint("Cookies不存在！")
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+            else:
+                rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
+        
         if batch:
             task = progress.add_task(description="删除文件中...", total=1)
 
@@ -453,16 +528,24 @@ async def remove_resources(
             if await file_deleter.batch_delete():
                 progress.advance(task, 1)
                 logger.info("删除成功")
-                rprint(f"删除完成，共删除 {files_id_amount} 个文件")
+                if json:
+                    print_with_json(True, f"Delte {files_id_amount} files")
+                else:
+                    rprint(f"删除完成，共删除 {files_id_amount} 个文件")
                 return 
             
             logger.error("删除失败")
-            rprint("[blod red]删除失败[/blod red]")
+            if json:
+                print_with_json(False, "Delte Failed")
+            else:
+                rprint("[blod red]删除失败[/blod red]")
+
             progress.advance(task, 1)
             raise typer.Exit(code=1)
         
         task = progress.add_task(description="删除文件中...", total=files_id_amount)
         
+        results = []
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             for file_id in files_id:
                 file_deleter = zju_api.resourcesRemoveAPIFits(client.session, resource_id=file_id)
@@ -470,13 +553,33 @@ async def remove_resources(
                 if await file_deleter.delete():
                     progress.advance(task, 1)
                     success_delete_amount += 1
+                    if json:
+                        results.append({
+                            "file_id": file_id,
+                            "status": "Success"
+                        })
                     continue
 
                 logger.error(f"{file_id} 删除失败")
-                rprint(f"{file_id} 删除失败")
+                if json:
+                    results.append({
+                        "file_id": file_id,
+                        "status": "Failed"
+                    })
+                else:
+                    rprint(f"{file_id} 删除失败")
 
         logger.info("删除完成")
-        rprint(f"删除完成，{success_delete_amount} 个文件被成功删除，{files_id_amount - success_delete_amount} 个文件删除失败。")
+        if json:
+            final_result = {
+                "total": files_id_amount,
+                "success": success_delete_amount,
+                "results": results
+            }
+            print_with_json(True, "Delet Results", final_result)
+        else:
+            rprint(f"删除完成，{success_delete_amount} 个文件被成功删除，{files_id_amount - success_delete_amount} 个文件删除失败。")
+        
         return
 
 # 注册资源下载命令
@@ -512,7 +615,8 @@ async def download_resource(
     files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
     basename: Annotated[List[int], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
     dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = None,
-    batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False
+    batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False,
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     下载学在浙大云盘文件，支持对个人云盘与课程资源的下载。
@@ -535,7 +639,8 @@ async def download_resource(
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
-            transient=True   
+            transient=True,
+            disable=json
         ) as progress:
             # 总任务，跟踪总体下载进度
             main_task = progress.add_task(description="[green]正在下载文件中...[/green]", total=files_id_amount)
@@ -544,11 +649,15 @@ async def download_resource(
                 TextColumn("[progress.description]{task.description}"),
                 BarColumn(),
                 HumanReadableTransferColumn(),
-                TimeRemainingColumn()
+                TimeRemainingColumn(),
+                disable=json
             ) as sub_progress:
                 cookies = CredentialManager().load_cookies()
                 if not cookies:
-                    rprint("Cookies不存在！")
+                    if json:
+                        print_with_json(False, "Cookies is unacceptable.")
+                    else:
+                        rprint("Cookies不存在！")
                     logger.error("Cookies不存在！")
                     raise typer.Exit(code=1)
 
@@ -568,10 +677,16 @@ async def download_resource(
                     sub_progress.update(task_id, completed=downloaded)
                 
                 if await resources_downloader.batch_download(progress_callback=update_progress):
-                    rprint("[green]下载成功！")
-                    rprint("[green]下载完成！[/green]")
+                    if json:
+                        print_with_json(True, "Download Successfullly!")
+                    else:
+                        rprint("[green]下载成功！")
+                        rprint("[green]下载完成！[/green]")
                 else:
-                    rprint("[bold red]下载失败!")
+                    if json:
+                        print_with_json(False, "Download Failed!")
+                    else:
+                        rprint("[bold red]下载失败!")
 
                 progress.update(main_task, advance=1)                
 
@@ -598,6 +713,7 @@ async def download_resource(
                 logger.error("Cookies不存在！")
                 raise typer.Exit(code=1)
 
+            results = []
             async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                 for file_id in files_id:
                     resource_downloader = zju_api.resourcesDownloadAPIFits(client.session, output_path=dest, resource_id=file_id, basename=basename)
@@ -615,13 +731,32 @@ async def download_resource(
                         sub_progress.update(task_id, completed=downloaded)
 
                     if await resource_downloader.download(progress_callback=update_progress):
+                        if json:
+                            results.append({
+                                "id": file_id,
+                                "status": "Success"
+                            })
                         success_amount += 1
                         sub_progress.update(download_task, description=f"[green]√ {sub_progress.tasks[download_task].description}", completed=sub_progress.tasks[download_task].total)
                     else:
+                        if json:
+                            results.append({
+                                "id": file_id,
+                                "status": "Failed"
+                            })
                         sub_progress.update(download_task, description=f"[red]下载失败: {file_id} o(￣ヘ￣o＃)[/red]")
 
                     progress.update(main_task, advance=1)
 
-        rprint(f"[green]下载完成！[/green]成功下载 {success_amount} 个文件，失败 {files_id_amount - success_amount} 个文件。")
-        rprint(f"[cyan]下载路径: [/cyan]{dest}")
-        return
+            if json:
+                final_result = {
+                    "total": files_id_amount,
+                    "success": success_amount,
+                    "results": results
+                }
+
+                print_with_json(True, "Download Results", final_result)
+            else:
+                rprint(f"[green]下载完成！[/green]成功下载 {success_amount} 个文件，失败 {files_id_amount - success_amount} 个文件。")
+                rprint(f"[cyan]下载路径: [/cyan]{dest}")
+            return

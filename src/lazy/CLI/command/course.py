@@ -1,5 +1,6 @@
 import logging
 from functools import partial
+import math
 from textwrap import dedent
 from typing import List, Optional, Tuple
 
@@ -933,7 +934,8 @@ async def view_coursewares(
     page_size: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示课件数量")] = 10,
     short: Annotated[Optional[bool], typer.Option("--short", "-s", help="启用此选项，简化输出，仅显示文件名与文件ID")] = False,
     quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="启用此选项，仅输出文件ID")] = False,
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，输出所有结果")] = False
+    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，输出所有结果")] = False,
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     查看课程资源与课件，并按条件筛选。
@@ -944,11 +946,15 @@ async def view_coursewares(
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         cookies = CredentialManager().load_cookies()
         if not cookies:
-            rprint("Cookies不存在！")
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+            else:
+                rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
 
@@ -960,7 +966,11 @@ async def view_coursewares(
             total_syllabuses = pre_raw_coursewares.get("total", 0)
             
             if total_syllabuses == 0:
-                rprint("当前还没有课件哦~\\( ^ ω ^ )/")
+                if json:
+                    print_with_json(True, "Not Found Coursewares")
+                else:
+                    rprint("当前还没有课件哦~\\( ^ ω ^ )/")
+                
                 return
 
             # 一次性拉取所有章节
@@ -975,10 +985,17 @@ async def view_coursewares(
             coursewares_uploads.extend(courseware.get("uploads", []))
 
         total: int = len(coursewares_uploads)
-        pages: int = int(total / page_size) + 1
+        if all:
+            page_size = total
+
+        pages: int = math.ceil(total / page_size)
 
         if page > pages:
-            rprint(f"当前仅有 {pages} 页，你都索引到 {page} 页啦！[○･｀Д´･ ○]")
+            if json:
+                print_with_json(False, f"Index Exceeded! Index page {page} of {total}")
+            else:
+                rprint(f"当前仅有 {pages} 页，你都索引到 {page} 页啦！[○･｀Д´･ ○]")
+            
             raise typer.Exit(code=1)
         
         start_index = (page - 1) * page_size
@@ -988,8 +1005,40 @@ async def view_coursewares(
 
         if quiet:
             courseware_ids = [str(courseware_upload.get("id", "null")) for courseware_upload in coursewares_uploads_shown]
-            print(" ".join(courseware_ids))
+            if json:
+                print_with_json(True, "Courses List", courseware_ids)
+            else:
+                print(" ".join(courseware_ids))
+            
             return
+
+        # --- JSON FORMAT HEAD ---
+        if json:
+            results = []
+            for courseware_upload in coursewares_uploads_shown:
+                courseware_id          = str(courseware_upload.get("id", "null"))
+                courseware_name        = courseware_upload.get("name", "null")
+                if short:
+                    results.append({
+                        "id": courseware_id,
+                        "name": courseware_name
+                    })
+
+                    continue
+                
+                courseware_size        = filesize.decimal(courseware_upload.get("size", 0))
+                courseware_update_time = transform_time(courseware_upload.get("updated_at", "1900-01-01T00:00:00Z"))
+
+                results.append({
+                    "id": courseware_id,
+                    "name": courseware_name,
+                    "size": courseware_size,
+                    "update_time": courseware_update_time
+                })
+
+            print_with_json(True, "Coursewares View", results)
+            return
+        # --- JSON FORMAT END ---
 
         # --- 准备表格 ---
         coursewares_table = Table(
@@ -1073,7 +1122,8 @@ async def view_coursewares(
 async def view_members(
     course_id: Annotated[int, typer.Argument(help="课程ID")],
     instructor: Annotated[Optional[bool], typer.Option("--instructor", "-I", help="启用此选项，只输出教师")] = False,
-    student: Annotated[Optional[bool], typer.Option("--student", "-S", help="启用此选项，只输出学生")] = False
+    student: Annotated[Optional[bool], typer.Option("--student", "-S", help="启用此选项，只输出学生")] = False,
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     查看课程教师与学生，并按条件筛选。
@@ -1087,13 +1137,18 @@ async def view_members(
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         cookies = CredentialManager().load_cookies()
         if not cookies:
-            rprint("Cookies不存在！")
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+            else:
+                rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
+        
         task = progress.add_task(description="请求数据中...", total=2)
 
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
@@ -1103,7 +1158,10 @@ async def view_members(
         course_enrollments = raw_course_enrollments.get("enrollments")
 
         if not course_enrollments:
-            rprint("[red]∑(✘Д✘๑ )呀，没有结果呢~[/red]")
+            if json:
+                print_with_json(True, "Not Found")
+            else:
+                rprint("[red]∑(✘Д✘๑ )呀，没有结果呢~[/red]")
             return 
 
         instructor_course_enrollments = []
@@ -1118,16 +1176,37 @@ async def view_members(
             student_course_enrollments    = [enrollment.get("user").get("name") for enrollment in course_enrollments if enrollment.get("roles")[0] == "student"]
 
         if not instructor_course_enrollments and not student_course_enrollments:
-            rprint("[red]∑(✘Д✘๑ )呀，没有结果呢~[/red]")
-            return 
+            if json:
+                print_with_json(True, "No member chosen")
+            else:
+                rprint("[red]∑(✘Д✘๑ )呀，没有结果呢~[/red]")
             
+            return 
+        
+        if json:
+            result = {}
+
+            if instructor_course_enrollments:
+                result.update({
+                    "instructor": instructor_course_enrollments
+                })
+
+            if student_course_enrollments:
+                result.update({
+                    "student": student_course_enrollments
+                })
+
+            print_with_json(True, "Members View", result)
+        
+            return 
+        
         if instructor_course_enrollments:
-            rprint(f"[cyan]教师: [/cyan]{', '.join(instructor_course_enrollments)}")
+                rprint(f"[cyan]教师: [/cyan]{', '.join(instructor_course_enrollments)}")
         
         if student_course_enrollments:
             rprint(f"[cyan]学生: [/cyan]{', '.join(student_course_enrollments)}")
         
-        progress.update(task, description="渲染完成x    ...", advance=1)
+        progress.update(task, description="渲染完成", advance=1)
 
 @view_app.command(
     "rc",
@@ -1176,25 +1255,27 @@ async def view_rollcalls(
     amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示点名记录的数量")] = 10,
     page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="点名记录页面索引")] = 1,
     all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False,
-    summary: Annotated[Optional[bool], typer.Option("--summary", "-S", help="启用此选项，统计点名情况")] = False
+    summary: Annotated[Optional[bool], typer.Option("--summary", "-S", help="启用此选项，统计点名情况")] = False,
+    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
 ):
     student_id = keyring.get_password(KEYRING_SERVICE_NAME, KEYRING_LAZ_STUDENTID_NAME)
     rollcall_type_map = {
         "radar": "雷达点名",
         "number": "数字点名"
     }
-    
-    if summary:
-        pass
 
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
-        transient=True
+        transient=True,
+        disable=json
     ) as progress:
         cookies = CredentialManager().load_cookies()
         if not cookies:
-            rprint("Cookies不存在！")
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+            else:
+                rprint("Cookies不存在！")
             logger.error("Cookies不存在！")
             raise typer.Exit(code=1)
         
@@ -1208,7 +1289,11 @@ async def view_rollcalls(
         course_rollcalls: List[dict] = raw_course_rollcalls.get("rollcalls")
 
         if not course_rollcalls:
-            rprint("暂无点名记录哦~")
+            if json:
+                print_with_json(True, "Not Found Rollcalls history")
+            else:
+                rprint("暂无点名记录哦~")
+            
             return 
 
         total_rollcalls_amount = len(course_rollcalls)
@@ -1220,7 +1305,18 @@ async def view_rollcalls(
                 if rollcall.get("status") == "on_call_fine":
                     on_call_rollcalls_amount += 1
 
-            rprint(f"签到情况: 共 {total_rollcalls_amount} 次签到，[green]{on_call_rollcalls_amount}[/green] 次已到，[red]{total_rollcalls_amount - on_call_rollcalls_amount}[/red] 次未到")
+            if json:
+                print_with_json(
+                    True, 
+                    "Rollcalls Summary",
+                    {
+                        "total": total_rollcalls_amount,
+                        "on_call": on_call_rollcalls_amount
+                    }
+                )
+            else:
+                rprint(f"签到情况: 共 {total_rollcalls_amount} 次签到，[green]{on_call_rollcalls_amount}[/green] 次已到，[red]{total_rollcalls_amount - on_call_rollcalls_amount}[/red] 次未到")
+            
             return
 
         shown_amount = total_rollcalls_amount if all else amount
@@ -1229,13 +1325,44 @@ async def view_rollcalls(
         offset = (page_index - 1) * shown_amount
 
         if page_index > total_pages:
-            print(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
+            if json:
+                print_with_json(False, f"Index Exceeded! Index page {page_index} of {total_pages}")
+            else:
+                rprint(f"页面索引超限！共 {total_pages} 页，你都索引到第 {page_index} 页啦！")
+            
             raise typer.Exit(code=1)
 
         if 0 < amount < total_rollcalls_amount:
             course_rollcalls_shown = course_rollcalls[offset: offset + amount]
         else:
             course_rollcalls_shown = course_rollcalls
+
+        # --- JSON FORMAT HEAD ---
+        if json:
+            results = []
+            for rollcall in course_rollcalls_shown:
+                rollcall_id = str(rollcall.get("rollcall_id", 0))
+                rollcall_time = transform_time(rollcall.get("rollcall_time"))
+                rollcall_type = rollcall_type_map.get(rollcall.get("source"), "None")
+
+                if rollcall.get("status") == "on_call_fine":
+                    rollcall_status_text = "Signed in"
+                else:
+                    if rollcall.get("rollcall_status") == "finished":   
+                        rollcall_status_text = "No sign-in"
+                    else:
+                        rollcall_status_text = "In progress"
+
+                results.append({
+                    "id": rollcall_id,
+                    "time": rollcall_time,
+                    "type": rollcall_type,
+                    "status": rollcall_status_text
+                })
+
+            print_with_json(True, "Rollcalls View", results)
+            return 
+        # --- JSON FORMAT END ---
 
         rollcalls_table = Table(
             title=f"课程点名记录 (第 {page_index} / {total_pages})",

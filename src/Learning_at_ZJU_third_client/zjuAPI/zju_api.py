@@ -10,7 +10,7 @@ import logging
 from httpx import ConnectTimeout, HTTPError
 from pathlib import Path
 from datetime import datetime
-from urllib.parse import unquote
+from urllib.parse import unquote, parse_qs
 from httpx import HTTPStatusError
 from typing_extensions import List, Optional, Callable
 
@@ -197,7 +197,8 @@ class APIFits:
                 return True
             
             if isinstance(value, dict):
-                return self.check_api_method(value, method)
+                if self.check_api_method(value, method):
+                    return True
             
         return False
 
@@ -233,6 +234,7 @@ class APIFitsAsync:
 
         tasks = []
         api_urls = []
+        requested_api_names = []
         for api_name in self.apis_name:
             api_config: dict = self.apis_config.get(api_name, None)
             if api_config == None:
@@ -248,12 +250,13 @@ class APIFitsAsync:
 
             tasks.append(self.login_session.get(url=api_url, params=api_params, follow_redirects=True))
             api_urls.append(api_url)
+            requested_api_names.append(api_name)
 
         logger.info(f"开始请求API: {', '.join(api_urls)}")
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         results_json = []
-        for api_response in responses:
+        for api_name, api_response in zip(requested_api_names, responses):
             if isinstance(api_response, Exception):
                 logger.error(f"请求时发生错误: {api_response}")
                 results_json.append({})
@@ -267,7 +270,7 @@ class APIFitsAsync:
                 results_json.append({})
                 continue
             except ConnectTimeout as e:
-                logger.error(f"请求{api_url}超时！{e}")
+                logger.error(f"请求{api_response.url}超时！{e}")
                 results_json.append({})
                 continue
 
@@ -307,6 +310,7 @@ class APIFitsAsync:
             api_urls.append(api_url)
 
         logger.info(f"请求 {', '.join(api_urls)}")
+        responses = []
         try:
             responses = await asyncio.gather(*tasks, return_exceptions=True)
         except Exception as e:
@@ -387,7 +391,8 @@ class APIFitsAsync:
                 return True
             
             if isinstance(value, dict):
-                return self.check_api_method(value, method)
+                if self.check_api_method(value, method):
+                    return True
             
         return False
 
@@ -899,7 +904,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             self._load_api_config()
 
         if not self.output_path.exists():
-            Path(self.output_path).mkdir()
+            Path(self.output_path).mkdir(parents=True, exist_ok=True)
 
         if not self.output_path.is_dir():
             logger.error(f"{self.output_path} 不是一个文件夹路径！")
@@ -913,7 +918,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         api_url = self._make_api_url(api_config, api_name)
         if not api_url:
             logger.error(f"{api_name}的{api_url}不存在！")
-            return 
+            return False
 
         try:
             # 鉴于启用 stream 模式，使用上下文管理器来管理 TCP 连接
@@ -992,7 +997,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             self._load_api_config()
 
         if not self.output_path.exists():
-            Path(self.output_path).mkdir()
+            Path(self.output_path).mkdir(parents=True, exist_ok=True)
 
         if not self.output_path.is_dir():
             logger.error(f"{self.output_path} 不是一个文件夹路径！")
@@ -1015,7 +1020,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             logger.error(f"{api_name}缺少 params 参数！")
 
         try:
-            async with self.login_session.stream("GET", api_url, timeout=20, follow_redirects=True) as response:
+            async with self.login_session.stream("GET", api_url, params=api_params, timeout=20, follow_redirects=True) as response:
                 response.raise_for_status()
 
                 # 获取文件名
@@ -1027,11 +1032,13 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                         filename = fn_match.group(1).strip('"')
                         filename = unquote(filename)
 
-                if not filename and 'name=' in response.url:
-                    filename = unquote(response.url.split("name=")[-1])
+                if not filename:
+                    query_name = parse_qs(response.url.query.decode("utf-8")).get("name", [])
+                    if query_name:
+                        filename = unquote(query_name[-1])
 
-                if not filename and 'name=' not in response.url:
-                    filename = unquote(response.url.split('/')[-1])
+                if not filename:
+                    filename = unquote(str(response.url.path).split('/')[-1])
 
                 if not filename:
                     filename = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -1051,7 +1058,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                 
                 # 分块读取
                 async with aiofiles.open(file_path, 'wb') as f:
-                    async for chunk in response.iter_bytes(chunk_size=8192):
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
                         if chunk:
                             await f.write(chunk)
                             download_size += len(chunk)
@@ -1083,7 +1090,7 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
                  resource_id: int|None = None, 
                  resources_id: List[int]|None = None
                  ):
-        super().__init__(login_session)
+        super().__init__(login_session, apis_name)
         self.resource_id = resource_id
         self.resources_id = resources_id
 
@@ -1222,7 +1229,8 @@ class resourceUploadAPIFits(resourcesAPIFits):
         upload_data    = self._make_api_data(api_config, api_name)
 
         logger.info(f"请求上传文件 {self.file_name} 中...")
-        progress_callback(0, self.file_size, self.file_name)
+        if progress_callback:
+            progress_callback(0, self.file_size, self.file_name)
 
         # --- 申请阶段 ---
         # POST文件上传请求，以获得文件上传的实际位置
@@ -1233,7 +1241,7 @@ class resourceUploadAPIFits(resourcesAPIFits):
                 headers = self.upload_headers,
                 follow_redirects=True
             )
-            
+            upload_response.raise_for_status()
         except Exception as e:
             logger.error(f"向服务器申请上传文件 {self.file_name} 时候发生错误！{e}")
             return False
@@ -1244,20 +1252,21 @@ class resourceUploadAPIFits(resourcesAPIFits):
         # --- 上传阶段 ---
         upload_url    = upload_response.json().get("upload_url")
         file_mimetype = mimetypes.guess_type(self.file_path)[0] or 'application/octet-stream'
+        if not upload_url:
+            logger.error(f"向服务器申请上传文件 {self.file_name} 失败：缺失 upload_url")
+            return False
 
         try:
             with open(self.file_path, 'rb') as f:
-                # # 适配上层需求文件名
-                # def sub_progress_callback(uploaded: int, total: int):
-                #     progress_callback(uploaded, total, self.file_name)
-               
-                # 包装文件
-                # uploader = fileUploadProgressWrapper(f, sub_progress_callback)
-                file_bytes = f.read()
+                def sub_progress_callback(uploaded: int, total: int):
+                    if progress_callback:
+                        progress_callback(uploaded, total, self.file_name)
+
+                uploader = fileUploadProgressWrapper(f, sub_progress_callback)
 
                 # 构建payload
                 file_payload = {
-                    "file": (self.file_name, file_bytes, file_mimetype)
+                    "file": (self.file_name, uploader, file_mimetype)
                 }
 
                 response = await self.login_session.put(
@@ -1271,7 +1280,8 @@ class resourceUploadAPIFits(resourcesAPIFits):
             logger.error(f"向服务器上传文件 {self.file_name} 时候发生错误！{e}")
             return False
         
-        progress_callback(self.file_size, self.file_size, self.file_name)
+        if progress_callback:
+            progress_callback(self.file_size, self.file_size, self.file_name)
         logger.info(f"文件 {self.file_name} 上传成功！")
         return True
 

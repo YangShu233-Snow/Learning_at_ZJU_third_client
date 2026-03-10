@@ -127,8 +127,9 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
             result.append((module.get("id"), module))
 
     if last:
-        if modules[-1] not in result:
-            result.append((modules[-1].get("id"), modules[-1]))
+        last_module = modules[-1]
+        if all(module_item.get("id") != last_module.get("id") for _, module_item in result):
+            result.append((last_module.get("id"), last_module))
 
     return result
 
@@ -444,6 +445,7 @@ async def view_syllabus(
         if modules_id or indices or last:
             for index, (module, activities_list, exams_list, classrooms_list) in enumerate(course_modules_node_list):
                 module_name = module.get("name", "null")
+                module_id = module.get("id", "null")
                 module_tree = course_tree.add(f"[green]{module_name}[/green][dim] 章节ID: {module_id}[/dim]")
                 type_map = {
                     "material": "资料",

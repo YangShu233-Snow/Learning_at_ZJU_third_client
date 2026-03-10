@@ -127,7 +127,7 @@ class ZjuAsyncClient:
         else:
             logger.info(f"全局代理关闭")
 
-        self.session = httpx.AsyncClient(trust_env=trust_env)
+        self.session = httpx.AsyncClient(trust_env=trust_env, timeout=20.0)
 
         if headers is None:
             headers = {

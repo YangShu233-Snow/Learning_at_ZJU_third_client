@@ -319,7 +319,7 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
                 submission_score = submission.get("score") if submission.get("score") else "未公布"
 
                 if submission_submitted_time:
-                    submission_submitted_time = datetime.fromisoformat(exam_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+                    submission_submitted_time = datetime.fromisoformat(submission_submitted_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
                 else:
                     submission_submitted_time = "null"
 
@@ -357,7 +357,7 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool):
         if preview:
             exam_subjects_renderables = []
             
-            if not raw_exam_distribute and not raw_exam_submission_subjects.get("subjects_data"):
+            if not raw_exam_distribute and not (raw_exam_submission_subjects and raw_exam_submission_subjects.get("subjects_data")):
                 preview_error_text = Text.assemble(
                     (f"(╥╯^╰╥) 预览失效了……", "red"),
                     "\n",

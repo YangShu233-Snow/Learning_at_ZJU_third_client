@@ -96,20 +96,17 @@ async def check(
     """
     开发者网址测试检查工具，检验网页返回。
     """
-    temp_client = ZjuAsyncClient(trust_env=state.trust_env)
-    cookies = temp_client.load_cookies()
+    cookies = CredentialManager().load_cookies()
 
-    client = ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env)
-    session = client.session
-
-    try:
-        response = await session.get(url)
-        response.raise_for_status()
-    except Exception as e:
-        rprint(f"{e}")
-    else:
-        rprint(response.status_code)
-        rprint(response.text)
+    async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
+        try:
+            response = await client.session.get(url)
+            response.raise_for_status()
+        except Exception as e:
+            rprint(f"{e}")
+        else:
+            rprint(response.status_code)
+            rprint(response.text)
 
 # --- 手动登录 --- 
 @app.command()

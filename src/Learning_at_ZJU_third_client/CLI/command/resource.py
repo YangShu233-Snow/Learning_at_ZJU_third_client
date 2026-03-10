@@ -60,7 +60,7 @@ def is_list_resoureces_file_type_valid(file_type: str):
     raise typer.Exit(code=1)
 
 def is_download_dest_dir(dest: Path):
-    if dest == Path().home() / "Downloads" and not dest.exists:
+    if dest == Path().home() / "Downloads" and not dest.exists():
         Path(dest).mkdir()
 
     if not dest.exists():
@@ -174,7 +174,7 @@ async def list_resources(
             # 如果启用--all，则先获取文件资源总数
             if all:
                 pre_results = (await zju_api.resourcesListAPIFits(client.session, keyword, 1, 1, file_type).get_api_data(False))[0]
-                amount = pre_results.get("pages", 1)
+                amount = pre_results.get("total", 0)
                 page_index = 1
 
             results = (await zju_api.resourcesListAPIFits(client.session, keyword, page_index, amount, file_type).get_api_data(False))[0]
@@ -439,17 +439,16 @@ async def remove_resources(
 
             async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                 file_deleter = zju_api.resourcesRemoveAPIFits(client.session, resources_id=files_id)
-            
-            if await file_deleter.batch_delete():
+                if await file_deleter.batch_delete():
+                    progress.advance(task, 1)
+                    logger.info("删除成功")
+                    rprint(f"删除完成，共删除 {files_id_amount} 个文件")
+                    return 
+                
+                logger.error(f"删除失败")
+                rprint(f"[blod red]删除失败[/blod red]")
                 progress.advance(task, 1)
-                logger.info("删除成功")
-                rprint(f"删除完成，共删除 {files_id_amount} 个文件")
-                return 
-            
-            logger.error(f"删除失败")
-            rprint(f"[blod red]删除失败[/blod red]")
-            progress.advance(task, 1)
-            raise typer.Exit(code=1)
+                raise typer.Exit(code=1)
         
         task = progress.add_task(description="删除文件中...", total=files_id_amount)
         
@@ -500,7 +499,7 @@ async def remove_resources(
 @partial(syncify, raise_sync_error=False)
 async def download_resource(
     files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
-    basename: Annotated[List[int], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
+    basename: Annotated[Optional[str], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
     dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = Path().home() / "Downloads",
     batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False
 ):
@@ -541,26 +540,25 @@ async def download_resource(
 
                 async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                     resources_downloader = zju_api.resourcesDownloadAPIFits(client.session, output_path=dest, resources_id=files_id, basename=basename)
-                
-                # 子任务，跟踪文件下载进度
-                download_task = sub_progress.add_task(description=f"下载文件中...", start=False)
-                
-                # 创建回调函数
-                def update_progress(downloaded: int, total_size: int, filename: int, task_id: int = download_task):
-                    # 首次回调，更新文件名和文件大小
-                    if not sub_progress.tasks[task_id].started:
-                        sub_progress.start_task(task_id)
-                        sub_progress.update(task_id, description=f"[cyan]下载: {filename}", total=total_size)
+                    # 子任务，跟踪文件下载进度
+                    download_task = sub_progress.add_task(description=f"下载文件中...", start=False)
+                    
+                    # 创建回调函数
+                    def update_progress(downloaded: int, total_size: int, filename: int, task_id: int = download_task):
+                        # 首次回调，更新文件名和文件大小
+                        if not sub_progress.tasks[task_id].started:
+                            sub_progress.start_task(task_id)
+                            sub_progress.update(task_id, description=f"[cyan]下载: {filename}", total=total_size)
 
-                    sub_progress.update(task_id, completed=downloaded)
-                
-                if await resources_downloader.batch_download(progress_callback=update_progress):
-                    rprint(f"[green]下载成功！")
-                    rprint(f"[green]下载完成！[/green]")
-                else:
-                    rprint(f"[bold red]下载失败!")
+                        sub_progress.update(task_id, completed=downloaded)
+                    
+                    if await resources_downloader.batch_download(progress_callback=update_progress):
+                        rprint(f"[green]下载成功！")
+                        rprint(f"[green]下载完成！[/green]")
+                    else:
+                        rprint(f"[bold red]下载失败!")
 
-                progress.update(main_task, advance=1)                
+                    progress.update(main_task, advance=1)                
 
             return
 

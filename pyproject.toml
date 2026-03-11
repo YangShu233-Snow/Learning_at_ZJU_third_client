@@ -10,7 +10,6 @@ authors = [
 # readme = "README.md"  # 如果你有README文件的话
 requires-python = ">=3.10"
 license = { text = "LGPLv3.0" }
-requires-python = ">=3.8"
 
 dependencies = [
     "typer>=0.9.0",

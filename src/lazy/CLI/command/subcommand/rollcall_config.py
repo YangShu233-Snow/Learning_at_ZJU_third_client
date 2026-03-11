@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 
@@ -47,7 +47,7 @@ def add_config(
     name: Annotated[str, typer.Option("--name", "-n", help="配置项名称")],
     latitude: Annotated[float, typer.Option("--latitude", "-L", help="纬度", callback=is_latitude_valid)],
     longtitude: Annotated[float, typer.Option("--longtitude", "-l", help="经度", callback=is_longtitude_valid)],
-    force: Annotated[Optional[bool], typer.Option("--force", "-f", help="启用此选项，强制替换对应配置项")] = False
+    force: Annotated[bool | None, typer.Option("--force", "-f", help="启用此选项，强制替换对应配置项")] = False
 ):
     """
     添加配置项，配置项的名称不可重复，重复名称的新配置项会覆盖旧配置项
@@ -69,7 +69,7 @@ def add_config(
 @app.command("remove")
 def remove_config(
     name: Annotated[str, typer.Argument(help="配置项名称")],
-    force: Annotated[Optional[bool], typer.Option("--force", "-f", help="启用此选项，跳过二次确认")] = False
+    force: Annotated[bool | None, typer.Option("--force", "-f", help="启用此选项，跳过二次确认")] = False
 ):
     """
     删除配置项
@@ -105,7 +105,7 @@ def remove_config(
 
 @app.command("init")
 def init_config(
-    force: Annotated[Optional[bool], typer.Option("--force", "-f", help="强制初始化配置文件，跳过二次确认")] = False
+    force: Annotated[bool | None, typer.Option("--force", "-f", help="强制初始化配置文件，跳过二次确认")] = False
 ):
     """
     初始化签到配置文件，第一次使用签到命令，或者签到配置文件出现损坏时候调用。

@@ -2,7 +2,7 @@ import logging
 from functools import partial
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Optional
+from typing import Annotated
 
 import typer
 from asyncer import syncify
@@ -20,7 +20,6 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from rich.table import Table
-from typing_extensions import Annotated
 
 from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
@@ -71,7 +70,7 @@ def is_list_resoureces_file_type_valid(file_type: str):
     raise typer.Exit(code=1)
 
 def is_download_dest_dir(dest: Path):
-    if dest == Path().home() / "Downloads" and not dest.exists:
+    if dest == Path().home() / "Downloads" and not dest.exists():
         Path(dest).mkdir()
 
     if not dest.exists():
@@ -87,7 +86,7 @@ def is_download_dest_dir(dest: Path):
     return dest
 
 # 修整并检查文件路径
-def check_files_path(files: List[Path])->List[Path]:
+def check_files_path(files: list[Path])->list[Path]:
     new_files_path = []
     for file in files:
         new_file_path = file.expanduser().resolve()
@@ -99,7 +98,7 @@ def check_files_path(files: List[Path])->List[Path]:
     return new_files_path
 
 # 解包文件夹及其嵌套
-def to_upload_dir_walker(dir: Path)->List[Path]:
+def to_upload_dir_walker(dir: Path)->list[Path]:
     to_upload_files = []
 
     for file in dir.glob("*"):
@@ -145,14 +144,14 @@ def to_upload_dir_walker(dir: Path)->List[Path]:
         """))
 @partial(syncify, raise_sync_error=False)
 async def list_resources(
-    keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="文件名称")] = "",
-    amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示文件的数量")] = 10,
-    page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="云盘文件页面索引")] = 1,
-    file_type: Annotated[Optional[str], typer.Option("--type", "-t", help="文件类型", callback=is_list_resoureces_file_type_valid)] = None,
-    short: Annotated[Optional[bool], typer.Option("--short", "-s", help="简化输出内容，仅显示文件名与文件id")] = False,
-    quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="仅输出文件id")] = False,
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False,
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
+    keyword: Annotated[str | None, typer.Option("--name", "-n", help="文件名称")] = "",
+    amount: Annotated[int | None, typer.Option("--amount", "-a", help="显示文件的数量")] = 10,
+    page_index: Annotated[int | None, typer.Option("--page", "-p", help="云盘文件页面索引")] = 1,
+    file_type: Annotated[str | None, typer.Option("--type", "-t", help="文件类型", callback=is_list_resoureces_file_type_valid)] = None,
+    short: Annotated[bool | None, typer.Option("--short", "-s", help="简化输出内容，仅显示文件名与文件id")] = False,
+    quiet: Annotated[bool | None, typer.Option("--quiet", "-q", help="仅输出文件id")] = False,
+    all: Annotated[bool | None, typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False,
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
     ):
     """
     列举学在浙大云盘内的文件资源，并通过指定条件进行筛选。
@@ -182,7 +181,7 @@ async def list_resources(
             # 如果启用--all，则先获取文件资源总数
             if all:
                 pre_results = (await zju_api.resourcesListAPIFits(client.session, keyword, 1, 1, file_type).get_api_data(False))[0]
-                amount = pre_results.get("pages", 1)
+                amount = pre_results.get("total", 0)
                 page_index = 1
 
             results = (await zju_api.resourcesListAPIFits(client.session, keyword, page_index, amount, file_type).get_api_data(False))[0]
@@ -327,9 +326,9 @@ async def list_resources(
         no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def upload_resources(
-    files: Annotated[List[Path], typer.Argument(help="一个或多个文件路径", callback=check_files_path)],
-    recursion: Annotated[Optional[bool], typer.Option("--recursion", "-r", help="启用此参数以解析文件夹")] = False,
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
+    files: Annotated[list[Path], typer.Argument(help="一个或多个文件路径", callback=check_files_path)],
+    recursion: Annotated[bool | None, typer.Option("--recursion", "-r", help="启用此参数以解析文件夹")] = False,
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     将本地指定文件上传云盘。
@@ -349,7 +348,7 @@ async def upload_resources(
 
     不属于其他类的文件格式的文件单文件大小限制在3GB以内，其他类文件格式的文件单文件大小限制在2GB以内，超出限定大小的文件将被自动忽略。
     """
-    to_upload_files: List[Path] = []
+    to_upload_files: list[Path] = []
 
     # 创建进度提示，开始载入并上传文件
     with Progress(
@@ -479,10 +478,10 @@ async def upload_resources(
         no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def remove_resources(
-    files_id: Annotated[List[int], typer.Argument(help="需删除文件的id")],
-    force: Annotated[Optional[bool], typer.Option("--force", "-f", help="启用 --force 以关闭二次确认")] = False,
-    batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用 --batch 则使用快速批量模式，但此模式存在缺陷，服务端不会对文件id做任何校验，倘若你输入一个不存在的文件id也会返回删除成功")] = False,
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
+    files_id: Annotated[list[int], typer.Argument(help="需删除文件的id")],
+    force: Annotated[bool | None, typer.Option("--force", "-f", help="启用 --force 以关闭二次确认")] = False,
+    batch: Annotated[bool | None, typer.Option("--batch", "-b", help="启用 --batch 则使用快速批量模式，但此模式存在缺陷，服务端不会对文件id做任何校验，倘若你输入一个不存在的文件id也会返回删除成功")] = False,
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     删除学在浙大云盘内的指定文件。
@@ -612,11 +611,11 @@ async def remove_resources(
         no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def download_resource(
-    files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
-    basename: Annotated[List[int], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
-    dest: Annotated[Optional[Path], typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = None,
-    batch: Annotated[Optional[bool], typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False,
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
+    files_id: Annotated[list[int], typer.Argument(help="需下载文件的id")],
+    basename: Annotated[list[int], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
+    dest: Annotated[Path | None, typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = None,
+    batch: Annotated[bool | None, typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False,
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     下载学在浙大云盘文件，支持对个人云盘与课程资源的下载。
@@ -688,7 +687,7 @@ async def download_resource(
                     else:
                         rprint("[bold red]下载失败!")
 
-                progress.update(main_task, advance=1)                
+                    progress.update(main_task, advance=1)                
 
             return
 

@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 from functools import partial
 from textwrap import dedent
-from typing import List, Optional, Tuple
+from typing import Annotated
 
 import keyring
 import typer
@@ -20,7 +20,6 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
-from typing_extensions import Annotated
 
 from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
@@ -60,7 +59,7 @@ def extract_comment(raw_content: str|None)->str:
     doc: HtmlElement = html.fromstring(raw_content)
     return doc.text_content()
 
-def extract_uploads_json(uploads_list: List[dict])->List[dict]:
+def extract_uploads_json(uploads_list: list[dict])->list[dict]:
     uploads = []
 
     for upload in uploads_list:
@@ -76,7 +75,7 @@ def extract_uploads_json(uploads_list: List[dict])->List[dict]:
 
     return uploads
 
-def extract_uploads(uploads_list: List[dict])->List[Table]:
+def extract_uploads(uploads_list: list[dict])->list[Table]:
     content_renderables = []
     content_renderables.append("[cyan]附件: [/cyan]")
 
@@ -98,7 +97,7 @@ def extract_uploads(uploads_list: List[dict])->List[Table]:
 
     return content_renderables
 
-def extract_subjects_json(subjects: List[dict], subject_type_map: dict)->List[dict]|None:
+def extract_subjects_json(subjects: list[dict], subject_type_map: dict)->list[dict]|None:
     subjects_list = []
     
     if not subjects:
@@ -109,11 +108,11 @@ def extract_subjects_json(subjects: List[dict], subject_type_map: dict)->List[di
         subject_description: str = subject.get("description")
         subject_point: int = subject.get("point", 0)
         subject_type: str = subject_type_map.get(subject.get("type"), subject.get("type"))
-        subject_options: List[str] = []
-        subject_answers: List[str] = []
+        subject_options: list[str] = []
+        subject_answers: list[str] = []
 
         if subject_type == "填空":
-            answers: List[dict] = subject.get("correct_answers", [])
+            answers: list[dict] = subject.get("correct_answers", [])
             for answer in answers:
                 answer_content = answer.get("content")
                 subject_answers.append(f"{answer_content}")
@@ -143,7 +142,7 @@ def extract_subjects_json(subjects: List[dict], subject_type_map: dict)->List[di
 
     return subjects_list
 
-def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Padding|str]:
+def extract_subjects(subjects: list[dict], subject_type_map: dict)->list[Text|Padding|str]:
     content_renderables = []
     if not subjects:
         return ""
@@ -152,11 +151,11 @@ def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Pa
         subject_description: str = extract_comment(subject.get("description"))
         subject_point: int = subject.get("point", 0)
         subject_type: str = subject_type_map.get(subject.get("type"), subject.get("type"))
-        subject_options: List[str] = []
-        subject_answers: List[str] = []
+        subject_options: list[str] = []
+        subject_answers: list[str] = []
 
         if subject_type == "填空":
-            answers: List[dict] = subject.get("correct_answers", [])
+            answers: list[dict] = subject.get("correct_answers", [])
             for answer in answers:
                 answer_content = answer.get("content")
                 subject_answers.append(f"{answer_content}")
@@ -203,7 +202,7 @@ def extract_subjects(subjects: List[dict], subject_type_map: dict)->List[Text|Pa
 
     return content_renderables
 
-def parse_files_id(files_id: str)->List[int]:
+def parse_files_id(files_id: str)->list[int]:
     if not files_id:
         return []
 
@@ -221,7 +220,7 @@ def parse_files_id(files_id: str)->List[int]:
     
     return list(set(files_id_list))
 
-async def guess_assignment_type(assignment_id: int, json: bool)->Tuple[bool, bool, bool]:
+async def guess_assignment_type(assignment_id: int, json: bool)->tuple[bool, bool, bool]:
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -332,9 +331,9 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
                     preview_content = "Preview Failed."
                 else:
                     if raw_exam_distribute:
-                        exam_subjects: List[dict] = raw_exam_distribute.get("subjects", [])
+                        exam_subjects: list[dict] = raw_exam_distribute.get("subjects", [])
                     else:
-                        exam_subjects: List[dict] = raw_exam_submission_subjects.get("subjects_data").get("subjects")
+                        exam_subjects: list[dict] = raw_exam_submission_subjects.get("subjects_data").get("subjects")
                     
                     subject_type_map = {
                         "single_selection": "单选",
@@ -353,7 +352,7 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
                     exam_final_score: int|str = raw_exam_submission_list.get("exam_score") if raw_exam_submission_list.get("exam_score") else "null"
             
                 submissions_list = []
-                exam_submission_list: List[dict] = raw_exam_submission_list.get("submissions")
+                exam_submission_list: list[dict] = raw_exam_submission_list.get("submissions")
 
                 for submission in exam_submission_list:
                     submission_submitted_time = submission.get("submitted_at")
@@ -406,9 +405,9 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
                 exam_subjects_renderables.append(preview_error_text)
             else:
                 if raw_exam_distribute:
-                    exam_subjects: List[dict] = raw_exam_distribute.get("subjects", [])
+                    exam_subjects: list[dict] = raw_exam_distribute.get("subjects", [])
                 else:
-                    exam_subjects: List[dict] = raw_exam_submission_subjects.get("subjects_data").get("subjects")
+                    exam_subjects: list[dict] = raw_exam_submission_subjects.get("subjects_data").get("subjects")
             
                 subject_type_map = {
                     "single_selection": "单选",
@@ -471,14 +470,14 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
                 exam_final_score: int|str = raw_exam_submission_list.get("exam_score") if raw_exam_submission_list.get("exam_score") else "null"
             
             submission_content_renderables = []
-            exam_submission_list: List[dict] = raw_exam_submission_list.get("submissions")
+            exam_submission_list: list[dict] = raw_exam_submission_list.get("submissions")
 
             for submission in exam_submission_list:
                 submission_submitted_time = submission.get("submitted_at")
                 submission_score = submission.get("score") if submission.get("score") else "未公布"
 
                 if submission_submitted_time:
-                    submission_submitted_time = datetime.fromisoformat(exam_end_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
+                    submission_submitted_time = datetime.fromisoformat(submission_submitted_time.replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
                 else:
                     submission_submitted_time = "null"
 
@@ -511,6 +510,34 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
         else:
             content_renderables.append("")
             content_renderables.append("无提交记录")
+
+        # --- 解析预览内容 ---
+        if preview:
+            exam_subjects_renderables = []
+            
+            if not raw_exam_distribute and not (raw_exam_submission_subjects and raw_exam_submission_subjects.get("subjects_data")):
+                preview_error_text = Text.assemble(
+                    ("(╥╯^╰╥) 预览失效了……", "red"),
+                    "\n",
+                    ("测试未开放、测试已结束但未公布或作答次数达到上限等情况均无法预览题目。", "dim")
+                )
+
+                exam_subjects_renderables.append(preview_error_text)
+            else:
+                if raw_exam_distribute:
+                    exam_subjects: list[dict] = raw_exam_distribute.get("subjects", [])
+                else:
+                    exam_subjects: list[dict] = raw_exam_submission_subjects.get("subjects_data").get("subjects")
+                
+                subject_type_map = {
+                    "single_selection": "单选",
+                    "short_answer": "简答",
+                    "multiple_selection": "多选",
+                    "true_or_false": "判断",
+                    "fill_in_blank": "填空"
+                }
+
+                exam_subjects_renderables = extract_subjects(exam_subjects, subject_type_map)
 
             
             exam_preview_subjects_panel = Panel(
@@ -579,7 +606,7 @@ async def view_classroom(
                 raise typer.Exit(code=1)
             
             if classroom_message.get("subjects_count") > 0:
-                classroom_submissions_list: List[dict] = raw_classroom_submissions_list.get("submissions", [])
+                classroom_submissions_list: list[dict] = raw_classroom_submissions_list.get("submissions", [])
             else: 
                 classroom_submissions_list = []
         
@@ -616,9 +643,9 @@ async def view_classroom(
                     preview_content = "Preview Failed."
                 else:
                     if raw_classroom_subjects_result.get("correct_answers_data", {}).get("correct_answers"):
-                        classroom_subjects: List[dict] = raw_classroom_subjects_result.get("subjects_data", {}).get("subjects", [])
+                        classroom_subjects: list[dict] = raw_classroom_subjects_result.get("subjects_data", {}).get("subjects", [])
                     else:
-                        classroom_subjects: List[dict] = raw_classroom_subjects.get("subjects")
+                        classroom_subjects: list[dict] = raw_classroom_subjects.get("subjects")
                                     
                     subject_type_map = {
                         "single_selection": "单选",
@@ -711,9 +738,9 @@ async def view_classroom(
                 classroom_subjects_renderables.append(preview_error_text)
             else:
                 if raw_classroom_subjects_result.get("correct_answers_data", {}).get("correct_answers"):
-                    classroom_subjects: List[dict] = raw_classroom_subjects_result.get("subjects_data", {}).get("subjects", [])
+                    classroom_subjects: list[dict] = raw_classroom_subjects_result.get("subjects_data", {}).get("subjects", [])
                 else:
-                    classroom_subjects: List[dict] = raw_classroom_subjects.get("subjects")
+                    classroom_subjects: list[dict] = raw_classroom_subjects.get("subjects")
                                 
                 subject_type_map = {
                     "single_selection": "单选",
@@ -828,14 +855,14 @@ async def view_activity(
             if raw_submission_list:
                 # 准备Submission的Panel内容
                 submissions = []
-                submissions_list: List[dict] = raw_submission_list.get("list")
+                submissions_list: list[dict] = raw_submission_list.get("list")
                 
                 for submission in submissions_list:
                     submission_created_time = datetime.fromisoformat(submission.get("created_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
                     submission_comment = submission.get("comment")
                     submission_instructor_comment: str = submission.get("instructor_comment", None)
                     submission_score: int|None = submission.get("score") if submission.get("score") else "未评分"
-                    submission_uploads_list: List[dict]|None = submission.get("uploads", None)
+                    submission_uploads_list: list[dict]|None = submission.get("uploads", None)
 
                     if submission_uploads_list:
                         submission_uploads = extract_uploads_json(submission_uploads_list)
@@ -916,7 +943,7 @@ async def view_activity(
             content_renderables.append(activity_content)
 
         # 读取附件（如果有的话）
-        uploads: List[dict] = raw_activity.get("uploads")
+        uploads: list[dict] = raw_activity.get("uploads")
         if uploads:
             content_renderables.append("")
             content_renderables.extend(extract_uploads(uploads))
@@ -926,14 +953,14 @@ async def view_activity(
             
             # 准备Submission的Panel内容
             submission_content_renderables = []
-            submission_list: List[dict] = raw_submission_list.get("list")
+            submission_list: list[dict] = raw_submission_list.get("list")
             
             for submission in submission_list:
                 submission_created_time = datetime.fromisoformat(submission.get("created_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
                 submission_comment = extract_comment(submission.get("comment"))
                 submission_instructor_comment: str = submission.get("instructor_comment") or ""
                 submission_score: int|None = submission.get("score") if submission.get("score") else "未评分"
-                submission_uploads: List[dict]|list = submission.get("uploads", [])
+                submission_uploads: list[dict]|list = submission.get("uploads", [])
 
                 # --- 准备Panel内容 --- 
                 submission_inner_comment = Text.assemble(
@@ -1035,11 +1062,11 @@ async def view_activity(
 @partial(syncify, raise_sync_error=False)
 async def view_assignment(
     assignment_id: Annotated[int, typer.Argument(help="任务id")],
-    exam: Annotated[Optional[bool], typer.Option("--exam", "-e", help="启用此选项，将查询对应的考试")] = False,
-    classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")] = False,
-    homework: Annotated[Optional[bool], typer.Option("--homework", "-H", help="启用此选项，将查询对应作业")] = False,
-    preview: Annotated[Optional[bool], typer.Option("--preview", "-P", help="启用此选项，预览测试或课堂任务题目")] = False,
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
+    exam: Annotated[bool | None, typer.Option("--exam", "-e", help="启用此选项，将查询对应的考试")] = False,
+    classroom: Annotated[bool | None, typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")] = False,
+    homework: Annotated[bool | None, typer.Option("--homework", "-H", help="启用此选项，将查询对应作业")] = False,
+    preview: Annotated[bool | None, typer.Option("--preview", "-P", help="启用此选项，预览测试或课堂任务题目")] = False,
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     浏览指定任务，显示任务基本信息，任务附件与任务提交记录。
@@ -1118,11 +1145,11 @@ async def view_assignment(
     """))
 @partial(syncify, raise_sync_error=False)
 async def todo_assignment(
-    amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示待办任务数量", callback=is_todo_show_amount_valid)] = 10,
-    page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="待办任务页面索引")] = 1,
-    reverse: Annotated[Optional[bool], typer.Option("--reverse", "-r", help="以任务截止时间降序排列")] = False,
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，输出所有待办事项")] = False,
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
+    amount: Annotated[int | None, typer.Option("--amount", "-a", help="显示待办任务数量", callback=is_todo_show_amount_valid)] = 10,
+    page_index: Annotated[int | None, typer.Option("--page", "-p", help="待办任务页面索引")] = 1,
+    reverse: Annotated[bool | None, typer.Option("--reverse", "-r", help="以任务截止时间降序排列")] = False,
+    all: Annotated[bool | None, typer.Option("--all", "-A", help="启用此选项，输出所有待办事项")] = False,
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     列举待办事项清单
@@ -1168,7 +1195,7 @@ async def todo_assignment(
 
         task = progress.add_task(description="加载内容中...", total=1)
 
-        todo_list: List[dict] = raw_todo_list.get("todo_list", [])
+        todo_list: list[dict] = raw_todo_list.get("todo_list", [])
         
         if type(todo_list) != list:
             if json:
@@ -1348,9 +1375,9 @@ async def todo_assignment(
 @partial(syncify, raise_sync_error=False)
 async def submit_assignment(
     activity_id: Annotated[int, typer.Argument(help="待提交任务ID")],
-    text: Annotated[Optional[str], typer.Option("--text", "-t", help="待提交的文本内容")] = "",
-    files_id: Annotated[Optional[str], typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = "",
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True, help="启用JSON输出")] = False
+    text: Annotated[str | None, typer.Option("--text", "-t", help="待提交的文本内容")] = "",
+    files_id: Annotated[str | None, typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = "",
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True, help="启用JSON输出")] = False
 ):
     """
     提交学在浙大 Homeword 任务，支持传入文本与附件ID。

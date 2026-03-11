@@ -2,7 +2,7 @@ import logging
 import math
 from functools import partial
 from textwrap import dedent
-from typing import List, Optional, Tuple
+from typing import Annotated
 
 import keyring
 import typer
@@ -15,7 +15,6 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
-from typing_extensions import Annotated
 
 from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
@@ -87,7 +86,7 @@ def get_classroom_completion_text(completion_key: str)->Text:
     
     return Text("🔴 未完成", style="red")
 
-def parse_indices(indices: str|None)->List[int]:
+def parse_indices(indices: str|None)->list[int]:
     if not indices:
         return []
     
@@ -120,7 +119,7 @@ def parse_indices(indices: str|None)->List[int]:
     # 去重，排序
     return sorted(list(set(result)))
 
-def extract_modules(modules: List[dict], indices: List[int], modules_id: List[int], last: bool)->List[Tuple[int, dict]]:
+def extract_modules(modules: list[dict], indices: list[int], modules_id: list[int], last: bool)->list[tuple[int, dict]]:
     result = []
     
     safe_indices = indices if indices is not None else []
@@ -130,8 +129,10 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
         if index in safe_indices or module.get("id") in safe_modules_id:
             result.append((module.get("id"), module))
 
-    if last and modules[-1] not in result:
-        result.append((modules[-1].get("id"), modules[-1]))
+    if last:
+        last_module = modules[-1]
+        if all(module_item.get("id") != last_module.get("id") for _, module_item in result):
+            result.append((last_module.get("id"), last_module))
 
     return result
 
@@ -169,13 +170,13 @@ def extract_modules(modules: List[dict], indices: List[int], modules_id: List[in
         """))
 @partial(syncify, raise_sync_error=False)
 async def list_courses(
-    keyword: Annotated[Optional[str], typer.Option("--name", "-n", help="课程搜索关键字")] = None,
-    amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示课程的数量")] = 10,
-    page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="课程页面索引")] = 1,
-    short: Annotated[Optional[bool], typer.Option("--short", "-s", help="简化输出内容，仅显示课程名与课程id")] = False,
-    quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="仅输出课程id")] = False,
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False,
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
+    keyword: Annotated[str | None, typer.Option("--name", "-n", help="课程搜索关键字")] = None,
+    amount: Annotated[int | None, typer.Option("--amount", "-a", help="显示课程的数量")] = 10,
+    page_index: Annotated[int | None, typer.Option("--page", "-p", help="课程页面索引")] = 1,
+    short: Annotated[bool | None, typer.Option("--short", "-s", help="简化输出内容，仅显示课程名与课程id")] = False,
+    quiet: Annotated[bool | None, typer.Option("--quiet", "-q", help="仅输出课程id")] = False,
+    all: Annotated[bool | None, typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False,
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
     ):
     """
     列举学在浙大内的课程信息，并按条件筛选。
@@ -392,15 +393,15 @@ async def list_courses(
 @partial(syncify, raise_sync_error=False)
 async def view_syllabus(
     course_id: Annotated[int, typer.Argument(help="课程id")],
-    modules_id: Annotated[Optional[List[int]], typer.Option("--module", "-m", help="章节id")] = None,
-    last: Annotated[Optional[bool], typer.Option("--last", "-l", help="启用此选项，自动展示最新一章节")] = False,
-    indices: Annotated[Optional[str], typer.Option("--index", "-i", help="通过索引号查看章节，索引从'1'开始，支持使用范围表示，如'1-5'。", callback=parse_indices)] = "",
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，展示所有章节内容")] = False,
-    only_activity: Annotated[Optional[bool], typer.Option("--activity", "-a", help="启用此选项，只展示活动内容")] = False,
-    only_classroom: Annotated[Optional[bool], typer.Option("--classroom", "-c", help="启用此选项，只展示课堂任务")] = False,
-    only_exam: Annotated[Optional[bool], typer.Option("--exam", "-e", help="启用此选项，只展示测试内容")] = False,
-    only_homework: Annotated[Optional[bool], typer.Option("--homework", "-H", help="启用此选项，只展示作业")] = False,
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
+    modules_id: Annotated[list[int] | None, typer.Option("--module", "-m", help="章节id")] = None,
+    last: Annotated[bool | None, typer.Option("--last", "-l", help="启用此选项，自动展示最新一章节")] = False,
+    indices: Annotated[str | None, typer.Option("--index", "-i", help="通过索引号查看章节，索引从'1'开始，支持使用范围表示，如'1-5'。", callback=parse_indices)] = "",
+    all: Annotated[bool | None, typer.Option("--all", "-A", help="启用此选项，展示所有章节内容")] = False,
+    only_activity: Annotated[bool | None, typer.Option("--activity", "-a", help="启用此选项，只展示活动内容")] = False,
+    only_classroom: Annotated[bool | None, typer.Option("--classroom", "-c", help="启用此选项，只展示课堂任务")] = False,
+    only_exam: Annotated[bool | None, typer.Option("--exam", "-e", help="启用此选项，只展示测试内容")] = False,
+    only_homework: Annotated[bool | None, typer.Option("--homework", "-H", help="启用此选项，只展示作业")] = False,
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     浏览指定课程的目录，并按条件进行筛选。
@@ -431,7 +432,7 @@ async def view_syllabus(
             course_messages, raw_course_modules = await zju_api.coursePreviewAPIFits(client.session, course_id).get_api_data()
         
         course_name = course_messages.get("name", "null")
-        course_modules: List[dict] = raw_course_modules.get("modules", [])
+        course_modules: list[dict] = raw_course_modules.get("modules", [])
 
         if not course_modules:
             if json:
@@ -447,7 +448,7 @@ async def view_syllabus(
         if modules_id or indices or last:
             # --- 筛选目标modules ---
             modules_list = extract_modules(course_modules, indices, modules_id, last)
-            course_modules_node_list: List[Tuple[dict, dict, dict, dict]] = []
+            course_modules_node_list: list[tuple[dict, dict, dict, dict]] = []
             
             if not modules_list:
                 if json:
@@ -461,15 +462,15 @@ async def view_syllabus(
                 raw_course_activities, raw_course_exams, raw_course_classrooms, raw_course_activities_reads, raw_homework_completeness, raw_exam_completeness = await zju_api.courseViewAPIFits(client.session, course_id).get_api_data()
 
             for module_id, module in modules_list:
-                course_activities: List[dict] = raw_course_activities.get("activities", [])
-                course_exams: List[dict] = raw_course_exams.get("exams", [])
-                course_classrooms: List[dict] = raw_course_classrooms.get("classrooms", [])
-                exams_completeness: List[int] = raw_exam_completeness.get("exam_ids", [])
-                activities_completeness: List[int] = [homework_activitie.get("id") for homework_activitie in raw_homework_completeness.get("homework_activities", {}) if homework_activitie.get("status") == "已交"]
-                classrooms_completeness: List[dict] = [activity_read for activity_read in raw_course_activities_reads.get("activity_reads") if activity_read.get("activity_type") == "classroom_activity"]
+                course_activities: list[dict] = raw_course_activities.get("activities", [])
+                course_exams: list[dict] = raw_course_exams.get("exams", [])
+                course_classrooms: list[dict] = raw_course_classrooms.get("classrooms", [])
+                exams_completeness: list[int] = raw_exam_completeness.get("exam_ids", [])
+                activities_completeness: list[int] = [homework_activitie.get("id") for homework_activitie in raw_homework_completeness.get("homework_activities", {}) if homework_activitie.get("status") == "已交"]
+                classrooms_completeness: list[dict] = [activity_read for activity_read in raw_course_activities_reads.get("activity_reads") if activity_read.get("activity_type") == "classroom_activity"]
 
                 # 筛选目标activities, exams 和 classrooms
-                activities_list: List[dict] = []
+                activities_list: list[dict] = []
                 if not (only_classroom or only_exam):
                     for course_activity in course_activities:
                         if only_homework and course_activity.get("type", "null") != "homework":
@@ -478,13 +479,13 @@ async def view_syllabus(
                         if course_activity.get("module_id") == module_id:
                                 activities_list.append(course_activity)
 
-                exams_list: List[dict] = []
+                exams_list: list[dict] = []
                 if not (only_classroom or only_activity or only_homework):
                     for course_exam in course_exams:
                         if course_exam.get("module_id") == module_id:
                             exams_list.append(course_exam)
 
-                classrooms_list: List[dict] = []
+                classrooms_list: list[dict] = []
                 if not (only_exam or only_activity or only_homework):
                     for course_classroom in course_classrooms:
                         if course_classroom.get("module_id") == module_id:
@@ -538,7 +539,7 @@ async def view_syllabus(
                         url_jump = make_jump_url(course_id, activity_id, activity.get("type"))
 
                         # 附件
-                        activity_uploads: List[dict]= activity.get("uploads", [])
+                        activity_uploads: list[dict]= activity.get("uploads", [])
                         uploads = []
                         for upload in activity_uploads:
                             file_name = upload.get("name")
@@ -653,6 +654,7 @@ async def view_syllabus(
             # _index is unused, thus named with a prefix "_"
             for _, (module, activities_list, exams_list, classrooms_list) in enumerate(course_modules_node_list):
                 module_name = module.get("name", "null")
+                module_id = module.get("id", "null")
                 module_tree = course_tree.add(f"[green]{module_name}[/green][dim] 章节ID: {module_id}[/dim]")
                 type_map = {
                     "material": "资料",
@@ -722,7 +724,7 @@ async def view_syllabus(
                         content_renderables.append(url_jump_text)
 
                     # 附件
-                    activity_uploads: List[dict]= activity.get("uploads", [])
+                    activity_uploads: list[dict]= activity.get("uploads", [])
                     if activity_uploads:
                         content_renderables.append("[cyan]附件: [/cyan]")
 
@@ -921,12 +923,12 @@ async def view_syllabus(
 @partial(syncify, raise_sync_error=False)
 async def view_coursewares(
     course_id: Annotated[int, typer.Argument(help="课程ID")],
-    page: Annotated[Optional[int], typer.Option("--page", "-p", help="页面索引")] = 1,
-    page_size: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示课件数量")] = 10,
-    short: Annotated[Optional[bool], typer.Option("--short", "-s", help="启用此选项，简化输出，仅显示文件名与文件ID")] = False,
-    quiet: Annotated[Optional[bool], typer.Option("--quiet", "-q", help="启用此选项，仅输出文件ID")] = False,
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，输出所有结果")] = False,
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
+    page: Annotated[int | None, typer.Option("--page", "-p", help="页面索引")] = 1,
+    page_size: Annotated[int | None, typer.Option("--amount", "-a", help="显示课件数量")] = 10,
+    short: Annotated[bool | None, typer.Option("--short", "-s", help="启用此选项，简化输出，仅显示文件名与文件ID")] = False,
+    quiet: Annotated[bool | None, typer.Option("--quiet", "-q", help="启用此选项，仅输出文件ID")] = False,
+    all: Annotated[bool | None, typer.Option("--all", "-A", help="启用此选项，输出所有结果")] = False,
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     查看课程资源与课件，并按条件筛选。
@@ -970,8 +972,8 @@ async def view_coursewares(
         progress.update(task, description="渲染任务信息中...", advance=1)
 
         # 提取并拼装所有文件
-        coursewares_list: List[dict] = raw_coursewares.get("activities", [])
-        coursewares_uploads: List[dict] = []
+        coursewares_list: list[dict] = raw_coursewares.get("activities", [])
+        coursewares_uploads: list[dict] = []
         for courseware in coursewares_list:
             coursewares_uploads.extend(courseware.get("uploads", []))
 
@@ -1112,9 +1114,9 @@ async def view_coursewares(
 @partial(syncify, raise_sync_error=False)
 async def view_members(
     course_id: Annotated[int, typer.Argument(help="课程ID")],
-    instructor: Annotated[Optional[bool], typer.Option("--instructor", "-I", help="启用此选项，只输出教师")] = False,
-    student: Annotated[Optional[bool], typer.Option("--student", "-S", help="启用此选项，只输出学生")] = False,
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
+    instructor: Annotated[bool | None, typer.Option("--instructor", "-I", help="启用此选项，只输出教师")] = False,
+    student: Annotated[bool | None, typer.Option("--student", "-S", help="启用此选项，只输出学生")] = False,
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     查看课程教师与学生，并按条件筛选。
@@ -1243,11 +1245,11 @@ async def view_members(
 @partial(syncify, raise_sync_error=False)
 async def view_rollcalls(
     course_id: Annotated[str, typer.Argument(help="课程id")],
-    amount: Annotated[Optional[int], typer.Option("--amount", "-a", help="显示点名记录的数量")] = 10,
-    page_index: Annotated[Optional[int], typer.Option("--page", "-p", help="点名记录页面索引")] = 1,
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False,
-    summary: Annotated[Optional[bool], typer.Option("--summary", "-S", help="启用此选项，统计点名情况")] = False,
-    json: Annotated[Optional[bool], typer.Option("--json", "-J", hidden=True)] = False
+    amount: Annotated[int | None, typer.Option("--amount", "-a", help="显示点名记录的数量")] = 10,
+    page_index: Annotated[int | None, typer.Option("--page", "-p", help="点名记录页面索引")] = 1,
+    all: Annotated[bool | None, typer.Option("--all", "-A", help="启用此参数，一次性输出所有结果")] = False,
+    summary: Annotated[bool | None, typer.Option("--summary", "-S", help="启用此选项，统计点名情况")] = False,
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
     student_id = keyring.get_password(KEYRING_SERVICE_NAME, KEYRING_LAZ_STUDENTID_NAME)
     rollcall_type_map = {
@@ -1277,7 +1279,7 @@ async def view_rollcalls(
 
         progress.update(task, description="渲染点名记录中...", completed=1)
         
-        course_rollcalls: List[dict] = raw_course_rollcalls.get("rollcalls")
+        course_rollcalls: list[dict] = raw_course_rollcalls.get("rollcalls")
 
         if not course_rollcalls:
             if json:

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich import print as rprint
@@ -13,7 +13,7 @@ app =  typer.Typer(help="管理 LAZY CLI 日志文件")
     help="导出 LAZY CLI 本地日志文件"
 )
 def export(
-    output_dir: Annotated[Optional[str], typer.Option("--dest", "-d", help="日志导出目录")] = Path.home()
+    output_dir: Annotated[str | None, typer.Option("--dest", "-d", help="日志导出目录")] = Path.home()
 ):
     mannager = BackupManager(output_dir)
     if mannager.run_for_log():

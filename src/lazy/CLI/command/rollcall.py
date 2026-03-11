@@ -3,7 +3,7 @@ import logging
 import uuid
 from functools import partial
 from textwrap import dedent
-from typing import Annotated, List, Optional
+from typing import Annotated
 
 import typer
 from asyncer import syncify
@@ -111,7 +111,7 @@ async def check_code_worker(
     semaphore: asyncio.Semaphore,
     progress: Progress,
     task_id: TaskID
-) -> Optional[str]:
+) -> str | None:
     global number_found_event
     if number_found_event.is_set():
         return None
@@ -261,7 +261,7 @@ async def list_rollcall():
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             raw_rollcalls_list = (await zju_api.rollcallListAPIFits(client.session).get_api_data())[0]
         
-        rollcalls_list: List[dict] = raw_rollcalls_list.get("rollcalls", [])
+        rollcalls_list: list[dict] = raw_rollcalls_list.get("rollcalls", [])
 
         progress.update(task, description="渲染数据中...", completed=1)
 
@@ -332,13 +332,13 @@ async def list_rollcall():
 async def answer_rollcall(
     rollcall_id: Annotated[int, typer.Argument(help="签到任务id")],
     
-    site: Annotated[Optional[str], typer.Option(
+    site: Annotated[str | None, typer.Option(
         "--site", "-s", 
         help="雷达点名：签到定位配置", 
         callback=get_site_coordinate
     )] = None,
     
-    number: Annotated[Optional[str], typer.Option(
+    number: Annotated[str | None, typer.Option(
         "--number", "-n", 
         help="数字点名：提供4位数字 (如 0001)"
     )] = None,

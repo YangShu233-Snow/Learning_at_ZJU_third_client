@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, List, Optional
+from typing import Annotated
 
 import typer
 from rich import print as rprint
@@ -14,10 +14,10 @@ app = typer.Typer(help="管理 LAZY CLI 配置文件")
     no_args_is_help=True
 )
 def backup(
-    user: Annotated[Optional[bool], typer.Option("--user", "-u", help="启用此选项，备份用户配置")] = False,
-    lazy: Annotated[Optional[bool], typer.Option("--lazy", "-l", help="启用此选项，备份程序配置")] = False,
-    all: Annotated[Optional[bool], typer.Option("--all", "-A", help="启用此选项，导出所有配置")] = False,
-    ouyput_dir: Annotated[Optional[str], typer.Option("--dest", "-d", help="备份目标文件夹")] = Path.home()
+    user: Annotated[bool | None, typer.Option("--user", "-u", help="启用此选项，备份用户配置")] = False,
+    lazy: Annotated[bool | None, typer.Option("--lazy", "-l", help="启用此选项，备份程序配置")] = False,
+    all: Annotated[bool | None, typer.Option("--all", "-A", help="启用此选项，导出所有配置")] = False,
+    ouyput_dir: Annotated[str | None, typer.Option("--dest", "-d", help="备份目标文件夹")] = Path.home()
 ):
     if not (user or lazy or all):
         rprint("[red]应至少制定一种备份模式！[/red]")
@@ -50,8 +50,8 @@ def backup(
     no_args_is_help=True
 )
 def load(
-    sources: Annotated[List[str], typer.Argument(help="待加载配置路径")],
-    force: Annotated[Optional[bool], typer.Option("--force", "-f", help="启用此选项，强制覆盖应用配置 (unsafe!!!)")] = False
+    sources: Annotated[list[str], typer.Argument(help="待加载配置路径")],
+    force: Annotated[bool | None, typer.Option("--force", "-f", help="启用此选项，强制覆盖应用配置 (unsafe!!!)")] = False
 ):
     try:
         sources_path = list(map(Path, sources))

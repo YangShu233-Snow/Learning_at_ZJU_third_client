@@ -1,7 +1,7 @@
 import logging
 import sys
 from functools import partial
-from typing import Optional
+from typing import Annotated
 
 import keyring
 import typer
@@ -9,7 +9,6 @@ from asyncer import syncify
 from lxml import etree
 from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from typing_extensions import Annotated
 
 from ..login.login import CredentialManager, ZjuAsyncClient
 from .command import assignment, config, course, log, resource, rollcall
@@ -30,7 +29,7 @@ app = typer.Typer(help="LAZY CLI - 学在浙大第三方客户端的命令行工
 @partial(syncify, raise_sync_error=False)
 async def main_callback(
     ctx: typer.Context,
-    proxy: Annotated[Optional[bool], typer.Option(
+    proxy: Annotated[bool | None, typer.Option(
         "--proxy",
         help="启用此选项，允许 lazy 使用系统代理"
     )] = True
@@ -100,9 +99,10 @@ async def check(
     开发者网址测试检查工具，检验网页返回。
     """
     cookies = CredentialManager().load_cookies()
-    async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as temp_client:
+
+    async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
         try:
-            response = await temp_client.session.get(url)
+            response = await client.session.get(url)
             response.raise_for_status()
         except Exception as e:
             rprint(f"{e}")

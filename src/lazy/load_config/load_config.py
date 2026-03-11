@@ -117,7 +117,7 @@ class coursesMessageConfig(BaseConfig):
 class APIParseQueryConfig(BaseConfig):
     def __init__(self, config_name):
         self.config_name = config_name + "_query.json"
-        super().__init__(self.config_name)
+        super().__init__("", self.config_name)
 
 class myResourcesConfig(BaseConfig):
     def __init__(self):

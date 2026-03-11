@@ -5,7 +5,6 @@ import sys
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import List
 
 from .load_config import lazyBackupConfig, logBackupConfig, userBackupConfig
 
@@ -31,11 +30,11 @@ class BaseFileBackupHandler(metaclass=abc.ABCMeta):
 # 日志文件备份
 class logFileHandler(BaseFileBackupHandler):
     def __init__(self, 
-                 paths: List[str|Path],
+                 paths: list[str|Path],
                  output: str|Path = None):
         if output is None:
             output = Path.home()
-        self.paths: List[Path] = list(map(lambda path: Path.home() / path, paths))
+        self.paths: list[Path] = list(map(lambda path: Path.home() / path, paths))
         self.output = output
         self.log_paths = []
 
@@ -59,12 +58,12 @@ class logFileHandler(BaseFileBackupHandler):
 # lazy文件备份
 class LazyFileHandler(BaseFileBackupHandler):
     def __init__(self, 
-                 paths: List[str|Path],
+                 paths: list[str|Path],
                  output: str|Path = None):
         if output is None:
             output = Path.home()
         self.base_path = resource_path()
-        self.paths: List[Path] = list(map(resource_path, paths))
+        self.paths: list[Path] = list(map(resource_path, paths))
         self.output = output
 
     def backup(self)->bool:
@@ -99,12 +98,12 @@ class LazyFileHandler(BaseFileBackupHandler):
 # 用户文件备份
 class LazyUserFileHandler(BaseFileBackupHandler):
     def __init__(self, 
-                 paths: List[str|Path],
+                 paths: list[str|Path],
                  output: str|Path = None):
         if output is None:
             output = Path.home()
         self.base_path = resource_path()
-        self.paths: List[Path] = list(map(resource_path, paths))
+        self.paths: list[Path] = list(map(resource_path, paths))
         self.output = output
 
     def backup(self)->bool:
@@ -208,7 +207,7 @@ class BackupManager:
     
 class LoadManager:
     def __init__(self,
-                 paths: List[str|Path],
+                 paths: list[str|Path],
                  force: bool = False):
         self.base_path = resource_path()
         self.paths = paths

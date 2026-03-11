@@ -4,12 +4,11 @@
 description = "学在浙大第三方客户端，提供 CLI 。"
 name = "lazy-zju-client"
 version = "0.1.0"
-
-authors = [{ name = "Yangshu233", email = "gm.yangshu233@gmail.com" }]
-
-maintainers = [{ name = "YardRat0117", email = "yardrat0117@gmail.com" }]
-
-readme = "README.md"
+authors = [
+    { name = "Yangshu233", email = "gm.yangshu233@gmail.com" },
+]
+# readme = "README.md"  # 如果你有README文件的话
+requires-python = ">=3.10"
 license = { text = "LGPLv3.0" }
 requires-python = ">=3.8"
 

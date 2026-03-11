@@ -489,14 +489,6 @@ async def view_syllabus(
                     for course_classroom in course_classrooms:
                         if course_classroom.get("module_id") == module_id:
                             classrooms_list.append(course_classroom)
-
-                if len(activities_list) == 0 and len(exams_list) == 0 and len(classrooms_list) == 0:
-                    if json:
-                        print_with_json(True, f"Module {module_id} Not Content")
-                    else:
-                        rprint(f"章节 {module_id} 无内容")
-                    
-                    return
                 
                 course_modules_node_list.append((module, activities_list, exams_list, classrooms_list))
 
@@ -595,8 +587,7 @@ async def view_syllabus(
                             "start_time": exam_start_time,
                             "is_started": exam_is_started,
                             "end_time": exam_end_time,
-                            "is_closed": exam_is_closed,
-                            "uploads": uploads
+                            "is_closed": exam_is_closed
                         })
                         
 

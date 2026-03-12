@@ -18,6 +18,7 @@ from rich.tree import Tree
 
 from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
+from ..config.config import type_map
 from ..state import state
 from ..utils.utils import (
     get_status_text,
@@ -507,15 +508,6 @@ async def view_syllabus(
             if modules_id or indices or last:
                 for _, (module, activities_list, exams_list, classrooms_list) in enumerate(course_modules_node_list):
                     module_name = module.get("name", "null")
-                    type_map = {
-                        "material": "资料",
-                        "online_video": "视频",
-                        "homework": "作业",
-                        "questionnaire": "问卷",
-                        "exam": "测试",
-                        "page": "页面",
-                        "classroom": "课堂任务"
-                    }
 
                     activities = []
                     for activity in activities_list: # type: ignore
@@ -656,16 +648,6 @@ async def view_syllabus(
                 module_name = module.get("name", "null")
                 module_id = module.get("id", "null")
                 module_tree = course_tree.add(f"[green]{module_name}[/green][dim] 章节ID: {module_id}[/dim]")
-                type_map = {
-                    "material": "资料",
-                    "online_video": "视频",
-                    "homework": "作业",
-                    "questionnaire": "问卷",
-                    "exam": "测试",
-                    "page": "页面",
-                    "classroom": "课堂任务"
-                }
-
                 # --- 加载活动内容 ---
                 for activity in activities_list: # type: ignore
                     # 标题、类型与ID

@@ -23,6 +23,7 @@ from rich.text import Text
 
 from ...login.login import CredentialManager, ZjuAsyncClient
 from ...zjuAPI import zju_api
+from ..config.config import type_map
 from ..state import state
 from ..utils.utils import (
     get_status_text,
@@ -1075,15 +1076,6 @@ async def view_assignment(
 
     对于测试与课堂互动型的任务，使用 -P 可以预览其测试题目。
     """
-    type_map = {
-        "material": "资料",
-        "online_video": "视频",
-        "homework": "作业",
-        "questionnaire": "问卷",
-        "exam": "测试",
-        "page": "页面",
-        "classroom": "课堂任务"
-    }
     # 猜测任务类型
     if not (homework or exam or classroom):
         homework, exam, classroom = await guess_assignment_type(assignment_id, json)
@@ -1159,14 +1151,6 @@ async def todo_assignment(
 
     默认以任务截止时间作为排序依据，越早截止，排序越靠前，使用 -r 来反转任务清单排序结果。
     """
-
-    type_map = {
-        "material": "资料",
-        "online_video": "视频",
-        "homework": "作业",
-        "questionnaire": "问卷",
-        "exam": "测试"
-    }
     todo_panel_list = []
 
     with Progress(

@@ -1430,3 +1430,72 @@ async def submit_assignment(
             rprint("[green]提交成功！[/green]")
         else:
             rprint("[red]提交失败！[/red]")
+
+@app.command(
+    "op",
+    help="Alias for 'open'",
+    hidden=True,
+    epilog=dedent("""
+        EXAMPLES:
+
+          $ lazy assignment submit 114514 -t 'Hello World' 
+            (向ID为'114514'的任务提交文本内容为'Hello World'的作业)
+            
+          $ lazy assignment submit 114514 -f '2333, 6666' 
+            (向ID为'114514'的任务提交附件ID为'2333'和'6666'的作业)
+    """),
+    no_args_is_help=True)
+@app.command(
+    "open",
+    help="在讨论下发起一个新话题",
+    epilog=dedent("""
+        EXAMPLES:
+
+          $ lazy assignment open 114514 -t 'Hello World' 
+            (向ID为'114514'的任务提交文本内容为'Hello World'的作业)
+            
+          $ lazy assignment submit 114514 -f '2333, 6666' 
+            (向ID为'114514'的任务提交附件ID为'2333'和'6666'的作业)
+    """),
+    no_args_is_help=True)
+@partial(syncify, raise_sync_error=False)
+async def submit_assignment(
+    category_id: Annotated[int, typer.Argument(help="版块ID")],
+    title: Annotated[str, typer.Option("--title", "-T", help="话题标题")],
+    text: Annotated[str | None, typer.Option("--text", "-t", help="待提交的文本内容")] = "",
+    files_id: Annotated[str | None, typer.Option("--files", "-f", help="待上传附件ID", callback=parse_files_id)] = "",
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True, help="启用JSON输出")] = False
+):
+    if not text and not files_id:
+        if json:
+            print_with_json(False, "Cannot open blank topic.")
+            raise typer.Exit(code=1)
+
+        rprint("不可创建一个空话题！")
+        raise typer.Exit(code=1)
+    
+    cookies = CredentialManager().load_cookies()
+    if not cookies:
+        if json:
+            print_with_json(False, "Cookies is unacceptable.")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
+        
+        rprint("Cookies不存在！")
+        logger.error("Cookies不存在！")
+        raise typer.Exit(code=1)
+    
+    async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
+        status = await zju_api.assignmentOpenForumTopicAPIFits(client.session, category_id, title, text, files_id).submit()
+        
+        if json:
+            description = "Success" if status else "Failed"
+
+            print_with_json(status=status, description=description)
+            
+            return
+
+        if status:
+            rprint("[green]提交成功！[/green]")
+        else:
+            rprint("[red]提交失败！[/red]")

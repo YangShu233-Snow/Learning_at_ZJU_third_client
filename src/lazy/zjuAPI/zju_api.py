@@ -6,6 +6,7 @@ import os
 import re
 from collections.abc import Callable
 from datetime import datetime
+from typing import List, Dict
 from pathlib import Path
 from urllib.parse import parse_qs, unquote
 
@@ -773,6 +774,83 @@ class assignmentSubmitAPIFits(assignmentAPIFits):
             self._load_api_config()
 
         api_name = "submissions"
+        api_config: dict = self.apis_config.get(api_name, None)
+        if api_config == None:
+            logger.error(f"{api_name}不存在！")
+            return False
+            
+        if not self.check_api_method(api_config, "POST"):
+            logger.error("该方法只适用POST请求！")
+            return False
+        
+        api_config: dict = self.apis_config.get(api_name)
+        if not api_config:
+            logger.error(f"{api_name}不存在！")
+            return False
+
+        api_url = self._make_api_url(api_config, api_name)
+        if not api_url:
+            logger.error(f"{api_name}的url不存在！")
+            return False
+        
+        api_data = self._make_api_data(api_config, api_name)
+        if not api_data:
+            logger.error(f"{api_name}的data不存在！")
+            return False
+
+        try:
+            response = await self.login_session.post(
+                url=api_url,
+                json=api_data
+            )
+
+            response.raise_for_status()
+        except HTTPStatusError as e:
+            logger.error(f"请求 {api_url} 时发生错误！{e}")
+            return False
+        except Exception as e:
+            logger.error(f"发生未知错误！{e}")
+            return False
+        
+        return True
+
+class assignmentOpenForumTopicAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 category_id: int, 
+                 title: str,
+                 content: str = None,
+                 uploads: List[int] = [],
+                 apis_name=None
+                ):
+        
+        if apis_name is None:
+            apis_name = ["topics"]
+
+        super().__init__(login_session, apis_name)
+        self.category_id = category_id
+        self.title = title
+        self.content = content
+        self.uploads = uploads
+    
+    def _make_api_data(self, api_config, api_name):
+        if api_name == "topics":
+            api_data = api_config.get("data", {})
+
+            api_data["category_id"] = self.category_id
+            api_data["title"] = self.title
+            api_data["content"] = api_config.get("content", "{{{content}}}").replace("{{{content}}}", self.content)
+            api_data["uploads"] = self.uploads
+
+            return api_data
+        
+        return super()._make_api_data(api_config, api_name)
+
+    async def submit(self)->bool:
+        if not self.apis_name or not self.apis_config:
+            self._load_api_config()
+
+        api_name = "topics"
         api_config: dict = self.apis_config.get(api_name, None)
         if api_config == None:
             logger.error(f"{api_name}不存在！")

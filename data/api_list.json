@@ -218,7 +218,8 @@
             "classroom_submissions",
             "classroom_subject_result",
             "classroom_subject",
-            "submissions"
+            "submissions",
+            "topics"
         ],
         "apis_config": {
             "activity": {
@@ -299,6 +300,16 @@
                     "mode": "normal",
                     "other_resources": [],
                     "uploads_in_rich_text": []
+                }
+            },
+            "topics": {
+                "url": "https://courses.zju.edu.cn/api/topics",
+                "method": "POST",
+                "data": {
+                    "category_id": 0,
+                    "content": "<p>{{{content}}}</p>",
+                    "title": "",
+                    "uploads": []
                 }
             }
         }

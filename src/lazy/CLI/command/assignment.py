@@ -3,7 +3,8 @@ import logging
 from datetime import datetime, timezone
 from functools import partial
 from textwrap import dedent
-from typing import Annotated
+from typing import Annotated, Dict, Callable
+from enum import Enum, unique
 
 import keyring
 import typer
@@ -46,6 +47,14 @@ app = typer.Typer(help="""
 
 logger = logging.getLogger(__name__)
 
+@unique
+class AssignmentType(Enum):
+    UNKOWN = 0
+    ACTIVITY = 1
+    FORMUN = 2
+    EXAM = 3
+    CLASSROOM = 4
+    
 def is_todo_show_amount_valid(amount: int):
     if amount <= 0:
         print("显示数量应为正数！")
@@ -221,7 +230,7 @@ def parse_files_id(files_id: str)->list[int]:
     
     return list(set(files_id_list))
 
-async def guess_assignment_type(assignment_id: int, json: bool)->tuple[bool, bool, bool]:
+async def guess_assignment_type(assignment_id: int, json: bool)->AssignmentType:
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -249,23 +258,28 @@ async def guess_assignment_type(assignment_id: int, json: bool)->tuple[bool, boo
             ], return_exceptions=True)
 
         if raw_activity[0]:
+            if raw_activity[0].get("type") == "forum":
+                progress.update(task, description="猜测是作业!", completed=1)
+                logger.info(f"猜测 {assignment_id} 为 Activity")    
+                return AssignmentType.FORMUN
+            
             progress.update(task, description="猜测是作业!", completed=1)
-            logger.info(f"猜测 {assignment_id} 为 Homework")
-            return (True, False, False)
+            logger.info(f"猜测 {assignment_id} 为 Activity")
+            return AssignmentType.ACTIVITY
         
         
         if isinstance(raw_exam, list) and raw_exam and raw_exam[0]:
             progress.update(task, description="猜测是测试!", completed=1)
             logger.info(f"猜测 {assignment_id} 为 Exam")
-            return (False, True, False)
+            return AssignmentType.EXAM
         
         
         if isinstance(raw_classroom, list) and raw_classroom and raw_classroom[0]:
             progress.update(task, description="猜测是课堂任务!", completed=1)
             logger.info(f"猜测 {assignment_id} 为 Classroom")
-            return (False, False, True)
+            return AssignmentType.CLASSROOM
     
-    return (False, False, False)
+    return AssignmentType.UNKOWN
 
 async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
     with Progress(
@@ -1033,6 +1047,9 @@ async def view_activity(
 
     rprint(activity_panel)
 
+def view_forum():
+    pass
+
 @app.command(
     "vw",
     help="Alias for 'view'",
@@ -1065,7 +1082,8 @@ async def view_assignment(
     assignment_id: Annotated[int, typer.Argument(help="任务id")],
     exam: Annotated[bool | None, typer.Option("--exam", "-e", help="启用此选项，将查询对应的考试")] = False,
     classroom: Annotated[bool | None, typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")] = False,
-    homework: Annotated[bool | None, typer.Option("--homework", "-H", help="启用此选项，将查询对应作业")] = False,
+    activity: Annotated[bool | None, typer.Option("--activity", "-H", help="启用此选项，将查询对应作业")] = False,
+    forum: Annotated[bool | None, typer.Option("--forum", "-F", help="启用此选项，将查询对应讨论")] = False,
     preview: Annotated[bool | None, typer.Option("--preview", "-P", help="启用此选项，预览测试或课堂任务题目")] = False,
     json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
@@ -1076,36 +1094,45 @@ async def view_assignment(
 
     对于测试与课堂互动型的任务，使用 -P 可以预览其测试题目。
     """
-    # 猜测任务类型
-    if not (homework or exam or classroom):
-        homework, exam, classroom = await guess_assignment_type(assignment_id, json)
+    assignment_type = AssignmentType.UNKOWN
 
-    # 按照指定分配至相应任务
-    if homework:
-        if preview:
-            if json:
-                print_with_json(False, "Assignment whose type is 'Homework' cannot be previewed.")
-                raise typer.Exit(code=1)
-            
-            rprint("[red]'homework' 类型不可预览！[/red]")
+    # 猜测任务类型
+    if activity:
+        assignment_type = AssignmentType.ACTIVITY
+    elif forum:
+        assignment_type = AssignmentType.FORMUN
+    elif exam:
+        assignment_type = AssignmentType.EXAM
+    elif classroom:
+        assignment_type = AssignmentType.CLASSROOM
+    else:
+        assignment_type = await guess_assignment_type(assignment_id, json)
+
+    if assignment_type == AssignmentType.UNKOWN:
+        if json:
+            print_with_json(True, f"Assignment {assignment_id} doesn't exist.")
+        
+        rprint(f"任务 {assignment_id} 不存在！")
+
+    if assignment_type == AssignmentType.ACTIVITY and preview:
+        if json:
+            print_with_json(False, "Assignment whose type is 'Activity' cannot be previewed.")
             raise typer.Exit(code=1)
         
-        await view_activity(assignment_id, type_map, json)
-        return 
-
-    if exam:
-        await view_exam(assignment_id, type_map, preview, json)
-        return 
+        rprint("[red]'activity' 类型不可预览！[/red]")
+        raise typer.Exit(code=1)
     
-    if classroom:
-        await view_classroom(assignment_id, type_map, preview, json)
-        return
-    
-    if json:
-        print_with_json(True, f"Assignment with ID {assignment_id} do not exist.")
-        return
+    async def view_activity_wrapper(activity_id: int, type_map: dict, _: bool, json: bool):
+        return await view_activity(activity_id, type_map, json)
 
-    rprint(f"任务 {assignment_id} 不存在！")
+    view_callable_map: Dict[AssignmentType, Callable] = {
+        AssignmentType.ACTIVITY: view_activity_wrapper,
+        AssignmentType.EXAM: view_exam,
+        AssignmentType.CLASSROOM: view_classroom
+    }
+
+    await view_callable_map[assignment_type](assignment_id, type_map, preview, json)
+    return
 
 @app.command(
     "td",

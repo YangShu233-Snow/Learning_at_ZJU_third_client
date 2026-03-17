@@ -6,7 +6,6 @@ import os
 import re
 from collections.abc import Callable
 from datetime import datetime
-from typing import List, Dict
 from pathlib import Path
 from urllib.parse import parse_qs, unquote
 
@@ -820,7 +819,7 @@ class assignmentOpenForumTopicAPIFits(assignmentAPIFits):
                  category_id: int, 
                  title: str,
                  content: str = None,
-                 uploads: List[int] = [],
+                 uploads: list[int] = None,
                  apis_name=None
                 ):
         

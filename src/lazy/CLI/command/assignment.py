@@ -1,10 +1,11 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime, timezone
+from enum import Enum, unique
 from functools import partial
 from textwrap import dedent
-from typing import Annotated, Dict, Callable
-from enum import Enum, unique
+from typing import Annotated
 
 import keyring
 import typer
@@ -1129,7 +1130,7 @@ async def view_assignment(
     async def view_forum_wrapper(activity_id: int, type_map: dict, _: bool, json: bool):
         return await view_forum(activity_id, type_map, json)
 
-    view_callable_map: Dict[AssignmentType, Callable] = {
+    view_callable_map: dict[AssignmentType, Callable] = {
         AssignmentType.ACTIVITY: view_activity_wrapper,
         AssignmentType.FORMUN: view_forum_wrapper,
         AssignmentType.EXAM: view_exam,

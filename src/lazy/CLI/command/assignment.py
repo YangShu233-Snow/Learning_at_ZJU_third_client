@@ -831,7 +831,7 @@ async def view_activity(
                     print_with_json(False, "STUDENT_ID does not exist. Report it to developer,")
                     raise typer.Exit(code=1)
                 
-                print(f"STUDENT_ID 缺失，请尝试重新登录！")
+                print("STUDENT_ID 缺失，请尝试重新登录！")
                 raise typer.Exit(code=1)
 
             # 请求主体数据

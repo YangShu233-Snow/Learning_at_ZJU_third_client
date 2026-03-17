@@ -237,7 +237,7 @@ class LoadManager:
                         with open(self.base_path / file["original_path"], 'w') as f:
                             f.write(file_content)
 
-                        logger.info(f'{file["archieve_path"]} 已载入！')
+                        logger.info(f'{file["archive_path"]} 已载入！')
             except Exception as e:
                 logger.error(f"{path} 配置加载失败。错误原因: {e}")
                 return False

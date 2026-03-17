@@ -25,13 +25,13 @@ LAZY CLI 预构建好的二进制文件现已发布！[点击这里](https://git
 # 下载文件至本地后将其解压，这里仅以 Linux 举例
 # Windows 用户推荐使用直观好用的资源管理器找到你的文件，并用压缩软件把.zip文件解压出来。
 wget https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/releases/download/v0.1.0-beta.5/lazy-cli-linux.tar.gz
-tar tar -zxvf ./lazy-cli-linux.tar.gz
+tar -zxvf ./lazy-cli-linux.tar.gz
 
 # 在当前目录下会有一个 lazy 文件夹
 # MacOS 与 Linux 用户可以通过软链接或环境变量的方式来配置
 # 将 lazy 文件夹移动至一个永久存放的位置，我们推荐~/.local/share
-mkdir ~/.local/share/lazy -p
-mv /path/to/your/Learning_at_ZJU_third_client/dist/lazy/* ~/.local/share/lazy
+mkdir ~/.local/share -p
+mv /path/to/your/lazy ~/.local/share/
 
 # 创建一个软链接
 sudo ln -s ~/.local/share/lazy/lazy /usr/local/bin/lazy

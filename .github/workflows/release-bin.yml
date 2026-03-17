@@ -30,12 +30,6 @@ jobs:
             arch: arm64
             asset_suffix: linux-arm64.tar.gz
             
-          # macOS x86_64 (macOS 13 仍为 Intel 芯片)
-          - os: macos
-            runner: macos-13
-            arch: x86_64
-            asset_suffix: macos-x86_64.tar.gz
-            
           # macOS ARM64 (macOS 14+ 默认为 M 系列 Apple Silicon 芯片)
           - os: macos
             runner: macos-latest

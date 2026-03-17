@@ -1088,7 +1088,7 @@ async def view_forum(
                 raise typer.Exit(code=1)
 
             # 请求讨论数据
-            raw_forum = (await zju_api.assignmentViewForumAPIFits(client.session, category_id))[0]
+            raw_forum = (await zju_api.assignmentViewForumAPIFits(client.session, category_id).get_api_data())[0]
         
         progress.update(task, advance=1, description="渲染数据中...")
 
@@ -1096,8 +1096,7 @@ async def view_forum(
         # 任务主体部分
         activity_title = raw_activity.get("title", "")
         activity_type = type_map.get(raw_activity.get("type", "null"), raw_activity.get("type", "null"))
-        activity_highest_score: int                  = raw_activity.get("highest_score", 0) if raw_activity.get("highest_score", 0) is not None else "N/A"
-        activity_description: str                    = extract_comment(raw_activity.get("data", {}).get("description", ""))
+        # activity_highest_score: int = raw_activity.get("highest_score", 0) if raw_activity.get("highest_score", 0) is not None else "N/A"
         activity_all_students_average_score: int|str = raw_activity.get("average_score", "N/A")
 
         # 开放时间
@@ -1105,6 +1104,118 @@ async def view_forum(
         
         # 截止日期
         activity_end_time = transform_time(raw_activity.get("end_time"))
+
+        start_time_text = Text.assemble(
+            ("开放时间: ", "cyan"),
+            (activity_start_time, "bright_white")
+        )
+        end_time_text = Text.assemble(
+            ("截止时间: ", "cyan"),
+            (activity_end_time, "bright_white")
+        )
+
+        if type(activity_all_students_average_score) == float:
+            average_score_text = Text.assemble(
+                ("班级均分: ", "cyan"),
+                (f"{activity_all_students_average_score:0.2f}", "bright_white")
+            )
+        else:
+            average_score_text = Text.assemble(
+                ("班级均分: ", "cyan"),
+                (f"{activity_all_students_average_score}", "bright_white")
+            )
+
+        # --- 准备Panel内容 ---
+        content_renderables = []
+        title_line = Align.center(Text.assemble((f"{activity_title}", "bold bright_magenta")))
+        content_renderables.append(title_line)
+        content_renderables.append(start_time_text)
+        content_renderables.append(end_time_text)
+        content_renderables.append(average_score_text)
+
+        # 讨论部分
+        topics = raw_forum.get("result", {}).get("topics")
+        topics_renderables = []
+        if not topics:
+            topics_renderables.append(Text("暂时还没有讨论呢~ \\(￣へ￣)/"))
+        else:
+            topics_renderables = []
+            for topic in topics:
+                title = topic.get("title", "无标题")
+                content = extract_comment(topic.get("content", ""))
+                created_time = transform_time(topic.get("created_at"))
+                creator = topic.get("created_by").get("name")
+                rely_count = topic.get("reply_count", 0)
+                topic_uploads = topic.get("uploads")
+
+                title_line = Align.center(Text.assemble((f"{title}", "blue")))
+                created_time_text = Text.assemble(
+                    ("发布时间: ", "cyan"),
+                    (f"{created_time}", "white")
+                )
+                creator_text = Text.assemble(
+                    ("帖主: ", "cyan"),
+                    (f"{creator}", "white")
+                )
+                rely_count_text = Text.assemble(
+                    ("回帖数: ", "cyan"),
+                    (f"{rely_count}", "white")
+                )
+                
+                topics_renderables.extend(
+                    [
+                        title_line,
+                        created_time_text,
+                        creator_text,
+                        rely_count_text
+                    ]
+                )
+
+                if content:
+                    content_text = Text.assemble(
+                        content
+                    )
+                    content_block = Padding(content_text, (0, 0, 0, 2))
+
+                    topics_renderables.append(content_block)
+
+                if topic_uploads:
+                    topic_uploads_content_renderables = extract_uploads(topic_uploads)
+                    topics_renderables.extend(
+                        [
+                            "",
+                            *topic_uploads_content_renderables,
+                            ""
+                        ]
+                    )
+
+                if topic != topics[-1]:
+                    topics_renderables.append(Rule(style="dim white"))
+                    topics_renderables.append("")
+
+            # --- 装配Topics List Panel ---
+            topics_list_panel = Panel(
+                Group(*topics_renderables),
+                title = "[yellow][讨论发帖][/yellow]",
+                border_style="yellow",
+                expand=True,
+                padding=(1, 2)
+            )
+            content_renderables.append("")
+            content_renderables.append(topics_list_panel)
+
+        activity_panel = Panel(
+            Group(*content_renderables),
+            title = f"[white][{activity_type}][/white]",
+            subtitle = f"[white][ID: {activity_id}][/white]",
+            border_style="bright_black",
+            expand=True,
+            padding=(1, 2, 1, 2)
+        )
+
+        progress.advance(task, advance=1)
+
+    rprint(activity_panel)
 
 @app.command(
     "vw",

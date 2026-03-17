@@ -686,7 +686,10 @@ async def view_syllabus(
                     )
 
                     # 任务完成状态
-                    completion_text = get_completion_text(completion_status, activity_completion_criterion_key)
+                    if activity_type != "讨论":
+                        completion_text = get_completion_text(completion_status, activity_completion_criterion_key)
+                    else:
+                        completion_text = Text()
 
                     # --- 准备Panel内容 ---
                     content_renderables = []

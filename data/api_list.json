@@ -219,7 +219,8 @@
             "classroom_subject_result",
             "classroom_subject",
             "submissions",
-            "topics"
+            "topics",
+            "forum"
         ],
         "apis_config": {
             "activity": {
@@ -310,6 +311,15 @@
                     "content": "<p>{{{content}}}</p>",
                     "title": "",
                     "uploads": []
+                }
+            },
+            "forum": {
+                "url": "https://courses.zju.edu.cn/api/forum/categories/<placeholder>",
+                "method": "GET",
+                "params": {
+                    "conditions": "{\"topic_sort_by\":{\"predicate\":\"lastUpdatedDate\",\"reverse\":true}}",
+                    "fields": "id,title,created_by(id,name),group_id,created_at,updated_at,content,uploads",
+                    "page": 1
                 }
             }
         }

@@ -805,7 +805,7 @@ async def view_activity(
         disable=json
     ) as progress:
         
-        task = progress.add_task(description="请求数据中...", total=1)
+        task = progress.add_task(description="请求数据中...", total=2)
 
         cookies = CredentialManager().load_cookies()
         if not cookies:
@@ -831,7 +831,7 @@ async def view_activity(
                     print_with_json(False, "STUDENT_ID does not exist. Report it to developer,")
                     raise typer.Exit(code=1)
                 
-                print(f"{activity_id} 返回存在问题！")
+                print(f"STUDENT_ID 缺失，请尝试重新登录！")
                 raise typer.Exit(code=1)
 
             # 请求主体数据
@@ -1048,12 +1048,63 @@ async def view_activity(
 
     rprint(activity_panel)
 
-def view_forum(
-    forum_id: int,
+async def view_forum(
+    activity_id: int,
     type_map: dict,
     json: bool
 ):
-    pass
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True,
+        disable=json
+    ) as progress:
+        
+        task = progress.add_task(description="请求数据中...", total=2)
+
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+                logger.error("Cookies不存在！")
+                raise typer.Exit(code=1)
+            
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
+
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
+            # --- 请求阶段 ---
+            # 请求任务数据            
+            raw_activity = (await zju_api.assignmentViewAPIFits(client.session, activity_id).get_api_data())[0]
+            category_id = raw_activity.get("topic_category_id", None)
+
+            if not category_id:
+                if json:
+                    print_with_json(False, "CATEGORY_ID does not exist!")
+                    raise typer.Exit(code=1)
+
+                rprint(f"{activity_id} 返回存在问题，请将此问题上报给开发者！")
+                raise typer.Exit(code=1)
+
+            # 请求讨论数据
+            raw_forum = (await zju_api.assignmentViewForumAPIFits(client.session, category_id))[0]
+        
+        progress.update(task, advance=1, description="渲染数据中...")
+
+        # 解析返回内容
+        # 任务主体部分
+        activity_title = raw_activity.get("title", "")
+        activity_type = type_map.get(raw_activity.get("type", "null"), raw_activity.get("type", "null"))
+        activity_highest_score: int                  = raw_activity.get("highest_score", 0) if raw_activity.get("highest_score", 0) is not None else "N/A"
+        activity_description: str                    = extract_comment(raw_activity.get("data", {}).get("description", ""))
+        activity_all_students_average_score: int|str = raw_activity.get("average_score", "N/A")
+
+        # 开放时间
+        activity_start_time = transform_time(raw_activity.get("start_time"))
+        
+        # 截止日期
+        activity_end_time = transform_time(raw_activity.get("end_time"))
 
 @app.command(
     "vw",

@@ -30,8 +30,6 @@ class fileUploadProgressWrapper:
         self._bytes_read = 0
 
     def read(self, size=-1):
-        """request库会调用这个方法流式读取
-        """
         chunk = self._file.read(size)
         if chunk:
             self._bytes_read += len(chunk)
@@ -45,10 +43,13 @@ class fileUploadProgressWrapper:
 
         return chunk
     
-    def __len__(self):
-        """request库通过这个方法获知文件大小
-        """
+    def seek(self, offset, whence=0):
+        return self._file.seek(offset, whence)
 
+    def tell(self):
+        return self._file.tell()
+    
+    def __len__(self):
         return self._total_size
 
 class APIFits:
@@ -890,6 +891,31 @@ class assignmentOpenForumTopicAPIFits(assignmentAPIFits):
         
         return True
 
+class assignmentViewForumAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 category_id: int, 
+                 apis_name=None
+                ):
+        
+        if apis_name is None:
+            apis_name = ["forum"]
+
+        super().__init__(login_session, apis_name)
+        self.category_id = category_id
+
+    def _make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+
+        if not base_api_url:
+            logger.error(f"{api_name} 缺少url！")
+            return None
+        
+        if api_name == "forum":
+            return base_api_url.replace("<placeholder>", str(self.category_id))
+
+        return super()._make_api_url(api_config, api_name)
+
 # --- Resource API ---
 class resourcesAPIFits(APIFitsAsync):
     def __init__(self, 
@@ -1348,7 +1374,7 @@ class resourceUploadAPIFits(resourcesAPIFits):
 
                 # 构建payload
                 file_payload = {
-                    "file": (self.file_name, uploader, file_mimetype)
+                    self.file_name: (self.file_name, uploader, file_mimetype)
                 }
 
                 response = await self.login_session.put(
@@ -1356,7 +1382,8 @@ class resourceUploadAPIFits(resourcesAPIFits):
                     files = file_payload,
                     follow_redirects=True
                 )
-            logger.info(f"{response.cookies}")
+
+            logger.info(f"{response.text}")
             response.raise_for_status()
         except Exception as e:
             logger.error(f"向服务器上传文件 {self.file_name} 时候发生错误！{e}")

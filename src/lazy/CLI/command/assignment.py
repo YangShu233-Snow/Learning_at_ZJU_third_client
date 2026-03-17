@@ -1047,7 +1047,11 @@ async def view_activity(
 
     rprint(activity_panel)
 
-def view_forum():
+def view_forum(
+    forum_id: int,
+    type_map: dict,
+    json: bool
+):
     pass
 
 @app.command(
@@ -1097,16 +1101,12 @@ async def view_assignment(
     assignment_type = AssignmentType.UNKOWN
 
     # 猜测任务类型
-    if activity:
-        assignment_type = AssignmentType.ACTIVITY
-    elif forum:
-        assignment_type = AssignmentType.FORMUN
-    elif exam:
-        assignment_type = AssignmentType.EXAM
-    elif classroom:
-        assignment_type = AssignmentType.CLASSROOM
-    else:
-        assignment_type = await guess_assignment_type(assignment_id, json)
+    match (activity, forum, exam, classroom): 
+        case (True, _, _, _): assignment_type = AssignmentType.ACTIVITY
+        case (_, True, _, _): assignment_type = AssignmentType.FORMUN
+        case (_, _, True, _): assignment_type = AssignmentType.EXAM
+        case (_, _, _, True): assignment_type = AssignmentType.CLASSROOM
+        case _: assignment_type =  await guess_assignment_type(assignment_id, json)
 
     if assignment_type == AssignmentType.UNKOWN:
         if json:
@@ -1114,7 +1114,7 @@ async def view_assignment(
         
         rprint(f"任务 {assignment_id} 不存在！")
 
-    if assignment_type == AssignmentType.ACTIVITY and preview:
+    if assignment_type in (AssignmentType.ACTIVITY, AssignmentType.FORMUN) and preview:
         if json:
             print_with_json(False, "Assignment whose type is 'Activity' cannot be previewed.")
             raise typer.Exit(code=1)
@@ -1122,11 +1122,16 @@ async def view_assignment(
         rprint("[red]'activity' 类型不可预览！[/red]")
         raise typer.Exit(code=1)
     
+    # 统一一下接口方便调用
     async def view_activity_wrapper(activity_id: int, type_map: dict, _: bool, json: bool):
         return await view_activity(activity_id, type_map, json)
+    
+    async def view_forum_wrapper(activity_id: int, type_map: dict, _: bool, json: bool):
+        return await view_forum(activity_id, type_map, json)
 
     view_callable_map: Dict[AssignmentType, Callable] = {
         AssignmentType.ACTIVITY: view_activity_wrapper,
+        AssignmentType.FORMUN: view_forum_wrapper,
         AssignmentType.EXAM: view_exam,
         AssignmentType.CLASSROOM: view_classroom
     }
@@ -1438,11 +1443,11 @@ async def submit_assignment(
     epilog=dedent("""
         EXAMPLES:
 
-          $ lazy assignment submit 114514 -t 'Hello World' 
-            (向ID为'114514'的任务提交文本内容为'Hello World'的作业)
+          $ lazy assignment open 114514 -T 'Hello World' -t 'Hello World' 
+            (向版块ID为'114514'的讨论提交一个标题为'Hello World'，文本内容为'Hello World'的话题)
             
           $ lazy assignment submit 114514 -f '2333, 6666' 
-            (向ID为'114514'的任务提交附件ID为'2333'和'6666'的作业)
+            (向版块ID为'114514'的讨论提交一个标题为'Hello World'，附件ID为2333和6666的话题)
     """),
     no_args_is_help=True)
 @app.command(
@@ -1451,15 +1456,15 @@ async def submit_assignment(
     epilog=dedent("""
         EXAMPLES:
 
-          $ lazy assignment open 114514 -t 'Hello World' 
-            (向ID为'114514'的任务提交文本内容为'Hello World'的作业)
+          $ lazy assignment open 114514 -T 'Hello World' -t 'Hello World' 
+            (向版块ID为'114514'的讨论提交一个标题为'Hello World'，文本内容为'Hello World'的话题)
             
           $ lazy assignment submit 114514 -f '2333, 6666' 
-            (向ID为'114514'的任务提交附件ID为'2333'和'6666'的作业)
+            (向版块ID为'114514'的讨论提交一个标题为'Hello World'，附件ID为2333和6666的话题)
     """),
     no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
-async def submit_assignment(
+async def open_topic(
     category_id: Annotated[int, typer.Argument(help="版块ID")],
     title: Annotated[str, typer.Option("--title", "-T", help="话题标题")],
     text: Annotated[str | None, typer.Option("--text", "-t", help="待提交的文本内容")] = "",

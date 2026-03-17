@@ -1,5 +1,6 @@
 import logging
 import pickle
+import ssl
 from pathlib import Path
 
 import httpx
@@ -110,49 +111,82 @@ class ZjuAsyncClient:
         cookies   = None,
         trust_env = False
     ):
-        """初始化会话
-
-        Parameters
-        ----------
-        headers : dict, optional
-            _description_, by default None
-        """
-        # 初始化会话    
-        logger.info("初始化会话中...")
-        
-        if trust_env:
-            logger.info("启用全局代理")
-        else:
-            logger.info("全局代理关闭")
-
-        self.session = httpx.AsyncClient(trust_env=trust_env, timeout=20.0)
-
+        """初始化会话配置参数"""
         if headers is None:
             headers = {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                 'Accept-Language': 'zh-CN,zh;q=0.9',
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
             }
-
-        self.session.headers.update(headers)
-
-        if cookies:
-            self.session.cookies.update(cookies)
-            
+        self.headers = headers
+        # 为了防止后续 update(None) 报错，建议这里给个空字典兜底
+        self.cookies = cookies or {} 
+        self.trust_env = trust_env
         self.studentid = None
-        logger.info("初始化会话成功")
+        
+        # 先占位，不要在这里 await
+        self.session = None
 
-        # # 初始化加密器
-        # logger.info("初始化加密器中...")
-        # self._encryption_key = generate_encryption_key()
-        # self._fernet = Fernet(self._encryption_key)
-        # logger.info("初始化加密器成功")
+    async def _init_session(self)-> httpx.AsyncClient:
+        logger.info("初始化会话中...")
+
+        if self.trust_env:
+            logger.info("启用全局代理")
+        else:
+            logger.info("全局代理关闭")
+
+        try:
+            session = httpx.AsyncClient(
+                trust_env=self.trust_env, 
+                timeout=20.0, 
+                follow_redirects=True
+            )
+            session.headers.update(self.headers)
+            session.cookies.update(self.cookies)
+            url = "https://courses.zju.edu.cn/user/index#/"
+
+            # test the ssl
+            response = await session.get(url)
+            response.raise_for_status()
+            logger.info("初始化会话成功")
+            return session
+        except httpx.ConnectError as e:
+            error_msg = str(e)
+            if "DH_KEY_TOO_SMALL" in error_msg or "dh key too small" in error_msg.lower():
+                logger.warning("DH KEY TOO SMALL! SECLEVEL=1")
+
+                await session.aclose()
+                ssl_context = ssl.create_default_context()
+                ssl_context.set_ciphers('DEFAULT@SECLEVEL=1')
+
+                session = httpx.AsyncClient(
+                    trust_env=self.trust_env,
+                    timeout=20,
+                    verify=ssl_context,
+                    follow_redirects=True
+                )
+                session.headers.update(self.headers)
+                session.cookies.update(self.cookies)
+
+                try:
+                    response = await session.get(url)
+                    response.raise_for_status()
+                    logger.info("初始化会话成功[兼容模式]")
+                    return session
+                except Exception as sub_e:
+                    logger.error(f"兼容模式启用失败: {sub_e}")
+                    raise
+            else:
+                logger.error(f"未知错误: {e}")
+                raise
     
     async def __aenter__(self):
+        self.session = await self._init_session()
         return self
     
     async def __aexit__(self, exc_type, exc_value, exc_traceback):
-        await self.session.aclose()
+        if self.session:
+            await self.session.aclose()
 
     async def login(self, studentid: str, password: str)->bool:
         """学在浙大登录逻辑，返回bool值表示登录结果是否成功。

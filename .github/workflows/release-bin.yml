@@ -74,7 +74,7 @@ jobs:
             echo "ADD_DATA=--add-data=data:data" >> $GITHUB_ENV
           elif [ "${{ matrix.os }}" == "windows" ]; then
             echo "HIDDEN_IMPORTS=--hidden-import=keyring.backends.Windows.WinVaultKeyring --hidden-import=shellingham.windows --hidden-import=shellingham.nt" >> $GITHUB_ENV
-            echo "ADD_DATA=--add-data=data;data" >> $GITHUB_ENV
+            echo "ADD_DATA=--add-data=data:data" >> $GITHUB_ENV
           fi
 
       - name: Install dependencies

@@ -1,6 +1,6 @@
 # Learning_at_ZJU_third_client
 
-> *Not lazy, laz yes!*
+![LOGO](images/LOGO.png)
 
 ## 项目简介
 

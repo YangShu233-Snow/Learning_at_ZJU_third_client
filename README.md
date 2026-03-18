@@ -1,6 +1,8 @@
 # Learning_at_ZJU_third_client
 
-![LOGO](images/LOGO.png)
+<center>
+<img src='./images/LOGO.png' style="max-width: 50%">
+</center>
 
 ## 项目简介
 

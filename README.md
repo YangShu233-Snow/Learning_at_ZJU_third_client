@@ -1,9 +1,8 @@
 # Learning_at_ZJU_third_client
 
-<center>
-<img src='./images/LOGO.png' width=300>
-</center>
-
+<div align="center">
+  <img src="./images/LOGO.png" width="300">
+</div>
 ## 项目简介
 
 学在浙大第三方客户端，项目名为**LAZY**，即 Learning at ZJU yes! 的缩写，期望这个项目可以帮助你获得更好学在浙大使用体验！

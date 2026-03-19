@@ -5,7 +5,6 @@ reminder.md
 !api_list.json
 !global_config.json
 !*backup.json
-*.jpg
 *.log
 .gradio
 

@@ -1,5 +1,6 @@
-from PySide6.QtGui import QPainter, QBrush, QPixmap
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QBrush, QPainter, QPixmap
+
 
 def get_round_icon(source_pixmap, size=64)->QPixmap:
     # 1. 创建一个等比例缩放的方形图片，确保裁切中心

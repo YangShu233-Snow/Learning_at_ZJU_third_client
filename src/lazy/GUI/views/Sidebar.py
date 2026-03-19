@@ -1,9 +1,7 @@
-import os
-import pathlib
 from pathlib import Path
 
-from PySide6.QtWidgets import QPushButton, QWidget, QButtonGroup, QSpacerItem, QVBoxLayout
 from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtWidgets import QButtonGroup, QPushButton, QVBoxLayout, QWidget
 
 CURRENT_DIR = Path(__file__).parent
 ASSETS_BASEDIR = CURRENT_DIR / ".." / "assets" / "Sidebar"

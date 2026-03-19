@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from PySide6.QtGui import QIcon, QImage, QPixmap
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QSpacerItem, QToolButton, QWidget
+from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QToolButton, QWidget
 
 from .utils.get_round_icon import get_round_icon
 

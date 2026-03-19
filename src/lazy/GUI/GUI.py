@@ -1,7 +1,9 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout
-from .views.Statusbar import StatusBar
-from .views.Sidebar import Sidebar
+from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+
 from .views.MainContent import MainContent
+from .views.Sidebar import Sidebar
+from .views.Statusbar import StatusBar
+
 
 class SubWidget(QWidget):
     def __init__(self):

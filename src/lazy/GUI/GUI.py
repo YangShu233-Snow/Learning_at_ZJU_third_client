@@ -1,27 +1,16 @@
-from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+import sys
 
-from .views.MainContent import MainContent
-from .views.Sidebar import Sidebar
-from .views.Statusbar import StatusBar
+from PySide6.QtWidgets import QApplication
+
+from .controllers.MainController import MainController
+from .views.MainWindow import MainWindow
 
 
-class SubWidget(QWidget):
-    def __init__(self):
-        super().__init__()
+def app():
+    lazy_app = QApplication(sys.argv)
+    
+    mainwindow = MainWindow()
+    controller = MainController(mainwindow.subwidget.sidebar, mainwindow.subwidget.maincontent)
 
-        layout = QHBoxLayout()
-        
-        layout.addWidget(Sidebar())
-        layout.addWidget(MainContent())
-
-        self.setLayout(layout)
-class MainWindow(QWidget):
-    def __init__(self):
-        super().__init__()
-        
-        self.setWindowTitle("LAZY GUI")
-
-        main_layout = QVBoxLayout()
-        main_layout.addWidget(StatusBar())
-        main_layout.addWidget(SubWidget())
-        self.setLayout(main_layout)
+    mainwindow.show()
+    sys.exit(lazy_app.exec())

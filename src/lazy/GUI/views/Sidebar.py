@@ -66,18 +66,20 @@ class SidebarButtonsWidget(QWidget):
         layout.addWidget(self.rollcall_button)
         
         # 逻辑组
-        group = QButtonGroup(self)
-        group.addButton(self.home_button)
-        group.addButton(self.course_button)
-        group.addButton(self.resource_button)
-        group.addButton(self.rollcall_button)
+        self.group = QButtonGroup(self)
+        self.group.addButton(self.home_button, id=0)
+        self.group.addButton(self.course_button, id=1)
+        self.group.addButton(self.resource_button, id=2)
+        self.group.addButton(self.rollcall_button, id=3)
 
 class Sidebar(QWidget):
     def __init__(self):
         super().__init__()
 
+        self.sidebar_buttons_widgets = SidebarButtonsWidget()
+
         layout = QVBoxLayout()
-        layout.addWidget(SidebarButtonsWidget())
+        layout.addWidget(self.sidebar_buttons_widgets)
         layout.addStretch()
         layout.addWidget(SettingsButton())
 

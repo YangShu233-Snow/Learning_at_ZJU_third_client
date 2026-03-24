@@ -4,7 +4,7 @@ from typing import Annotated
 import typer
 from rich import print as rprint
 
-from ...load_config.backup import BackupManager, LoadManager
+from ...core.load_config.backup import BackupManager, LoadManager
 
 app = typer.Typer(help="管理 LAZY CLI 配置文件")
 

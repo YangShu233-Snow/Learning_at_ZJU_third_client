@@ -21,8 +21,8 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from ...login.login import CredentialManager, ZjuAsyncClient
-from ...zjuAPI import zju_api
+from ...core.login.login import CredentialManager, ZjuAsyncClient
+from ...core.zjuAPI import zju_api
 from ..state import state
 from ..utils.utils import print_with_json, transform_time
 

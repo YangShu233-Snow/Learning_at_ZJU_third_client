@@ -10,7 +10,7 @@ from lxml import etree
 from rich import print as rprint
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from ..login.login import CredentialManager, ZjuAsyncClient
+from ..core.login.login import CredentialManager, ZjuAsyncClient
 from .command import assignment, config, course, log, resource, rollcall
 from .state import state
 

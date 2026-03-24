@@ -16,8 +16,8 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from ...login.login import CredentialManager, ZjuAsyncClient
-from ...zjuAPI import zju_api
+from ...core.login.login import CredentialManager, ZjuAsyncClient
+from ...core.zjuAPI import zju_api
 from ..config.config import type_map
 from ..state import state
 from ..utils.utils import (

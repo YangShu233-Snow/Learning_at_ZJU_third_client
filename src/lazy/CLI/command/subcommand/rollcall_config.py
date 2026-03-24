@@ -3,7 +3,7 @@ from typing import Annotated
 
 import typer
 
-from ....load_config import load_config
+from ....core.load_config import load_config
 
 logger = logging.getLogger(__name__)
 

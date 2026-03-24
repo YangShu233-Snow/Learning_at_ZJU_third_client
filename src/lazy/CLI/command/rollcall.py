@@ -18,9 +18,9 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from ...load_config import load_config
-from ...login.login import CredentialManager, ZjuAsyncClient
-from ...zjuAPI import zju_api
+from ...core.load_config import load_config
+from ...core.login.login import CredentialManager, ZjuAsyncClient
+from ...core.zjuAPI import zju_api
 from ..state import state
 from .subcommand import rollcall_config
 

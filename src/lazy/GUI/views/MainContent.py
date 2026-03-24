@@ -1,4 +1,5 @@
-from PySide6.QtWidgets import QStackedWidget, QWidget, QHBoxLayout, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QStackedWidget, QVBoxLayout, QWidget
+
 
 class HomeContentWidget(QWidget):
     def __init__(self):

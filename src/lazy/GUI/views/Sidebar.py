@@ -1,10 +1,32 @@
 from pathlib import Path
 
 from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtWidgets import QButtonGroup, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QButtonGroup, QLabel, QPushButton, QVBoxLayout, QWidget
+
+from .utils.get_round_icon import get_round_icon
 
 CURRENT_DIR = Path(__file__).parent
 ASSETS_BASEDIR = CURRENT_DIR / ".." / "assets" / "Sidebar"
+
+class UserAvater(QLabel):
+    def __init__(self):
+        super().__init__()
+        avater_path = self._check_avater()
+        avater = QPixmap(avater_path)
+        if not avater.isNull():
+            round_pixmap = get_round_icon(avater, 30)
+            self.setPixmap(round_pixmap)
+
+        self.setFixedSize(30, 30)
+        
+    
+    def _check_avater(self)->Path:
+        user_avater_path = ASSETS_BASEDIR / "avater.jpg"
+        default_avater_path = ASSETS_BASEDIR / "default_avater.jpg"
+        if user_avater_path.exists():
+            return user_avater_path
+        
+        return default_avater_path
 
 class SideBarButton(QPushButton):
     def __init__(self, icon_name: str, icon_dir: str|Path = None):
@@ -75,10 +97,12 @@ class SidebarButtonsWidget(QWidget):
 class Sidebar(QWidget):
     def __init__(self):
         super().__init__()
-
+        self.user_avater_label = UserAvater()
         self.sidebar_buttons_widgets = SidebarButtonsWidget()
 
         layout = QVBoxLayout()
+        layout.addWidget(self.user_avater_label)
+        layout.addSpacing(10)
         layout.addWidget(self.sidebar_buttons_widgets)
         layout.addStretch()
         layout.addWidget(SettingsButton())

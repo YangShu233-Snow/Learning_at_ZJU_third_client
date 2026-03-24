@@ -1,6 +1,6 @@
-from ..views.MainWindow import MainWindow
 from ..views.MainContent import MainContent
 from ..views.Sidebar import Sidebar
+
 
 class MainController:
     def __init__(self, sidebar_view: Sidebar, maincontent_view: MainContent):

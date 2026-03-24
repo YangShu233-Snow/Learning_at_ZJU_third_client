@@ -10,7 +10,7 @@ def app():
     lazy_app = QApplication(sys.argv)
     
     mainwindow = MainWindow()
-    controller = MainController(mainwindow.subwidget.sidebar, mainwindow.subwidget.maincontent)
+    controller = MainController(mainwindow.sidebar, mainwindow.subwidget.maincontent)
 
     mainwindow.show()
     sys.exit(lazy_app.exec())

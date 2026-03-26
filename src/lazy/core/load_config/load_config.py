@@ -21,7 +21,7 @@ class BaseConfig:
     """    
     def __init__(self, parent_dir: str ,config_name: str):
         self.config_name:str = config_name
-        self.config_parent_dir_path  = resource_path("data") / parent_dir
+        self.config_parent_dir_path  = resource_path("../data") / parent_dir
         self.config_path:Path = self.config_parent_dir_path / self.config_name
 
     def load_config(self)->dict:

@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QToolButton, QWidg
 from .utils.get_round_icon import get_round_icon
 
 CURRENT_DIR = Path(__file__).parent
-ASSETS_BASEDIR = CURRENT_DIR / ".." / "assets" / "TopBar"
+ASSETS_BASEDIR = CURRENT_DIR / ".." / "assets" 
 
 class TopSearchBox(QWidget):
     def __init__(self):

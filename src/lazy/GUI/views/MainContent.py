@@ -1,13 +1,18 @@
-from http.client import ImproperConnectionState
 from datetime import datetime
-from PySide6.QtWidgets import (
-    QHBoxLayout, QVBoxLayout, QLabel, QWidget, 
-    QScrollArea, QFrame, QListWidget, QStackedWidget
-)
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import Qt
 from pathlib import Path
-import os
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QScrollArea,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .utils.get_round_icon import get_round_icon
 
@@ -37,14 +42,13 @@ class HomeContentUserInfoWidget(QWidget):
 
         if 0 <= now_time < 6:
             return QLabel("夜深了，早点睡吧~")
-        elif 6 <= now_time < 12:
+        if 6 <= now_time < 12:
             return QLabel("早上好，今天也要活力满满！")
-        elif 12 <= now_time < 18:
+        if 12 <= now_time < 18:
             return QLabel("下午好，今天的天气怎么样？")
-        elif 18 <= now_time < 24:
+        if 18 <= now_time < 24:
             return QLabel("晚上好，今天辛苦啦。")
-        else:
-            return QLabel("Wrong Time Format")
+        return QLabel("Wrong Time Format")
         
     def _generate_user_avater_label(self)->QLabel:
         avater_label = QLabel()

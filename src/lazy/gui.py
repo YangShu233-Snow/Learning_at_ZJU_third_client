@@ -1,5 +1,5 @@
-from .GUI.GUI import app
 from .core. printlog.print_log import setup_global_logging
+from .GUI.GUI import app
 
 
 def main():

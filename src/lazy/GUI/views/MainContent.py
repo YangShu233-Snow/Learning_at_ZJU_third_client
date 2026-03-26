@@ -73,6 +73,10 @@ class HomeContentUserInfoWidget(QWidget):
     def _get_username(self)->QLabel:
         return QLabel("")
 
+class HomeContentTodayCoursesWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
 class HomeContentWidget(QWidget):
     def __init__(self):
         super().__init__()

@@ -12,7 +12,7 @@ def resource_path(relative_path: str) -> Path:
         base_path = Path(sys._MEIPASS)
     except Exception:
         # 不在 PyInstaller 环境中，使用普通路径
-        base_path = Path(__file__).resolve().parent.parent.parent.parent
+        base_path = Path(__file__).resolve().parent.parent.parent.parent.parent
     
     return base_path / relative_path
 
@@ -21,7 +21,7 @@ class BaseConfig:
     """    
     def __init__(self, parent_dir: str ,config_name: str):
         self.config_name:str = config_name
-        self.config_parent_dir_path  = resource_path("../data") / parent_dir
+        self.config_parent_dir_path  = resource_path("data") / parent_dir
         self.config_path:Path = self.config_parent_dir_path / self.config_name
 
     def load_config(self)->dict:

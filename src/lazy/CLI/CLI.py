@@ -32,8 +32,10 @@ async def main_callback(
     proxy: Annotated[bool | None, typer.Option(
         "--proxy",
         help="启用此选项，允许 lazy 使用系统代理"
-    )] = True
+    )] = False
 ):
+
+    state.trust_env = proxy
 
     # 如果是login，whoami子命令，或查询--help时候，无需检查登录状态
     if "--help" in sys.argv or "-h" in sys.argv:
@@ -42,9 +44,6 @@ async def main_callback(
     if ctx.invoked_subcommand in ["login", "whoami", "config"]:
         return
 
-    state.trust_env = not proxy
-
-    
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),

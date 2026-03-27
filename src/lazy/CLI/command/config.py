@@ -68,4 +68,5 @@ def load(
     if manager.load():
         rprint("[green]配置加载成功！[/green]")
         return
+    
     rprint("[red]配置加载失败！[/red]")

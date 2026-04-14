@@ -1,13 +1,11 @@
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QListWidget,
     QScrollArea,
     QStackedWidget,
     QVBoxLayout,
@@ -29,13 +27,14 @@ class HomeContentUserInfoWidget(QWidget):
 
         self.sub_user_info_layout = QVBoxLayout()
         self.sub_user_info_layout.addWidget(self.username_label)
-        self.sub_user_info_layout.addSpacing(20)
+        self.sub_user_info_layout.addSpacing(5)
         self.sub_user_info_layout.addWidget(self.greating_label)
         
         self.user_info_layout = QHBoxLayout(self)
         self.user_info_layout.addWidget(self.user_avater_label)
-        self.user_info_layout.addSpacing(20)
+        self.user_info_layout.addSpacing(5)
         self.user_info_layout.addLayout(self.sub_user_info_layout)
+        self.user_info_layout.addStretch()
 
     def _generate_greeting_label(self)->QLabel:
         now_time = datetime.now().hour
@@ -56,7 +55,7 @@ class HomeContentUserInfoWidget(QWidget):
         avater = QPixmap(avater_path)
 
         if not avater.isNull():
-            round_pixmap = get_round_icon(avater, 30)
+            round_pixmap = get_round_icon(avater, 50)
             
         avater_label.setPixmap(round_pixmap)
 
@@ -71,11 +70,134 @@ class HomeContentUserInfoWidget(QWidget):
         return default_avater_path
     
     def _get_username(self)->QLabel:
-        return QLabel("")
+        return QLabel("xxx")
 
 class HomeContentTodayCoursesWidget(QWidget):
     def __init__(self):
         super().__init__()
+
+        layout = QVBoxLayout(self)
+        
+        self.title = QLabel("今日课程")
+
+        self.today_course_scroll = 0
+
+    def _add_course_placeholder(
+        self, 
+        course_name: str, 
+        teachers: list[str], 
+        course_time: str,
+        department_name: str
+    ):
+        """用于测试的课程项占位符"""
+        item = TodayCourseFrame(
+            course_name,
+            teachers,
+            course_time,
+            department_name
+        )
+        self.course_list_layout.addWidget(item)
+
+class TodayCourseFrame(QFrame):
+    def __init__(
+        self,
+        course_name: str,
+        teachers: list[str],
+        course_time: str,
+        department_name: str            
+    ):
+        super().__init__()
+
+        self.setFrameShadow(QFrame.Shadow.Raised)
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setMinimumHeight(80)
+
+        course_layout = QVBoxLayout(self)
+        course_main_info_layout = QHBoxLayout(course_layout)
+        course_minor_info_layout = QVBoxLayout(course_layout)
+
+        self.course_name_label = QLabel(course_name)
+        
+        teachers_name = self._format_teachers_name(teachers)
+        self.teachers_name_label = QLabel(teachers_name)
+
+        self.course_time = QLabel(course_time)
+        self.department_name = QLabel(department_name)
+
+        course_main_info_layout.addWidget(self.course_name_label)
+        course_main_info_layout.addWidget(self.department_namel)
+        course_minor_info_layout.addWidget(self.course_time)
+        course_minor_info_layout.addWidget(self.teachers_name_label)
+
+    def _format_teachers_name(teachers)->str:
+        teachers_name = ""
+        for teacher in teachers:
+            if len(f"{teachers_name}, {teacher}") > 22:
+                teachers_name = teachers_name + "..."
+                break
+
+            teachers_name = ', '.join((teachers_name, teacher))
+
+        return teachers_name
+
+class HomeContentTodoItem(QFrame):
+    def __init__(
+            self,
+            assignment_name: str,
+            course_name: str,
+            deadline: datetime,
+            type: str
+        ):
+        super().__init__()
+        self.setFrameShadow(QFrame.Shadow.Raised)
+        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setMinimumHeight(80)
+
+        layout = QVBoxLayout(self)
+
+        title_line = QLabel(f"[{type}] {assignment_name}")
+        sub_title_line = QLabel(f"{course_name}")
+        ddl_line = QLabel(f"截止时间: {deadline}")
+
+        layout.addWidget(title_line)
+        layout.addWidget(sub_title_line)
+        layout.addWidget(ddl_line)
+
+class HomeContentTodoListWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        layout = QVBoxLayout(self)
+
+        self.title = QLabel("待办事项")
+        self.todo_list_view = QScrollArea()
+        self.todo_list = QWidget()
+        self.todo_list_layout = QVBoxLayout(self.todo_list)
+
+        self.todo_list_view.setWidgetResizable(True)
+        self.todo_list_view.setWidget(self.todo_list)
+
+        layout.addWidget(self.title)
+        layout.addWidget(self.todo_list_view)
+    
+    def add_todo_item(
+        self,
+        assignment_name: str,
+        course_name: str,
+        deadline: datetime,
+        type: str
+    ):
+        self.todo_list_layout.addWidget(
+            HomeContentTodoItem(
+                assignment_name,
+                course_name,
+                deadline,
+                type
+            )
+        )
+    
+    def add_todo_stretch(self):
+        self.todo_list_layout.addStretch()
 
 class HomeContentWidget(QWidget):
     def __init__(self):
@@ -92,51 +214,28 @@ class HomeContentWidget(QWidget):
 
         # 1. 左上角：用户信息 (头像 + 问候语)
         self.user_info_widget = HomeContentUserInfoWidget()
+            
+        self.todo_list = HomeContentTodoListWidget()
+        for _ in range(20):
+            self.todo_list.add_todo_item(
+                "测试1",
+                "课程名字",
+                datetime.now(),
+                "作业"
+            )
 
-        # 2. 左下角：今日课程 (滑动组件)
-        self.course_section = QWidget()
-        self.course_section_layout = QVBoxLayout(self.course_section)
-        self.course_section_layout.setContentsMargins(0, 0, 0, 0)
-        
-        self.course_title = QLabel("今日课程")
-        self.course_title.setStyleSheet("font-size: 18px; font-weight: bold;")
-        
-        self.course_scroll = QScrollArea()
-        self.course_scroll.setWidgetResizable(True)
-        self.course_scroll.setFrameShape(QFrame.NoFrame)
-        
-        self.course_container = QWidget()
-        self.course_list_layout = QVBoxLayout(self.course_container)
-        self.course_list_layout.setAlignment(Qt.AlignTop)
-        
-        # 预留添加课程条目的方法
-        self._add_course_placeholder("示例课程 1 - 8:00 AM", "主楼 101")
-        self._add_course_placeholder("示例课程 2 - 10:00 AM", "实验楼 202")
-        self._add_course_placeholder("示例课程 3 - 2:00 PM", "西教 303")
-        self._add_course_placeholder("示例课程 4 - 4:00 PM", "西教 404")
-        
-        self.course_scroll.setWidget(self.course_container)
-        
-        self.course_section_layout.addWidget(self.course_title)
-        self.course_section_layout.addWidget(self.course_scroll)
+        self.todo_list.add_todo_stretch()
 
-        self.left_layout.addWidget(self.user_info_widget)
-        self.left_layout.addWidget(self.course_section, stretch=1)
+        self.left_layout.addWidget(self.todo_list)
+        self.left_layout.addStretch()
 
         # --- 右侧布局 ---
         self.right_layout = QVBoxLayout()
         self.right_layout.setSpacing(10)
+
         
-        self.todo_title = QLabel("待办事项")
-        self.todo_title.setStyleSheet("font-size: 18px; font-weight: bold;")
-        
-        self.todo_list = QListWidget()
-        self.todo_list.addItem("完成作业 1")
-        self.todo_list.addItem("准备展示 PPT")
-        self.todo_list.addItem("回复导师邮件")
-        
-        self.right_layout.addWidget(self.todo_title)
-        self.right_layout.addWidget(self.todo_list)
+        self.right_layout.addWidget(QLabel("这里留给课表"))
+        self.right_layout.addStretch()
 
         # 组合到主布局
         self.main_layout.addLayout(self.left_layout, stretch=2)

@@ -149,7 +149,8 @@ async def check_code_worker(
                 progress.update(task_id, advance=1) # 更新进度条
 
 async def answer_number_rollcall(rollcall_id: int, number_code: str|None):
-    code_str = number_code.zfill(4)
+    if number_code:
+        code_str = number_code.zfill(4)
     device_id = generate_device_id()
     cookies = CredentialManager().load_cookies()
     if not cookies:
@@ -334,8 +335,7 @@ async def answer_rollcall(
     
     site: Annotated[str | None, typer.Option(
         "--site", "-s", 
-        help="雷达点名：签到定位配置", 
-        callback=get_site_coordinate
+        help="雷达点名：签到定位配置"
     )] = None,
     
     number: Annotated[str | None, typer.Option(
@@ -374,6 +374,7 @@ async def answer_rollcall(
     # --- 调度 ---
     if site:
         rprint("[bold blue]检测到 --site, 启动 [雷达] 签到...[/bold blue]")
+        site = get_site_coordinate(site)
         await answer_radar_rollcall(rollcall_id, site)
     
     elif number:

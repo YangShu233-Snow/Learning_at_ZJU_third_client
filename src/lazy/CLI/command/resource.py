@@ -8,19 +8,19 @@ import typer
 from asyncer import syncify
 from rich import filesize
 from rich import print as rprint
-from rich.text import Text
 from rich.progress import (
     BarColumn,
     Progress,
     ProgressColumn,
     SpinnerColumn,
     Task,
-    TaskProgressColumn,
     TaskID,
+    TaskProgressColumn,
     TextColumn,
     TimeRemainingColumn,
 )
 from rich.table import Table
+from rich.text import Text
 
 from ...core.login.login import CredentialManager, ZjuAsyncClient
 from ...core.zjuAPI import zju_api

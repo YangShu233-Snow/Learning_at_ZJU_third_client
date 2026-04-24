@@ -2,7 +2,7 @@ import logging
 from functools import partial
 from pathlib import Path
 from textwrap import dedent
-from typing import Annotated
+from typing import Annotated, List
 
 import typer
 from asyncer import syncify
@@ -70,8 +70,10 @@ def is_list_resoureces_file_type_valid(file_type: str):
     raise typer.Exit(code=1)
 
 def is_download_dest_dir(dest: Path):
-    if dest == Path().home() / "Downloads" and not dest.exists():
-        Path(dest).mkdir()
+    if not dest:
+        dest = Path().home() / 'Downloads'
+        if not dest.exists():
+            dest.mkdir()
 
     if not dest.exists():
         logger.error(f"{dest} 不存在！")
@@ -479,9 +481,9 @@ async def upload_resources(
 @partial(syncify, raise_sync_error=False)
 async def remove_resources(
     files_id: Annotated[list[int], typer.Argument(help="需删除文件的id")],
-    force: Annotated[bool | None, typer.Option("--force", "-f", help="启用 --force 以关闭二次确认")] = False,
-    batch: Annotated[bool | None, typer.Option("--batch", "-b", help="启用 --batch 则使用快速批量模式，但此模式存在缺陷，服务端不会对文件id做任何校验，倘若你输入一个不存在的文件id也会返回删除成功")] = False,
-    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
+    force: Annotated[bool, typer.Option("--force", "-f", help="启用 --force 以关闭二次确认")] = False,
+    batch: Annotated[bool, typer.Option("--batch", "-b", help="启用 --batch 则使用快速批量模式，但此模式存在缺陷，服务端不会对文件id做任何校验，倘若你输入一个不存在的文件id也会返回删除成功")] = False,
+    json: Annotated[bool, typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     删除学在浙大云盘内的指定文件。
@@ -611,11 +613,11 @@ async def remove_resources(
         no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def download_resource(
-    files_id: Annotated[list[int], typer.Argument(help="需下载文件的id")],
-    basename: Annotated[list[int], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
+    files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
+    basename: Annotated[List[str], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
     dest: Annotated[Path | None, typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = None,
-    batch: Annotated[bool | None, typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False,
-    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
+    batch: Annotated[bool, typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False,
+    json: Annotated[bool, typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
     下载学在浙大云盘文件，支持对个人云盘与课程资源的下载。
@@ -626,10 +628,9 @@ async def download_resource(
 
     课程资源下载不支持 -b 选项。
     """
-    # Fix B008
-    if dest is None:
-        dest = Path().home() / "Downloads"
-
+    if not dest:
+        dest = Path().home() / 'Downloads'
+        
     files_id_amount = len(files_id)
     success_amount = 0
 
@@ -663,33 +664,33 @@ async def download_resource(
                 async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                     resources_downloader = zju_api.resourcesDownloadAPIFits(client.session, output_path=dest, resources_id=files_id, basename=basename)
                 
-                # 子任务，跟踪文件下载进度
-                download_task = sub_progress.add_task(description="下载文件中...", start=False)
-                
-                # 创建回调函数
-                def update_progress(downloaded: int, total_size: int, filename: int, task_id: int = download_task):
-                    # 首次回调，更新文件名和文件大小
-                    if not sub_progress.tasks[task_id].started:
-                        sub_progress.start_task(task_id)
-                        sub_progress.update(task_id, description=f"[cyan]下载: {filename}", total=total_size)
+                    # 子任务，跟踪文件下载进度
+                    download_task = sub_progress.add_task(description="下载文件中...", start=False)
+                    
+                    # 创建回调函数
+                    def update_progress(downloaded: int, total_size: int, filename: int, task_id: int = download_task):
+                        # 首次回调，更新文件名和文件大小
+                        if not sub_progress.tasks[task_id].started:
+                            sub_progress.start_task(task_id)
+                            sub_progress.update(task_id, description=f"[cyan]下载: {filename}", total=total_size)
 
-                    sub_progress.update(task_id, completed=downloaded)
-                
-                if await resources_downloader.batch_download(progress_callback=update_progress):
-                    if json:
-                        print_with_json(True, "Download Successfullly!")
+                        sub_progress.update(task_id, completed=downloaded)
+                    
+                    if await resources_downloader.batch_download(progress_callback=update_progress):
+                        if json:
+                            print_with_json(True, "Download Successfullly!")
+                        else:
+                            rprint("[green]下载成功！")
+                            rprint("[green]下载完成！[/green]")
                     else:
-                        rprint("[green]下载成功！")
-                        rprint("[green]下载完成！[/green]")
-                else:
-                    if json:
-                        print_with_json(False, "Download Failed!")
-                    else:
-                        rprint("[bold red]下载失败!")
+                        if json:
+                            print_with_json(False, "Download Failed!")
+                        else:
+                            rprint("[bold red]下载失败!")
 
-                    progress.update(main_task, advance=1)                
+                        progress.update(main_task, advance=1)                
 
-            return
+                return
 
     with Progress(
         TextColumn("[progress.description]{task.description}"),

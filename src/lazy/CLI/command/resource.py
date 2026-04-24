@@ -2,12 +2,13 @@ import logging
 from functools import partial
 from pathlib import Path
 from textwrap import dedent
-from typing import Annotated, List
+from typing import Annotated
 
 import typer
 from asyncer import syncify
 from rich import filesize
 from rich import print as rprint
+from rich.text import Text
 from rich.progress import (
     BarColumn,
     Progress,
@@ -15,7 +16,7 @@ from rich.progress import (
     SpinnerColumn,
     Task,
     TaskProgressColumn,
-    Text,
+    TaskID,
     TextColumn,
     TimeRemainingColumn,
 )
@@ -411,7 +412,7 @@ async def upload_resources(
                     upload_task = sub_progress.add_task(description="创建上传任务...", start=False)
 
                     # 创建回调函数
-                    def update_progress(uploaded: int, total: int, filename: str, task_id: int = upload_task):
+                    def update_progress(uploaded: int, total: int, filename: str, task_id: TaskID = upload_task):
                         # 首次回调，更新文件名和进度
                         if not sub_progress.tasks[task_id].started:
                             sub_progress.start_task(task_id)
@@ -613,8 +614,8 @@ async def remove_resources(
         no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
 async def download_resource(
-    files_id: Annotated[List[int], typer.Argument(help="需下载文件的id")],
-    basename: Annotated[List[str], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
+    files_id: Annotated[list[int], typer.Argument(help="需下载文件的id")],
+    basename: Annotated[list[str], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
     dest: Annotated[Path | None, typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = None,
     batch: Annotated[bool, typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False,
     json: Annotated[bool, typer.Option("--json", "-J", hidden=True)] = False
@@ -668,7 +669,7 @@ async def download_resource(
                     download_task = sub_progress.add_task(description="下载文件中...", start=False)
                     
                     # 创建回调函数
-                    def update_progress(downloaded: int, total_size: int, filename: int, task_id: int = download_task):
+                    def update_progress(downloaded: int, total_size: int, filename: str, task_id: TaskID = download_task):
                         # 首次回调，更新文件名和文件大小
                         if not sub_progress.tasks[task_id].started:
                             sub_progress.start_task(task_id)
@@ -722,7 +723,7 @@ async def download_resource(
                     download_task = sub_progress.add_task(description=f"文件ID: {file_id}", start=False)
 
                     # 创建回调函数
-                    def update_progress(downloaded: int, total_size: int, filename: int, task_id: int = download_task):
+                    def update_progress(downloaded: int, total_size: int, filename: str, task_id: TaskID = download_task):
                         # 首次回调，更新文件名和文件大小
                         if not sub_progress.tasks[task_id].started:
                             sub_progress.start_task(task_id)

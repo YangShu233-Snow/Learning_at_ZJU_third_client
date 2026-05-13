@@ -41,23 +41,15 @@ async def _authenticate(body: AuthRequest, state: ServerState, is_new: bool) -> 
         del state.sessions[existing_token]
         del state.studentid_map[studentid]
 
-    cookies = stored.get("cookies") if stored else None
-    client = await create_user_client(cookies=cookies, trust_env=state.trust_env)
-    is_logged_in = False
+    client = await create_user_client(cookies=None, trust_env=state.trust_env)
+    if not await login_and_save_cookies(client, studentid, password):
+        await client.session.aclose()
+        raise HTTPException(status_code=401, detail="学号或密码错误")
 
-    if cookies:
-        valid = await client.is_valid_session()
-        if valid:
-            is_logged_in = True
-
-    if not is_logged_in:
-        if not await login_and_save_cookies(client, studentid, password):
-            await client.session.aclose()
-            raise HTTPException(status_code=401, detail="学号或密码错误")
-        if is_new:
-            state.credential_store.save(studentid, password, dict(client.session.cookies))
-        else:
-            state.credential_store.update_cookies(studentid, dict(client.session.cookies))
+    if is_new:
+        state.credential_store.save(studentid, password, dict(client.session.cookies))
+    else:
+        state.credential_store.update_cookies(studentid, dict(client.session.cookies))
 
     token = generate_token()
     user = UserSession(token=token, studentid=studentid, zju_client=client.session)

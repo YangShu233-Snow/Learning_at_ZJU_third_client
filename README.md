@@ -14,7 +14,7 @@
 
 如果你在使用与安装中遇到了某些问题，可以先在项目Issue里找找是否已经有了解决办法，当然你也可以查看[FAQ](https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/blob/main/FAQ.md)，这里面有一些比较常见的问题。
 
-## Installation CLI
+## LAZY CLI
 
 以下均为 LAZY CLI 安装指南。
 
@@ -77,181 +77,61 @@ paru -S lazy-cli
 
 该包 `lazy-cli` 会自动安装 LAZY CLI 最新的 `beta` 版预编译二进制文件~
 
-### 从源码开始打包
+### 开发环境设置
 
-LAZY 支持从项目源码打包为一个可执行文件，通常这能使得 LAZY 的启动速度得到提升，同时如果你想对 LAZY 做一些个性的修改，这个安装方法就是最适合你的。
+以下步骤适用于「直接从源码运行」和「从源码打包为可执行文件」两种方式。
 
 ```bash
 # 克隆本仓库
 git clone https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client
-
-# 进入LAZY根目录
 cd Learning_at_ZJU_third_client/
 
-# 建立虚拟环境，可选，但是强烈推荐
-python -m venv .venv
+# 创建虚拟环境（二选一）
+python -m venv .venv         # venv
+source .venv/bin/activate     # Linux/macOS
+# .venv\Scripts\activate      # Windows
 
-# 在Linux/MacOS下
-source .venv/bin/activate
-
-# 在Windows下
-.venv\Scripts\activate
-
-# Conda也是非常推荐的选择
-# Python版本>=3.10均可，但3.12.3是一个比较稳妥的版本，因为LAZY就是在这个版本下开发的
-conda create -n LAZY python=3.12.3
+conda create -n LAZY python=3.12.3  # Conda
 conda activate LAZY
 
-# 将LAZY挂载到当前Python环境下，同时下载必要的开发者依赖
+# 安装 LAZY（开发模式）
 pip install -e '.[dev]'
-
-# 如果你想做一些修改再打包，完全没有问题，记得保存你的修改
-# 接下来开始打包 LAZY，请确保你在 LAZY 项目根目录下，首先pyinstaller会分析 LAZY 项目。
-pyinstaller --name lazy src/lazy/__main__.py --noconfirm
-# 使用单文件模式可以将 LAZY 打包为单个可执行文件，但是会带来不可避免的启动延迟。
-pyinstaller --onefile --name lazy src/lazy/__main__.py --noconfirm
-```
-
-接下来你需要修改 LAZY 项目根目录下生成的 `lazy.spec`，具体的需求可见下方。
-
-```
-# -*- mode: python ; coding: utf-8 -*-
-
-# --- 内容请新增在文件开头 ---
-import os
-import glob
-import sys
-
-data_files=[]
-for f in glob.glob('data/*'):
-    if os.path.isfile(f):
-        data_files.append((f, 'data'))
-
-platform_hiddenimports = []
-if sys.platform.startswith('linux'):
-    platform_hiddenimports = [
-        'keyring.backends.SecretService',
-        'keyring.backends.chainer',
-        'shellingham.posix',
-    ]
-elif sys.platform.startswith('darwin'): # macOS
-    platform_hiddenimports = [
-        'keyring.backends.macOS.Keyring',
-        'shellingham.posix',
-    ]
-elif sys.platform.startswith('win32'): # Windows
-    platform_hiddenimports = [
-        'keyring.backends.Windows.WinVaultKeyring',
-        'shellingham.windows',
-	    'shellingham.nt'
-    ]
-# --- 内容请新增在文件开头 ---
-
-a = Analysis(
-    ['src/lazy_cli_main.py'],
-    pathex=[],
-    binaries=[],
-    datas=data_files, # <--这里请将变量赋值为 data_files
-    # ....
-    hiddenimports=platform_hiddenimports, # <--这里请将变量赋值为platform_hiddenimports
-    # ....
-)
-```
-
-当你修改完 `lazy.spec`后，就可以进行进一步的打包了。
-
-```bash
-pyinstaller lazy.spec --noconfirm
-```
-
-打包好的文件在 `Learning_at_ZJU_third_client/dist/lazy` 下，是一个 `lazy` 名的可执行文件。
-
-```bash
-cd ./dist/lazy
-./lazy --help
-
-# 出现以下输出，说明LAZY安装成功
-# Usage: lazy [OPTIONS] COMMAND [ARGS]...
-# LAZY CLI - 学在浙大第三方客户端的命令行工具
-```
-
-打包成功后，我们推荐你进行进一步的配置，以享受最好的使用体验。
-
-如果你是 MacOS/Linux 用户，并且使用的单文件模式打包的 LAZY，可以直接将 `lazy`可执行文件移动至 `/usr/local/bin`下。如果你使用文件夹模式打包的 LAZY，可以通过软链接的方式方便 LAZY 的调用（通常这也是我们所推荐的方式），当然使用环境变量也是一个可行的方案。
-
-```bash
-# 如果你采用文件夹模式打包，可以参考以下指引
-# 将打包后的 LAZY 文件夹移动至一个永久存放的位置，我们推荐~/.local/share
-mkdir ~/.local/share/lazy -p
-mv /path/to/your/Learning_at_ZJU_third_client/dist/lazy/* ~/.local/share/lazy
-
-# 创建一个软链接
-sudo ln -s ~/.local/share/lazy/lazy /usr/local/bin/lazy
-
-# 如果你更喜欢环境变量，可以参考以下指引
-# 添加至环境变量
-# Linux & MacOS
-echo 'export PATH="/path/to/your/Learning_at_ZJU_third_client/dist/lazy:$PATH"' >> ~/.bashrc # 如果你用的是bash
-echo 'export PATH="/path/to/your/Learning_at_ZJU_third_client/dist/lazy:$PATH"' >> ~/.zshrc # 如果你用的是zsh
-
-source ~/.bashrc # 应用修改
-source ~/.zshrc  # 应用修改
-```
-
-对于 Windows 用户来说，我们更推荐你将 LAZY 添加至环境变量当中。通过设置-高级设置-环境变量-系统-Path，加入 LAZY 可执行文件所在文件夹的路径即可。
-
-完成以上修改后，你的 LAZY 应该就正确安装到系统当中了。
-
-```bash
-# 验证是否安装
-lazy --help
-
-# （可选）为 LAZY 配置补全
-lazy --install-completion
 ```
 
 ### 直接从源码运行
 
-LAZY 支持直接从项目源码开始运行，你可以按照如下步骤进行操作。
+完成「开发环境设置」后，直接调用 LAZY 命令即可（无需打包）：
 
 ```bash
-# 克隆本仓库
-git clone https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client
-
-# 进入LAZY根目录
-cd Learning_at_ZJU_third_client/
-
-# 建立虚拟环境，可选，但是强烈推荐
-python -m venv .venv
-
-# 在Linux/MacOS下
-source .venv/bin/activate
-
-# 在Windows下
-.venv\Scripts\activate
-
-# Conda也是非常推荐的选择
-# Python版本>=3.8均可，但3.12.3是一个比较稳妥的版本，因为LAZY就是在这个版本下开发的
-conda create -n LAZY python=3.12.3
-conda activate LAZY
-
-# 将LAZY挂载到当前Python环境下
-pip install -e .
-
-# 可选，但是强烈推荐，这将为LAZY提供补全功能
+# （可选）启用命令补全
 lazy --install-completion
+
+# 验证
+lazy --help
 ```
 
-完成以上步骤后，**请重启终端**以应用修改，重启终端后，如果你想要使用LAZY，需要启用对应的Python环境。
+> 每次使用前需激活对应的 Python 虚拟环境（`.venv` 或 conda）。
+
+### 从源码打包为可执行文件
+
+完成「开发环境设置」后，使用 PyInstaller 将 LAZY 打包为独立可执行文件。
 
 ```bash
-# 使用一下命令，检查LAZY是否安装成功
-lazy --help
-
-# 出现以下输出，说明LAZY安装成功
-# Usage: lazy [OPTIONS] COMMAND [ARGS]...
-# LAZY CLI - 学在浙大第三方客户端的命令行工具
+# 生成 lazy.spec
+pyinstaller --name lazy src/lazy/__main__.py --noconfirm
+# 或单文件模式（启动稍慢）
+pyinstaller --onefile --name lazy src/lazy/__main__.py --noconfirm
 ```
+
+随后需要修改生成的 `lazy.spec` 文件（配置 `data_files` 和 `platform_hiddenimports`），
+详见 [docs/PACKAGING.md](docs/PACKAGING.md)（含各平台的 `hiddenimports` 配置）。
+
+```bash
+# 修改完 lazy.spec 后执行最终打包
+pyinstaller lazy.spec --noconfirm
+```
+
+打包产物位于 `dist/lazy/`，安装步骤与「预构建的二进制文件」一致（创建软链接或配置 PATH）。
 
 ## LAZY SERVER
 
@@ -300,6 +180,7 @@ LAZY SERVER 使用 `~/.lazy_server/master.key` 存储 Fernet 加密主密钥（`
 - ~~实现assignment、course命令组~~
 - ~~zjuAPI重构，整合与封装~~
 - GUI实现
-- 完善 CLI Help 文档
+- ~~完善 CLI Help 文档~~
 - 计划另外分发API模块
 - ~~研究 CI/CD (Github Action)~~
+- 开发 LAZY SERVER 与配套 QQBot Plugin

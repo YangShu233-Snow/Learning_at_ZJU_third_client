@@ -269,6 +269,8 @@ LAZY SERVER 使用 `~/.lazy_server/master.key` 存储 Fernet 加密主密钥。
 
 如果你需要在更高安全要求的环境下部署，可以删除 `master.key` 文件，通过环境变量 `LAZY_SERVER_KEY` 传入主密钥（每次重启需重新提供）。
 
+部署指南请参阅 [docs/DEPLOY.md](docs/DEPLOY.md)。
+
 ## License
 
 - 本项目源代码采用 **GNU Lesser General Public License v3.0**授权。

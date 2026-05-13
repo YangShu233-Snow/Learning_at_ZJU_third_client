@@ -18,7 +18,7 @@
 
 以下均为 LAZY CLI 安装指南。
 
-### 预构建的二进制文件
+### Pre-built Binaries
 
 LAZY CLI 预构建好的二进制文件现已发布！[点击这里](https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/releases)获取最新版本！
 
@@ -77,9 +77,9 @@ paru -S lazy-cli
 
 该包 `lazy-cli` 会自动安装 LAZY CLI 最新的 `beta` 版预编译二进制文件~
 
-### 开发环境设置
+### Development Setup
 
-以下步骤适用于「直接从源码运行」和「从源码打包为可执行文件」两种方式。
+以下步骤适用于 Run from Source 和 Build Executable 两种方式。
 
 ```bash
 # 克隆本仓库
@@ -98,9 +98,9 @@ conda activate LAZY
 pip install -e '.[dev]'
 ```
 
-### 直接从源码运行
+### Run from Source
 
-完成「开发环境设置」后，直接调用 LAZY 命令即可（无需打包）：
+完成 Development Setup 后，直接调用 LAZY 命令即可（无需打包）：
 
 ```bash
 # （可选）启用命令补全
@@ -112,26 +112,26 @@ lazy --help
 
 > 每次使用前需激活对应的 Python 虚拟环境（`.venv` 或 conda）。
 
-### 从源码打包为可执行文件
+### Build Executable
 
-完成「开发环境设置」后，使用 PyInstaller 将 LAZY 打包为独立可执行文件。
+After completing Development Setup, use PyInstaller to build a standalone executable.
 
 ```bash
-# 生成 lazy.spec
+# Generate lazy.spec
 pyinstaller --name lazy src/lazy/__main__.py --noconfirm
-# 或单文件模式（启动稍慢）
+# Single-file mode (slower startup)
 pyinstaller --onefile --name lazy src/lazy/__main__.py --noconfirm
 ```
 
-随后需要修改生成的 `lazy.spec` 文件（配置 `data_files` 和 `platform_hiddenimports`），
-详见 [docs/PACKAGING.md](docs/PACKAGING.md)（含各平台的 `hiddenimports` 配置）。
+Modify `lazy.spec` to configure `data_files` and `platform_hiddenimports`,
+see [docs/PACKAGING.md](docs/PACKAGING.md) for details.
 
 ```bash
-# 修改完 lazy.spec 后执行最终打包
+# Build with modified lazy.spec
 pyinstaller lazy.spec --noconfirm
 ```
 
-打包产物位于 `dist/lazy/`，安装步骤与「预构建的二进制文件」一致（创建软链接或配置 PATH）。
+Output: `dist/lazy/`. Install it the same way as Pre-built Binaries (symlink or PATH).
 
 ## LAZY SERVER
 

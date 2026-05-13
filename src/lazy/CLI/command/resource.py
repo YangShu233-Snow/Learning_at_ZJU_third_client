@@ -683,15 +683,12 @@ async def download_resource(
                         else:
                             rprint("[green]下载成功！")
                             rprint("[green]下载完成！[/green]")
-                    else:
-                        if json:
-                            print_with_json(False, "Download Failed!")
-                        else:
-                            rprint("[bold red]下载失败!")
+                        return
 
-                        progress.update(main_task, advance=1)                
-
-                return
+                    logger.warning("批量下载失败，自动回退到逐个下载模式...")
+                    if not json:
+                        rprint("[yellow]批量下载失败，正在自动回退到逐个下载...[/yellow]")
+                    sub_progress.remove_task(download_task)
 
     with Progress(
         TextColumn("[progress.description]{task.description}"),

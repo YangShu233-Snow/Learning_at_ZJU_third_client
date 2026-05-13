@@ -253,23 +253,42 @@ lazy --help
 # LAZY CLI - 学在浙大第三方客户端的命令行工具
 ```
 
-## Example Usage
+## LAZY SERVER
 
-## Security
+学在浙大服务端代理，提供多用户后台监控、数据缓存和 HTTP API。
+适合与 QQ Bot 等外部系统集成。
 
-### LAZY SERVER 密钥文件
+```bash
+# 安装服务端依赖
+pip install -e '.[server]'
 
-LAZY SERVER 使用 `~/.lazy_server/master.key` 存储 Fernet 加密主密钥。
-该文件权限设置为 `600`（仅文件所有者可读写），安全等级与 `~/.ssh/id_rsa` 相当。
+# 启动（详见部署指南）
+lazy-server
+```
 
-请注意以下风险：
-- 如果服务器被入侵，攻击者获得 shell 权限后可直接读取此文件，进而解密 `~/.lazy_server/credentials.enc` 中的所有用户凭据。
-- 请确保运行 LAZY SERVER 的进程用户与 `master.key` 的所属用户一致，避免意外放宽文件权限。
-- 建议定期审查 `~/.lazy_server/` 目录的文件权限。
+### API 端点
 
-如果你需要在更高安全要求的环境下部署，可以删除 `master.key` 文件，通过环境变量 `LAZY_SERVER_KEY` 传入主密钥（每次重启需重新提供）。
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| `POST` | `/api/auth/register` | 注册新用户 |
+| `POST` | `/api/auth/login` | 登录获取 token |
+| `GET` | `/api/health` | 服务健康检查 |
+| `GET` | `/api/tasks` | 查看监控任务 |
+| `PUT` | `/api/tasks/{id}` | 修改任务参数 |
+| `DELETE` | `/api/tasks/{id}` | 重置任务为系统模板 |
+| `GET` | `/api/data/{task_id}` | 获取缓存数据 |
 
-部署指南请参阅 [docs/DEPLOY.md](docs/DEPLOY.md)。
+### 部署
+
+参见 [docs/DEPLOY.md](docs/DEPLOY.md)（支持 systemd 服务 和 Docker 两种部署方式）。
+
+### 安全说明
+
+LAZY SERVER 使用 `~/.lazy_server/master.key` 存储 Fernet 加密主密钥（`chmod 600`），
+用于加密 `~/.lazy_server/credentials.enc` 中的用户凭据。
+
+如服务器被入侵，攻击者可解密所有凭据，请做好主机安全防护。
+如需更高安全等级，可通过环境变量 `LAZY_SERVER_KEY` 传入主密钥（每次重启需重新提供）。
 
 ## License
 

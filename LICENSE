@@ -1,3 +1,19 @@
+LAZY (Learning at ZJU yes!) — Mixed License Notice
+====================================================
+
+This project uses different licenses for different components:
+
+  GUI + CLI + Core (src/lazy/CLI/, src/lazy/core/, src/lazy/GUI/)
+    SPDX-License-Identifier: LGPL-3.0-only
+    GNU Lesser General Public License v3.0 only
+
+  Server (src/lazy/server/)
+    SPDX-License-Identifier: AGPL-3.0-only
+    GNU Affero General Public License v3.0 only
+
+See the LICENSE file in each component directory for the full license text.
+
+================================================================================
 GNU LESSER GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 

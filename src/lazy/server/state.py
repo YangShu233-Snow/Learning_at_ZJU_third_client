@@ -45,6 +45,7 @@ class ServerState:
         self.studentid_map: dict[str, str] = {}
         self.credential_store: EncryptedCredentialStore = EncryptedCredentialStore()
         self.system_tasks: list[MonitorTask] = field(default_factory=list)
+        self.trust_env: bool = False
         self.lock = asyncio.Lock()
         self._start_time: float = 0
 

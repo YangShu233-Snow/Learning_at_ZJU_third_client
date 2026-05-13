@@ -42,7 +42,7 @@ async def _authenticate(body: AuthRequest, state: ServerState, is_new: bool) -> 
         del state.studentid_map[studentid]
 
     cookies = stored.get("cookies") if stored else None
-    client = await create_user_client(cookies=cookies)
+    client = await create_user_client(cookies=cookies, trust_env=state.trust_env)
     is_logged_in = False
 
     if cookies:

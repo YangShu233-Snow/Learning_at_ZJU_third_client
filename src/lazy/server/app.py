@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
             if not creds:
                 continue
             cookies = creds.get("cookies")
-            client = await create_user_client(cookies=cookies)
+            client = await create_user_client(cookies=cookies, trust_env=state.trust_env)
             is_valid = False
             if cookies:
                 is_valid = await client.is_valid_session()
@@ -86,11 +86,22 @@ app.include_router(health.router)
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="LAZY SERVER - 学在浙大第三方服务端")
+    parser.add_argument("--proxy", action="store_true", help="启用系统代理（环境变量 HTTP_PROXY/HTTPS_PROXY）")
+    parser.add_argument("--host", default="127.0.0.1", help="监听地址 (默认: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=8765, help="监听端口 (默认: 8765)")
+    args = parser.parse_args()
+
+    SERVER_STATE.trust_env = args.proxy
+
     setup_global_logging()
+    if args.proxy:
+        logger.info("系统代理已启用")
     uvicorn.run(
         "lazy.server.app:app",
-        host="127.0.0.1",
-        port=8765,
+        host=args.host,
+        port=args.port,
         reload=False,
         log_level="info",
     )

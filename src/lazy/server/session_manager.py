@@ -13,11 +13,11 @@ _DEFAULT_HEADERS = {
 }
 
 
-async def create_user_client(cookies: dict | None = None) -> ZjuAsyncClient:
+async def create_user_client(cookies: dict | None = None, trust_env: bool = False) -> ZjuAsyncClient:
     client = ZjuAsyncClient.__new__(ZjuAsyncClient)
-    ZjuAsyncClient.__init__(client, cookies=cookies, trust_env=False)
+    ZjuAsyncClient.__init__(client, cookies=cookies, trust_env=trust_env)
     client.session = httpx.AsyncClient(
-        trust_env=False,
+        trust_env=trust_env,
         timeout=20.0,
         follow_redirects=True,
     )

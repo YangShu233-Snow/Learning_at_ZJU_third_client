@@ -54,7 +54,10 @@ async def _authenticate(body: AuthRequest, state: ServerState, is_new: bool) -> 
         if not await login_and_save_cookies(client, studentid, password):
             await client.session.aclose()
             raise HTTPException(status_code=401, detail="学号或密码错误")
-        state.credential_store.update_cookies(studentid, dict(client.session.cookies))
+        if is_new:
+            state.credential_store.save(studentid, password, dict(client.session.cookies))
+        else:
+            state.credential_store.update_cookies(studentid, dict(client.session.cookies))
 
     token = generate_token()
     user = UserSession(token=token, studentid=studentid, zju_client=client.session)

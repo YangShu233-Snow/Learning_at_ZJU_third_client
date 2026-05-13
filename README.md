@@ -172,7 +172,7 @@ LAZY SERVER 使用 `~/.lazy_server/master.key` 存储 Fernet 加密主密钥（`
 
 ## License
 
-- **CLI + Core** (`CLI/`, `core/`, `GUI/`): **GNU Lesser General Public License v3.0** (LGPL-3.0-only)
+- **GUI + CLI + Core** (`CLI/`, `core/`, `GUI/`): **GNU Lesser General Public License v3.0** (LGPL-3.0-only)
 - **Server** (`server/`): **GNU Affero General Public License v3.0** (AGPL-3.0-only)
 - **文档**（`README.md`、注释与使用说明等）: [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)，需注明原作者 `YangShu233-Snow`。
 

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "external_directory": {
+        "~/.lazy_cli_logs/**": "allow",
+        "/tmp/lazy/**": "allow"
+    }
+  }
+}

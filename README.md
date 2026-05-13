@@ -9,6 +9,7 @@
 学在浙大第三方客户端，项目名为**LAZY**，即 Learning at ZJU yes! 的缩写，期望这个项目可以帮助你获得更好学在浙大使用体验！
 
 当前项目计划实现 CLI 与 GUI 两个客户端，当前 CLI 版本将以包形式分发，GUI 已新建文件夹。
+
 ## FAQ
 
 如果你在使用与安装中遇到了某些问题，可以先在项目Issue里找找是否已经有了解决办法，当然你也可以查看[FAQ](https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/blob/main/FAQ.md)，这里面有一些比较常见的问题。
@@ -253,6 +254,20 @@ lazy --help
 ```
 
 ## Example Usage
+
+## Security
+
+### LAZY SERVER 密钥文件
+
+LAZY SERVER 使用 `~/.lazy_server/master.key` 存储 Fernet 加密主密钥。
+该文件权限设置为 `600`（仅文件所有者可读写），安全等级与 `~/.ssh/id_rsa` 相当。
+
+请注意以下风险：
+- 如果服务器被入侵，攻击者获得 shell 权限后可直接读取此文件，进而解密 `~/.lazy_server/credentials.enc` 中的所有用户凭据。
+- 请确保运行 LAZY SERVER 的进程用户与 `master.key` 的所属用户一致，避免意外放宽文件权限。
+- 建议定期审查 `~/.lazy_server/` 目录的文件权限。
+
+如果你需要在更高安全要求的环境下部署，可以删除 `master.key` 文件，通过环境变量 `LAZY_SERVER_KEY` 传入主密钥（每次重启需重新提供）。
 
 ## License
 

@@ -27,12 +27,18 @@ dependencies = [
 [project.optional-dependencies]
 gui = ["PySide6>=6.7.0", "gradio>=5.49.1"]
 
+server = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+]
+
 # 开发时需要的工具 (用于格式化、检查、测试等)
 dev = ["pyinstaller==6.16.0", "ruff==0.14.4"]
 
 [project.scripts]
 lazy = "lazy.cli:main"
 lazy-gui = "lazy.gui:main"
+lazy-server = "lazy.server.app:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

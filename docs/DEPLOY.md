@@ -3,7 +3,7 @@
 ## 前置条件
 
 - Python >= 3.10
-- 已 clone 本仓库并安装: `pip install -e '.[server]'`
+- 部署环境里可以访问 Github
 - 至少一个有效学号/密码（部署后通过 `/api/auth/register` 注册）
 
 ## 方式一：systemd 服务（推荐）
@@ -18,11 +18,14 @@ sudo useradd -r -s /bin/false lazy
 
 ```bash
 sudo mkdir -p /opt/lazy-server
+# 如果你创建了服务用户，将该目录权限给予用户 lazy
+# 如果没有，你可以给予你自己，或者不操作。
+# 注意，如果你将目录给予了你自己，以下命令可不用带有 sudo
 sudo chown lazy:lazy /opt/lazy-server
 cd /opt/lazy-server
-git clone https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client .
-python3 -m venv venv
-venv/bin/pip install -e '.[server]'
+sudo git clone https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client .
+sudo python3 -m venv venv
+sudo venv/bin/pip install -e '.[server]'
 ```
 
 ### 3. 创建 systemd 单元

@@ -43,5 +43,5 @@ lazy-server = "lazy.server.app:main"
 [tool.setuptools]
 package-dir = {"" = "src"}
 
-[tool.setuptoools.packages.find]
+[tool.setuptools.packages.find]
 where = ["src"]

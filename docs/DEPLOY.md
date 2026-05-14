@@ -40,6 +40,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# 这个根据/opt/lazy-server所属用户设置
 User=lazy
 WorkingDirectory=/opt/lazy-server
 ExecStart=/opt/lazy-server/venv/bin/lazy-server --host 0.0.0.0 --port 8765

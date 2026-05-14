@@ -173,7 +173,7 @@ sudo systemctl restart caddy
 
 ## 方式四：Nginx 反代（HTTPS）
 
-Caddy 的替代方案，适合已有 Nginx 基础设施的部署。
+当然如果你更喜欢 Nginx 也可以，以下文档提供了如何用 Nginx 实现反代。
 
 ### 1. 修改 systemd 单元
 
@@ -237,6 +237,8 @@ sudo systemctl restart nginx
 
 ## 部署后验证
 
+> 强烈建议部署后通过以下命令检查服务状况！！！
+
 ```bash
 # 健康检查
 curl http://127.0.0.1:8765/api/health
@@ -270,7 +272,7 @@ systemd 用户也可同步看 journalctl：
 sudo journalctl -u lazy-server -f
 ```
 
-## 安全注意事项
+## 安全声明
 
 - `~/.lazy_server/master.key` — Fernet 主加密密钥，**chmod 600**，不可提交到版本控制
 - `~/.lazy_server/credentials.enc` — Fernet 加密的用户凭据（学号、密码、cookies）

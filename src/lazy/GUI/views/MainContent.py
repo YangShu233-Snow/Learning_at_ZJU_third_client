@@ -76,7 +76,7 @@ class HomeContentTodayCoursesWidget(QWidget):
     def __init__(self):
         super().__init__()
 
-        layout = QVBoxLayout(self)
+        _ = QVBoxLayout(self)
         
         self.title = QLabel("今日课程")
 

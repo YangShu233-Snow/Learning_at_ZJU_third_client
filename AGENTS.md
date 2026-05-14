@@ -76,6 +76,8 @@ Layers:
 - **Login must always verify password** — cached cookies never bypass password check on the server.
 - Server startup recovery: decrypts `credentials.enc`, attempts `is_valid_session()` for each user, falls back to stored password.
 
+> **Fernet 加密说明**：`master.key` 和 `credentials.enc` 位于同一目录、同一用户权限下。Fernet 加密的核心防线是 Unix 文件权限（chmod 600）和 localhost 绑定。加密本身仅在「不完整的文件泄露」（如备份漏掉 master.key）场景下提供额外保护。如需物理分离密钥与凭据，可删除 `master.key` 文件，通过环境变量 `LAZY_SERVER_KEY` 传入。
+
 ## Documentation
 
 - `docs/DEPLOY.md` — server deployment guide (systemd + Docker)

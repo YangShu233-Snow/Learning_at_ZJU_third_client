@@ -127,6 +127,50 @@ docker exec -it lazy-server bash # 进入容器
 
 ---
 
+## 方式三：Caddy 反代（HTTPS）
+
+将 LAZY SERVER 暴露到公网时，推荐用 Caddy 做 TLS 反代。Caddy 自动从 Let's Encrypt 获取证书，零配置 HTTPS。
+
+### 1. 修改 systemd 单元
+
+Caddy 处理 HTTPS 流量，LAZY SERVER 只需要监听 `127.0.0.1`（不直接暴露公网）：
+
+```
+ExecStart=/opt/lazy-server/venv/bin/lazy-server --host 127.0.0.1 --port 8765
+```
+
+### 2. 安装 Caddy
+
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | \
+  sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | \
+  sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install caddy
+```
+
+### 3. 配置 Caddy
+
+`/etc/caddy/Caddyfile`：
+
+```
+lazy.yourdomain.com {
+    reverse_proxy 127.0.0.1:8765
+}
+```
+
+### 4. 启动
+
+```bash
+sudo systemctl enable caddy
+sudo systemctl restart caddy
+```
+
+之后所有 API 请求走 `https://lazy.yourdomain.com`，Caddy 自动管理证书。
+
+---
+
 ## 部署后验证
 
 ```bash
@@ -165,10 +209,11 @@ sudo journalctl -u lazy-server -f
 ## 安全注意事项
 
 - `~/.lazy_server/master.key` — Fernet 主加密密钥，**chmod 600**，不可提交到版本控制
-- `~/.lazy_server/credentials.enc` — 加密的用户凭据（学号、密码、cookies）
+- `~/.lazy_server/credentials.enc` — Fernet 加密的用户凭据（学号、密码、cookies）
 - 确保上述文件仅服务进程用户可读写
 - 服务器被入侵后攻击者可解密所有凭据，请做好主机安全防护
-- 如需更高安全等级，可通过环境变量 `LAZY_SERVER_KEY` 传入主密钥（每次重启需重新提供）
+
+> **Fernet 加密说明**：`master.key` 和 `credentials.enc` 位于同一目录、同一用户权限下。Fernet 加密的核心防线是 Unix 文件权限（chmod 600）和 localhost 绑定。加密本身仅在「不完整的文件泄露」场景下提供额外保护。如需物理分离密钥与凭据，可删除 `master.key` 文件，通过环境变量 `LAZY_SERVER_KEY` 传入主密钥（每次重启需重新提供）。
 
 ## 网络配置
 

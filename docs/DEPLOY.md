@@ -129,13 +129,13 @@ docker exec -it lazy-server bash # 进入容器
 
 ## 方式三：Caddy 反代（HTTPS）
 
-将 LAZY SERVER 暴露到公网时，推荐用 Caddy 做 TLS 反代。Caddy 自动从 Let's Encrypt 获取证书，零配置 HTTPS。
+将 LAZY SERVER 暴露到公网时，用 Caddy 做 TLS 反代。
 
 ### 1. 修改 systemd 单元
 
-Caddy 处理 HTTPS 流量，LAZY SERVER 只需要监听 `127.0.0.1`（不直接暴露公网）：
+由 Caddy 处理 HTTPS 流量，LAZY SERVER 监听 `127.0.0.1`：
 
-```
+```text
 ExecStart=/opt/lazy-server/venv/bin/lazy-server --host 127.0.0.1 --port 8765
 ```
 
@@ -154,7 +154,7 @@ sudo apt update && sudo apt install caddy
 
 `/etc/caddy/Caddyfile`：
 
-```
+```text
 lazy.yourdomain.com {
     reverse_proxy 127.0.0.1:8765
 }
@@ -167,7 +167,71 @@ sudo systemctl enable caddy
 sudo systemctl restart caddy
 ```
 
-之后所有 API 请求走 `https://lazy.yourdomain.com`，Caddy 自动管理证书。
+之后所有 API 请求走 `https://lazy.yourdomain.com`，由 Caddy 完成公网流量的托管。
+
+---
+
+## 方式四：Nginx 反代（HTTPS）
+
+Caddy 的替代方案，适合已有 Nginx 基础设施的部署。
+
+### 1. 修改 systemd 单元
+
+与 Caddy 方案相同，LAZY SERVER 监听 `127.0.0.1`，不直接暴露公网：
+
+```text
+ExecStart=/opt/lazy-server/venv/bin/lazy-server --host 127.0.0.1 --port 8765
+```
+
+### 2. 安装 Nginx
+
+```bash
+sudo apt update && sudo apt install nginx certbot python3-certbot-nginx
+```
+
+### 3. 配置 Nginx
+
+`/etc/nginx/sites-available/lazy-server`：
+
+```nginx
+server {
+    listen 80;
+    server_name lazy.yourdomain.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name lazy.yourdomain.com;
+
+    ssl_certificate     /etc/letsencrypt/live/lazy.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/lazy.yourdomain.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8765;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### 4. 申请证书
+
+```bash
+sudo certbot --nginx -d lazy.yourdomain.com
+```
+
+certbot 会自动修改 Nginx 配置并定期续期证书。
+
+### 5. 启用站点
+
+```bash
+sudo ln -s /etc/nginx/sites-available/lazy-server /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
 
 ---
 

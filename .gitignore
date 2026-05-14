@@ -8,8 +8,8 @@ reminder.md
 *.jpg
 *.log
 .gradio
-AGENTS.md
-opencode.json
+!opencode.json
+PLAN.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -1,4 +1,7 @@
 # pyproject.toml
+[build-system]
+requires = ["setuptools>=64.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
 description = "学在浙大第三方客户端，提供 CLI 。"

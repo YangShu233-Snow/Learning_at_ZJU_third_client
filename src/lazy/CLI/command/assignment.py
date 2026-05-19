@@ -114,14 +114,13 @@ def extract_subjects_json(subjects: list[dict], subject_type_map: dict)->list[di
     if not subjects:
         return None
     
-       
     for index, subject in enumerate(subjects):
         subject_description: str = subject.get("description")
         subject_point: int = subject.get("point", 0)
         subject_type: str = subject_type_map.get(subject.get("type"), subject.get("type"))
         subject_options: list[str] = []
         subject_answers: list[str] = []
-
+        logger.info(f"原 {subject.get("type")} 匹配后 {subject_type} map里面是 {subject_type_map}")
         if subject_type == "填空":
             answers: list[dict] = subject.get("correct_answers", [])
             for answer in answers:
@@ -356,7 +355,8 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
                         "short_answer": "简答",
                         "multiple_selection": "多选",
                         "true_or_false": "判断",
-                        "fill_in_blank": "填空"
+                        "fill_in_blank": "填空",
+                        "analysis": "推断"
                     }
 
                     preview_content = extract_subjects_json(exam_subjects, subject_type_map, json)
@@ -430,7 +430,8 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
                     "short_answer": "简答",
                     "multiple_selection": "多选",
                     "true_or_false": "判断",
-                    "fill_in_blank": "填空"
+                    "fill_in_blank": "填空",
+                    "analysis": "推断"
                 }
 
                 exam_subjects_renderables = extract_subjects(exam_subjects, subject_type_map)
@@ -550,7 +551,8 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
                     "short_answer": "简答",
                     "multiple_selection": "多选",
                     "true_or_false": "判断",
-                    "fill_in_blank": "填空"
+                    "fill_in_blank": "填空",
+                    "analysis": "推断"
                 }
 
                 exam_subjects_renderables = extract_subjects(exam_subjects, subject_type_map)
@@ -668,7 +670,8 @@ async def view_classroom(
                         "short_answer": "简答",
                         "multiple_selection": "多选",
                         "true_or_false": "判断",
-                        "fill_in_blank": "填空"
+                        "fill_in_blank": "填空",
+                        "analysis": "推断"
                     }
 
                     preview_content = extract_subjects_json(classroom_subjects, subject_type_map)
@@ -763,7 +766,8 @@ async def view_classroom(
                     "short_answer": "简答",
                     "multiple_selection": "多选",
                     "true_or_false": "判断",
-                    "fill_in_blank": "填空"
+                    "fill_in_blank": "填空",
+                    "analysis": "推断"
                 }
 
                 classroom_subjects_renderables = extract_subjects(classroom_subjects, subject_type_map)

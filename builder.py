@@ -1,7 +1,9 @@
 # 将版本号打包到源码中
 
-import tomllib
 from pathlib import Path
+
+import tomllib
+
 
 def builder():
     with open("pyproject.toml", "rb") as f:

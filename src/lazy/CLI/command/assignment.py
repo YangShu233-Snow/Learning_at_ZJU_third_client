@@ -120,7 +120,7 @@ def extract_subjects_json(subjects: list[dict], subject_type_map: dict)->list[di
         subject_type: str = subject_type_map.get(subject.get("type"), subject.get("type"))
         subject_options: list[str] = []
         subject_answers: list[str] = []
-        logger.info(f"原 {subject.get("type")} 匹配后 {subject_type} map里面是 {subject_type_map}")
+        logger.info(f"原 {subject.get('type')} 匹配后 {subject_type} map里面是 {subject_type_map}")
         if subject_type == "填空":
             answers: list[dict] = subject.get("correct_answers", [])
             for answer in answers:

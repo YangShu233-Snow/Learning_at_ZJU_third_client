@@ -85,6 +85,11 @@ jobs:
           # 安装当前项目本身及其在 pyproject.toml 中定义的 dev 依赖
           pip install -e .[dev]
 
+      - name: Run builder.py for customed setup
+        shell: bash
+        run: |
+          python builder.py
+
       - name: Build with PyInstaller
         shell: bash
         run: |

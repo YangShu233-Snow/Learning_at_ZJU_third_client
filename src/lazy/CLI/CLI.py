@@ -22,7 +22,7 @@ KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
 logger = logging.getLogger(__name__)
 
 # 初始化主app对象
-app = typer.Typer(help="LAZY CLI - 学在浙大第三方客户端的命令行工具", no_args_is_help=True)
+app = typer.Typer(help="LAZY CLI - 学在浙大第三方客户端的命令行工具", no_args_is_help=True, invoke_without_command=True)
 
 # --- 全局回调，检验登录状态 ---
 @app.callback()
@@ -32,6 +32,12 @@ async def main_callback(
     proxy: Annotated[bool | None, typer.Option(
         "--proxy",
         help="启用此选项，允许 lazy 使用系统代理"
+    )] = False,
+    version: Annotated[bool | None, typer.Option(
+        "--version",
+        "-v",
+        help="查看 LAZY CLI 版本",
+        is_eager=True
     )] = False
 ):
 
@@ -41,6 +47,16 @@ async def main_callback(
     if "--help" in sys.argv or "-h" in sys.argv:
         return 
     
+    # 如果查看版本，无需检查登录状态
+    if version:
+        try:
+            from lazy._version import __version__
+        except ImportError:
+            __version__ = "unknown"
+
+        print(f"LAZY CLI version: v{__version__}")
+        raise typer.Exit()
+
     if ctx.invoked_subcommand in ["login", "whoami", "config"]:
         return
 

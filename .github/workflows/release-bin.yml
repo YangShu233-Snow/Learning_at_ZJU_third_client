@@ -3,7 +3,7 @@ name: Release Lazy CLI
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
   workflow_dispatch:
 
 permissions:
@@ -23,19 +23,25 @@ jobs:
             runner: ubuntu-22.04
             arch: x86_64
             asset_suffix: linux-x86_64.tar.gz
-            
+
           # Linux ARM64 (使用 GitHub 官方提供的 ARM 运行器)
           - os: linux
             runner: ubuntu-24.04-arm
             arch: arm64
             asset_suffix: linux-arm64.tar.gz
-            
+
           # macOS ARM64 (macOS 14+ 默认为 M 系列 Apple Silicon 芯片)
           - os: macos
             runner: macos-latest
             arch: arm64
             asset_suffix: macos-arm64.tar.gz
-            
+
+          # macOS x86
+          - os: macos
+            runner: macos-15-intel
+            arch: x86_64
+            asset_suffix: macos-x86_64.tar.gz
+
           # Windows x86_64
           - os: windows
             runner: windows-latest
@@ -49,7 +55,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Set platform-specific variables
         id: build_vars
@@ -72,7 +78,7 @@ jobs:
           fi
 
       - name: Install dependencies
-        shell: bash            
+        shell: bash
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller

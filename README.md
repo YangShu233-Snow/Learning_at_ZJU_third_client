@@ -114,7 +114,7 @@ lazy --help
 
 ### Build Executable
 
-After completing Development Setup, use PyInstaller to build a standalone executable.
+完成 Development Setup 后，你可以通过 Pyinstaller 来构建可执行文件：
 
 ```bash
 # Generate lazy.spec
@@ -131,7 +131,7 @@ see [docs/PACKAGING.md](docs/PACKAGING.md) for details.
 pyinstaller lazy.spec --noconfirm
 ```
 
-Output: `dist/lazy/`. Install it the same way as Pre-built Binaries (symlink or PATH).
+构建产物在 `dist/lazy/` 下，你可以像安装 Release 包一样安装它。
 
 ## LAZY SERVER
 
@@ -148,15 +148,15 @@ lazy-server
 
 ### API 端点
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| `POST` | `/api/auth/register` | 注册新用户 |
-| `POST` | `/api/auth/login` | 登录获取 token |
-| `GET` | `/api/health` | 服务健康检查 |
-| `GET` | `/api/tasks` | 查看监控任务 |
-| `PUT` | `/api/tasks/{id}` | 修改任务参数 |
-| `DELETE` | `/api/tasks/{id}` | 重置任务为系统模板 |
-| `GET` | `/api/data/{task_id}` | 获取缓存数据 |
+| 方法     | 端点                  | 说明               |
+| -------- | --------------------- | ------------------ |
+| `POST`   | `/api/auth/register`  | 注册新用户         |
+| `POST`   | `/api/auth/login`     | 登录获取 token     |
+| `GET`    | `/api/health`         | 服务健康检查       |
+| `GET`    | `/api/tasks`          | 查看监控任务       |
+| `PUT`    | `/api/tasks/{id}`     | 修改任务参数       |
+| `DELETE` | `/api/tasks/{id}`     | 重置任务为系统模板 |
+| `GET`    | `/api/data/{task_id}` | 获取缓存数据       |
 
 ### 部署
 

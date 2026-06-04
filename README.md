@@ -96,6 +96,8 @@ conda activate LAZY
 
 # 安装 LAZY（开发模式）
 pip install -e '.[dev]'
+# 生成必要的构建所需文件
+python builder.py
 ```
 
 ### Run from Source

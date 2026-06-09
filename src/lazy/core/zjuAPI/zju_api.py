@@ -15,6 +15,11 @@ import requests
 from httpx import ConnectTimeout, HTTPError, HTTPStatusError
 
 from ..load_config import load_config
+from .types import (
+    AssignmentReadFilePayload,
+    AssignmentReadType,
+    AssignmentReadVideoPayload,
+)
 
 DOWNLOAD_DIR = Path.home() / "Downloads"
 
@@ -915,6 +920,63 @@ class assignmentViewForumAPIFits(assignmentAPIFits):
             return base_api_url.replace("<placeholder>", str(self.category_id))
 
         return super()._make_api_url(api_config, api_name)
+
+class assignmentReadAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 assignment_id: int,
+                 payload: AssignmentReadFilePayload | AssignmentReadVideoPayload,
+                 apis_name=None,
+                 mode: AssignmentReadType=AssignmentReadType.UNKNOWN
+                 ):
+        if mode == AssignmentReadType.UNKNOWN:
+            mode = payload.type
+
+        if not apis_name:
+            apis_name = [mode]
+            
+        for item in apis_name:
+            if not isinstance(item, AssignmentReadType):
+                raise TypeError(f"{item} 不是一个合法的 AssignmentReadType!")
+
+            if item == AssignmentReadType.UNKNOWN:
+                raise ValueError("必须指定一个非 UNKNOWN 的 AssignmentReadType!")
+            
+            if payload.type != item:
+                raise ValueError(f"所指定模式 {item} 不正确！")
+            
+        super().__init__(login_session, apis_name)
+        self.assignment_id = assignment_id
+        self.payload = payload
+
+    def _make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+
+        if not base_api_url:
+            logger.error(f"{api_name} 缺少url！")
+            return None
+        
+        if api_name in AssignmentReadType:
+            return base_api_url.replace("<placeholder>", str(self.assignment_id))
+
+        return super()._make_api_url(api_config, api_name)
+
+    def _make_api_params(self, api_config, api_name):
+        api_params: dict = api_config.get("params")
+
+        if api_params == None:
+            logger.error(f"{api_name}缺乏params参数配置！")
+
+        if self.payload.type == AssignmentReadType.VIDEO:
+            api_params["start"] = self.payload.start
+            api_params["end"] = self.payload.end
+            return api_params
+
+        if self.payload.type == AssignmentReadType.FILE:
+            api_params["upload_id"] = self.payload.upload
+            return api_params
+
+        return super()._make_api_params(api_config, api_name)
 
 # --- Resource API ---
 class resourcesAPIFits(APIFitsAsync):

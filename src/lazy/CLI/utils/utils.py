@@ -36,3 +36,9 @@ def get_status_text(start_status: bool, close_status: bool)->Text:
         return Text("🟢 进行中", style="green")
     
     return Text("⚪️ 未开始", style="dim")
+
+def format_timedelta(duration: int)->str:
+    hours, remainder = divmod(duration, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    return f"{hours:02}:{minutes:02}:{seconds:02}"

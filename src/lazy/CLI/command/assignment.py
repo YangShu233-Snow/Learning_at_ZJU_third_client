@@ -2,7 +2,6 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import datetime, timezone
-from enum import Enum, unique
 from functools import partial
 from textwrap import dedent
 from typing import Annotated
@@ -16,18 +15,30 @@ from rich import filesize
 from rich import print as rprint
 from rich.align import Align
 from rich.console import Group
+from rich.live import Live
 from rich.padding import Padding
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+)
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
 from ...core.login.login import CredentialManager, ZjuAsyncClient
 from ...core.zjuAPI import zju_api
+from ...core.zjuAPI.types import (
+    AssignmentReadFilePayload,
+    AssignmentReadType,
+    AssignmentReadVideoPayload,
+)
 from ..config.config import type_map
 from ..state import state
+from ..types import AssignmentReadTask, AssignmentType, LegalFileType
 from ..utils.utils import (
+    format_timedelta,
     get_status_text,
     make_jump_url,
     print_with_json,
@@ -36,6 +47,7 @@ from ..utils.utils import (
 
 KEYRING_SERVICE_NAME = "lazy"
 KEYRING_LAZ_STUDENTID_NAME = "laz_studentid"
+CONCURRENCY_LIMIT = 20
 
 # assignment 命令组
 app = typer.Typer(help="""
@@ -48,14 +60,6 @@ app = typer.Typer(help="""
 
 logger = logging.getLogger(__name__)
 
-@unique
-class AssignmentType(Enum):
-    UNKOWN = 0
-    ACTIVITY = 1
-    FORMUN = 2
-    EXAM = 3
-    CLASSROOM = 4
-    
 def is_todo_show_amount_valid(amount: int):
     if amount <= 0:
         print("显示数量应为正数！")
@@ -1221,6 +1225,137 @@ async def view_forum(
 
     rprint(activity_panel)
 
+async def sub_read_assignment_controller(
+        client: ZjuAsyncClient,
+        tasks: list[AssignmentReadTask],
+        semaphore: asyncio.Semaphore,
+        main_progress: Progress,
+        sub_progress: Progress,
+    ):
+    assignment_id = tasks[0].assignment_id
+    title = tasks[0].assignment_title
+    assignment_tasks = []
+
+    main_task = main_progress.add_task(description=f'[{assignment_id}]{title}', total=3)
+    main_progress.update(
+        main_task, 
+        description=f'[{assignment_id}]{title}: 加载共 {len(tasks)} 个任务中...', 
+        completed=1)
+
+    for task in tasks:
+        assignment_tasks.append(
+            sub_read_assignment(
+                client=client,
+                read_task=task,
+                semaphore=semaphore,
+                sub_progress=sub_progress
+            )
+        )
+
+    main_progress.update(
+        main_task,
+        description=f'[{assignment_id}]{title}: 执行共 {len(tasks)} 个任务中',
+        completed=2
+    )
+    results: list[bool] = await asyncio.gather(*assignment_tasks)
+    
+    if results and all(results):
+        main_progress.update(
+            main_task,
+            description=f'[green]{assignment_id}]{title}: 已完成 [cyan]{len(tasks)}[/cyan] 个任务！',
+            completed=3
+        )
+        return True
+    if not results:
+        logger.error('遇到了未知错误！请将此错误报告给开发者！')
+        main_progress.update(
+            main_task,
+            description='[red]发生未知错误！',
+            completed=3
+        )
+        return False
+    
+    faults = 0
+    for r in results:
+        if r:
+            continue
+
+        faults += 1
+
+    main_progress.update(
+        main_task,
+        description=f'[yellow]{assignment_id}]{title}: 完成 [cyan]{faults}/{len(tasks)}[/cyan] 个任务',
+        completed=3
+    )
+    return False
+
+async def sub_read_assignment(
+        client: ZjuAsyncClient,
+        read_task: AssignmentReadTask, 
+        semaphore: asyncio.Semaphore, 
+        sub_progress: Progress)->bool:
+
+    task = sub_progress.add_task(description=f'  └──{AssignmentReadTask.resource_name} 加载中...', total=1)
+
+    video_duration = 125
+
+    if read_task.mode == AssignmentReadType.VIDEO:
+        curr_time = 0
+        while True:
+            # 创建 10 min 的观看任务
+            calls = [zju_api.assignmentReadAPIFits(
+                client, 
+                assignment_id = read_task.assignment_id,
+                payload = AssignmentReadVideoPayload(
+                    start,
+                    (start + video_duration if (start + video_duration) < (curr_time + 476) else curr_time + 476)
+                )
+            ).post_api_data() for start in range(curr_time, curr_time + 476, video_duration)]
+
+            async def call_wrapper(call):
+                async with semaphore:
+                    return await call
+
+            read_tasks = [
+                call_wrapper(call) for call in calls
+            ]
+
+            results = await asyncio.gather(*read_tasks, return_exceptions=True)
+
+            if not isinstance(results[-1], Exception):
+                completeness = results[-1][1].get('completeness')
+
+                if completeness == 'full':
+                    sub_progress.update(task, description=f"  └──[green]{AssignmentReadTask.resource_name} 已完成！[/green]", completed=1)
+                    return True
+
+                curr_time += 600
+                sub_progress.update(description=f"  └──{AssignmentReadTask.resource_name} {format_timedelta(curr_time)}")
+            else:
+                sub_progress.update(task, description=f"  └──[red]{AssignmentReadTask.resource_name} 发生错误！[/red]", completed=1)
+                logger.error(f"完成任务 {read_task} 时发生错误: {results[-1]}")
+                return False
+    
+    if read_task.mode == AssignmentReadType.FILE:
+        async with semaphore:
+            result = await zju_api.assignmentReadAPIFits(
+                client, 
+                read_task.assignment_id,
+                AssignmentReadFilePayload(
+                    read_task.resource_name
+                )
+            ).post_api_data()
+
+        if result[0].get('completeness') == 'full':
+            sub_progress.update(task, f"  └──[green]{AssignmentReadTask.resource_name} 已完成！[/green]", completed=1)
+            return True
+        
+        sub_progress.update(task, f"  └──[red]{AssignmentReadTask.resource_name} 发生错误！[/red]", completed=1)
+        logger.error(f"完成任务 {read_task} 时发生错误: {results[-1]}")
+        return False
+
+    return False
+
 @app.command(
     "vw",
     help="Alias for 'view'",
@@ -1671,3 +1806,155 @@ async def open_topic(
             rprint("[green]提交成功！[/green]")
         else:
             rprint("[red]提交失败！[/red]")
+
+@app.command(
+    "rd",
+    help="Alias for 'read'",
+    hidden=True,
+    epilog=dedent("""
+
+    """),
+    no_args_is_help=True)
+@app.command(
+    "read",
+    help="完成视频或文档的阅读任务，",
+    epilog=dedent("""
+
+    """),
+    no_args_is_help=True)
+@partial(syncify, raise_sync_error=False)
+async def read_assignment(
+    assignments_id: Annotated[list[int], typer.Argument(help="任务ID")],
+    json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True, help="启用JSON输出")] = False
+):
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=False,
+        disable=json
+    ) as progress:
+        task = progress.add_task(description='请求数据中...', total=4)
+
+        semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+                logger.error("Cookies不存在！")
+                raise typer.Exit(code=1)
+            
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
+
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
+            # 预先判断任务附件
+            progress.update(
+                task,
+                description='加载待完成任务中...',
+                completed=1
+            )
+            pre_tasks = [zju_api.assignmentViewAPIFits(client.session, assignment_id).get_api_data() for assignment_id in assignments_id]
+            results = await asyncio.gather(*pre_tasks, return_exceptions=True)
+
+            read_tasks: dict[int, list[AssignmentReadTask]] = {}
+            for assignment_id ,result in zip(assignments_id, results, strict=True):
+                if isinstance(result, Exception):
+                    continue
+
+                raw_activity = result[0]
+                title = raw_activity.get('title', 'null')
+                uploads_list = raw_activity.get("uploads", None)
+                uploads: list[dict] = extract_uploads_json(uploads_list) if uploads_list else None
+
+                for upload in uploads:
+                    if not upload.get('id'):
+                        continue
+
+                    task_type = ''
+                    if upload.get('filename') in LegalFileType.video:
+                        task_type = AssignmentReadType.VIDEO
+                    elif upload.get('filename') in LegalFileType.document:
+                        task_type = AssignmentReadType.FILE
+                    else:
+                        continue
+                    
+                    if assignment_id not in read_tasks:
+                        read_tasks[assignment_id] = []
+
+                    read_tasks[assignment_id].append(AssignmentReadTask(
+                        title,
+                        assignment_id,
+                        task_type,
+                        upload.get('filename'),
+                        upload.get('id')
+                    ))
+
+            logger.info(f"Loading {len(read_tasks)} reading tasks")       
+            progress.update(
+                task,
+                description=f"初始化 {len(read_tasks)} 个作业中...",
+                completed=2
+            )
+
+            # 加载所有 task progress 并装入 Table
+            table = Table.grid(expand=True)
+            assignments_tasks = []
+
+            for _, tasks in read_tasks.items():
+                # Assignment Main Progress
+                main_progress = Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    transient=False,
+                    disable=json
+                )
+                
+                # Assignment Video/File Reading Progress
+                sub_progress = Progress(
+                    TextColumn("[progress.description]{task.description}"),
+                    transient=False,
+                    disable=json
+                )
+
+                table.add_row(main_progress)
+                table.add_row(sub_progress)
+
+                assignments_tasks.append(sub_read_assignment_controller(
+                    client,
+                    tasks,
+                    semaphore,
+                    main_progress,
+                    sub_progress
+                ))
+                                
+            progress.update(
+                task,
+                description=f'完成 {len(read_tasks)} 个作业中...',
+                completed=3
+            )
+
+            with Live(table, refresh_per_second=10):
+                results = await asyncio.gather(*assignments_tasks)
+
+            if results and all(results):
+                progress.update(
+                    task,
+                    description='[green]已完成！',
+                    completed=3
+                )
+                return
+            if not results:
+                logger.error('遇到了未知错误！请将此错误报告给开发者！')
+                progress.update(
+                    task,
+                    description='[red]发生未知错误！'
+                )
+                raise typer.Exit(code=1)
+            
+            progress.update(
+                task,
+                description='[red]发生错误！',
+                completed=3
+            )
+            raise typer.Exit(code=1)

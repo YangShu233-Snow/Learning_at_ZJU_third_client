@@ -207,6 +207,9 @@
         "apis_name": [
             "activity",
             "activity_read",
+            "activity_read_file",
+            "activity_read_video",
+            "activity_complete",
             "submission_list",
             "todo",
             "exam",
@@ -232,6 +235,21 @@
                 "url": "https://courses.zju.edu.cn/api/course/activities-read/<placeholder>",
                 "method": "POST",
                 "params": {}
+            },
+            "activity_read_file": {
+                "url": "https://courses.zju.edu.cn/api/course/activities-read/<placeholder>",
+                "method": "POST",
+                "params": {
+                    "upload_id": 0
+                }
+            },
+            "activity_read_video": {
+                "url": "https://courses.zju.edu.cn/api/course/activities-read/<placeholder>",
+                "method": "POST",
+                "params": {
+                    "start": 0,
+                    "end": 125
+                }
             },
             "submission_list": {
                 "url": "https://courses.zju.edu.cn/api/activities/<placeholder1>/students/<placeholder2>/submission_list",
@@ -265,7 +283,7 @@
                 "method": "GET",
                 "params": {}
             },
-            "exam_submission":{
+            "exam_submission": {
                 "url": "https://courses.zju.edu.cn/api/exams/<placeholder1>/submissions/<placeholder2>",
                 "method": "GET",
                 "params": {}

@@ -358,7 +358,7 @@ async def upload_resources(
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         TaskProgressColumn(),
-        transient=True   ,
+        transient=True,
         disable=json
     ) as progress:        
         pre_task = progress.add_task(description="[green]正在载入文件...[/green]", total=len(files))

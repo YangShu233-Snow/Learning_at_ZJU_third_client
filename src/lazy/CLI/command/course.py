@@ -462,14 +462,18 @@ async def view_syllabus(
             async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                 raw_course_activities, raw_course_exams, raw_course_classrooms, raw_course_activities_reads, raw_homework_completeness, raw_exam_completeness = await zju_api.courseViewAPIFits(client.session, course_id).get_api_data()
 
-            for module_id, module in modules_list:
-                course_activities: list[dict] = raw_course_activities.get("activities", [])
-                course_exams: list[dict] = raw_course_exams.get("exams", [])
-                course_classrooms: list[dict] = raw_course_classrooms.get("classrooms", [])
-                exams_completeness: list[int] = raw_exam_completeness.get("exam_ids", [])
-                activities_completeness: list[int] = [homework_activitie.get("id") for homework_activitie in raw_homework_completeness.get("homework_activities", {}) if homework_activitie.get("status") == "已交"]
-                classrooms_completeness: list[dict] = [activity_read for activity_read in raw_course_activities_reads.get("activity_reads") if activity_read.get("activity_type") == "classroom_activity"]
+            # 忽然发现这一坨都不用放在 for 里，提升一些性能
+            course_activities: list[dict] = raw_course_activities.get("activities", [])
+            course_exams: list[dict] = raw_course_exams.get("exams", [])
+            course_classrooms: list[dict] = raw_course_classrooms.get("classrooms", [])
+            exams_completeness: list[int] = raw_exam_completeness.get("exam_ids", [])
+            # API 返回的不包含资料阅读任务的完成情况，所以改用 raw_course_activities_reads
+            # Homeword Completeness URL https://courses.zju.edu.cn/api/course/<placeholder>/homework/submission-status
+            activities_completeness: list[int] = [activity_read.get('activity_id') for activity_read in raw_course_activities_reads.get("activity_reads") if activity_read.get('activity_type') == 'learning_activity' and activity_read.get('completeness') == 'full']
+            # activities_completeness: list[int] = [homework_activitie.get("id") for homework_activitie in raw_homework_completeness.get("homework_activities", {}) if homework_activitie.get("status") == "已交"]
+            classrooms_completeness: list[dict] = [activity_read for activity_read in raw_course_activities_reads.get("activity_reads") if activity_read.get("activity_type") == "classroom_activity"]
 
+            for module_id, module in modules_list:
                 # 筛选目标activities, exams 和 classrooms
                 activities_list: list[dict] = []
                 if not (only_classroom or only_exam):

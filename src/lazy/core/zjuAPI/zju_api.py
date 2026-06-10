@@ -15,6 +15,11 @@ import requests
 from httpx import ConnectTimeout, HTTPError, HTTPStatusError
 
 from ..load_config import load_config
+from .types import (
+    AssignmentReadFilePayload,
+    AssignmentReadType,
+    AssignmentReadVideoPayload,
+)
 
 DOWNLOAD_DIR = Path.home() / "Downloads"
 
@@ -310,7 +315,9 @@ class APIFitsAsync:
             tasks.append(self.login_session.post(url=api_url, json=self.data, follow_redirects=True))
             api_urls.append(api_url)
 
-        logger.info(f"请求 {', '.join(api_urls)}")
+            logger.info(f"请求 {api_url}")
+            logger.info(f'请求参数 {self.data}')
+
         responses = []
         try:
             responses = await asyncio.gather(*tasks, return_exceptions=True)
@@ -916,8 +923,6 @@ class assignmentViewForumAPIFits(assignmentAPIFits):
 
         return super()._make_api_url(api_config, api_name)
 
-<<<<<<< Updated upstream
-=======
 # Inspired by @吃个诸葛亮's implementation of 新中特刷课脚本.
 # Reference: https://www.cc98.org/topic/5994770
 class assignmentReadAPIFits(assignmentAPIFits):
@@ -998,7 +1003,6 @@ class assignmentReadAPIFits(assignmentAPIFits):
 
         return super()._make_api_params(api_config, api_name)
 
->>>>>>> Stashed changes
 # --- Resource API ---
 class resourcesAPIFits(APIFitsAsync):
     def __init__(self, 

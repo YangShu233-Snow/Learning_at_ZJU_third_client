@@ -923,6 +923,8 @@ class assignmentViewForumAPIFits(assignmentAPIFits):
 
         return super()._make_api_url(api_config, api_name)
 
+# Inspired by @吃个诸葛亮's implementation of 新中特刷课脚本.
+# Reference: https://www.cc98.org/topic/5994770
 class assignmentReadAPIFits(assignmentAPIFits):
     def __init__(self, 
                  login_session, 
@@ -1560,6 +1562,8 @@ class rollcallListAPIFits(rollcallAPIFits):
             apis_name = ["rollcall"]
         super().__init__(login_session, apis_name)
 
+# Inspired by @5dbwat4's implementation of course.zju autosign func.
+# Reference: https://github.com/5dbwat4/ZJU-live-better/blob/main/courses.zju/autosign.js
 class rollcallAnswerRadarAPIFits(rollcallAPIFits):
     def __init__(self, 
                  login_session, 
@@ -1582,6 +1586,8 @@ class rollcallAnswerRadarAPIFits(rollcallAPIFits):
         
         return super()._make_api_url(api_config, api_name)
 
+# Inspired by @5dbwat4's implementation of course.zju autosign func.
+# Reference: https://github.com/5dbwat4/ZJU-live-better/blob/main/courses.zju/autosign.js
 class rollcallAnswerNumberAPIFits(rollcallAPIFits):
     def __init__(self, 
                  login_session, 

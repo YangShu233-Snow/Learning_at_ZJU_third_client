@@ -315,7 +315,9 @@ class APIFitsAsync:
             tasks.append(self.login_session.post(url=api_url, json=self.data, follow_redirects=True))
             api_urls.append(api_url)
 
-        logger.info(f"请求 {', '.join(api_urls)}")
+            logger.info(f"请求 {api_url}")
+            logger.info(f'请求参数 {self.data}')
+
         responses = []
         try:
             responses = await asyncio.gather(*tasks, return_exceptions=True)
@@ -961,6 +963,25 @@ class assignmentReadAPIFits(assignmentAPIFits):
 
         return super()._make_api_url(api_config, api_name)
 
+    def _make_api_data(self, api_config, api_name):
+        api_params: dict = api_config.get("params")
+
+        if api_params == None:
+            logger.error(f"{api_name}缺乏params参数配置！")
+
+        if self.payload.type == AssignmentReadType.VIDEO:
+            api_params["start"] = self.payload.start
+            api_params["end"] = self.payload.end
+            return api_params
+
+        if self.payload.type == AssignmentReadType.FILE:
+            if self.payload.upload:
+                api_params["upload_id"] = self.payload.upload
+                return api_params
+            return {}
+            
+        return super()._make_api_data(api_config, api_name)
+
     def _make_api_params(self, api_config, api_name):
         api_params: dict = api_config.get("params")
 
@@ -973,8 +994,10 @@ class assignmentReadAPIFits(assignmentAPIFits):
             return api_params
 
         if self.payload.type == AssignmentReadType.FILE:
-            api_params["upload_id"] = self.payload.upload
-            return api_params
+            if self.payload.upload:
+                api_params["upload_id"] = self.payload.upload
+                return api_params
+            return {}
 
         return super()._make_api_params(api_config, api_name)
 

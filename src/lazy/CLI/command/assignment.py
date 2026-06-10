@@ -9,7 +9,6 @@ from textwrap import dedent
 from typing import Annotated
 
 import keyring
-from numpy import extract
 import typer
 from asyncer import syncify
 from lxml import html

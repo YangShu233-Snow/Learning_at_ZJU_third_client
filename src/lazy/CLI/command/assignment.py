@@ -9,6 +9,7 @@ from textwrap import dedent
 from typing import Annotated
 
 import keyring
+from numpy import extract
 import typer
 from asyncer import syncify
 from lxml import html
@@ -889,6 +890,17 @@ async def view_activity(
                     submission_instructor_comment: str = submission.get("instructor_comment", None)
                     submission_score: int|None = submission.get("score") if submission.get("score") else "未评分"
                     submission_uploads_list: list[dict]|None = submission.get("uploads", None)
+                    
+                    # 原来老师评语也可以有附件？？？
+                    submission_correct: dict = submission.get('submission_correct', {})
+                    submission_correct_uploads_list: list = submission_correct.get('uploads', [])
+                    
+                    if all(submission_correct_uploads_list):
+                        submission_correct_uploads = extract_uploads_json(submission_correct_uploads_list)
+                    else:
+                        submission_correct_uploads = None
+                        
+
 
                     if submission_uploads_list:
                         submission_uploads = extract_uploads_json(submission_uploads_list)
@@ -899,6 +911,7 @@ async def view_activity(
                         "submmited_time": submission_created_time,
                         "comment": submission_comment,
                         "instructor_comment": submission_instructor_comment,
+                        "instructor_uploads": submission_correct_uploads,
                         "score": submission_score,
                         "uploads": submission_uploads
                     })
@@ -988,6 +1001,10 @@ async def view_activity(
                 submission_score: int|None = submission.get("score") if submission.get("score") else "未评分"
                 submission_uploads: list[dict]|list = submission.get("uploads", [])
 
+                # 原来老师评语也可以有附件？？？
+                submission_correct: dict = submission.get('submission_correct', {})
+                submission_correct_uploads_list: list = submission_correct.get('uploads', [])
+
                 # --- 准备Panel内容 --- 
                 submission_inner_comment = Text.assemble(
                     submission_comment
@@ -1010,10 +1027,24 @@ async def view_activity(
                 submission_content_renderables.append(submission_head_text)
                 
                 if submission_inner_instructor_comment:
-                    submission_content_renderables.append("")
-                    submission_content_renderables.append("[cyan]老师评语: [/cyan]")
-                    submission_content_renderables.append(submission_inner_instructor_comment_block)
+                    submission_inner_instructor_comment_renderables = [Text(''), Text("老师评语: ", style='cyan'), submission_inner_instructor_comment_block]
                 
+                    # Fix: 老师评语也可以有附件
+                    if all(submission_correct_uploads_list):
+                        submission_inner_instructor_comment_renderables.extend([Text(''), *extract_uploads(submission_correct_uploads_list), Text('')])
+                        submission_content_renderables.append(Text(''))
+                        submission_content_renderables.append(Panel(
+                            Group(*submission_inner_instructor_comment_renderables),
+                            title = "[教师评阅]",
+                            border_style="bright_black",
+                            expand=True,
+                            padding=(1, 2)
+                        ))
+                        submission_content_renderables.append(Text(''))
+                    else:
+                        submission_content_renderables.extend(submission_inner_instructor_comment_renderables)
+
+
                 if submission_inner_comment:
                     submission_content_renderables.append("")
                     submission_content_renderables.append("[cyan]提交内容: [/cyan]")

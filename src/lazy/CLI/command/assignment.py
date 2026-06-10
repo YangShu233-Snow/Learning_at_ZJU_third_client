@@ -1821,14 +1821,20 @@ async def open_topic(
     help="Alias for 'read'",
     hidden=True,
     epilog=dedent("""
+        EXAMPLES:
 
+          $ lazy assignment rd 114514 666
+            (完成 ID 为'114514'与'666'作业下的所有阅读任务)
     """),
     no_args_is_help=True)
 @app.command(
     "read",
     help="完成视频或文档的阅读任务，",
     epilog=dedent("""
+        EXAMPLES:
 
+          $ lazy assignment read 114514 666
+            (完成 ID 为'114514'与'666'作业下的所有阅读任务)
     """),
     no_args_is_help=True)
 @partial(syncify, raise_sync_error=False)
@@ -1839,7 +1845,7 @@ async def read_assignment(
     if json:
         logger.warning(f'错误启用 json 格式输出，但是命令不支持')
         rprint(f'该命令暂时不支持 json 格式输出！')
-        
+
     table = Table.grid(expand=True)
     progress = Progress(
         SpinnerColumn(),

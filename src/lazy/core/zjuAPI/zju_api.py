@@ -916,6 +916,89 @@ class assignmentViewForumAPIFits(assignmentAPIFits):
 
         return super()._make_api_url(api_config, api_name)
 
+<<<<<<< Updated upstream
+=======
+# Inspired by @吃个诸葛亮's implementation of 新中特刷课脚本.
+# Reference: https://www.cc98.org/topic/5994770
+class assignmentReadAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 assignment_id: int,
+                 payload: AssignmentReadFilePayload | AssignmentReadVideoPayload,
+                 apis_name=None,
+                 mode: AssignmentReadType=AssignmentReadType.UNKNOWN
+                 ):
+        if mode == AssignmentReadType.UNKNOWN:
+            mode = payload.type
+
+        if not apis_name:
+            apis_name = [mode]
+            
+        for item in apis_name:
+            if not isinstance(item, AssignmentReadType):
+                raise TypeError(f"{item} 不是一个合法的 AssignmentReadType!")
+
+            if item == AssignmentReadType.UNKNOWN:
+                raise ValueError("必须指定一个非 UNKNOWN 的 AssignmentReadType!")
+            
+            if payload.type != item:
+                raise ValueError(f"所指定模式 {item} 不正确！")
+            
+        super().__init__(login_session, apis_name)
+        self.assignment_id = assignment_id
+        self.payload = payload
+
+    def _make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+
+        if not base_api_url:
+            logger.error(f"{api_name} 缺少url！")
+            return None
+        
+        if api_name in AssignmentReadType:
+            return base_api_url.replace("<placeholder>", str(self.assignment_id))
+
+        return super()._make_api_url(api_config, api_name)
+
+    def _make_api_data(self, api_config, api_name):
+        api_params: dict = api_config.get("params")
+
+        if api_params == None:
+            logger.error(f"{api_name}缺乏params参数配置！")
+
+        if self.payload.type == AssignmentReadType.VIDEO:
+            api_params["start"] = self.payload.start
+            api_params["end"] = self.payload.end
+            return api_params
+
+        if self.payload.type == AssignmentReadType.FILE:
+            if self.payload.upload:
+                api_params["upload_id"] = self.payload.upload
+                return api_params
+            return {}
+            
+        return super()._make_api_data(api_config, api_name)
+
+    def _make_api_params(self, api_config, api_name):
+        api_params: dict = api_config.get("params")
+
+        if api_params == None:
+            logger.error(f"{api_name}缺乏params参数配置！")
+
+        if self.payload.type == AssignmentReadType.VIDEO:
+            api_params["start"] = self.payload.start
+            api_params["end"] = self.payload.end
+            return api_params
+
+        if self.payload.type == AssignmentReadType.FILE:
+            if self.payload.upload:
+                api_params["upload_id"] = self.payload.upload
+                return api_params
+            return {}
+
+        return super()._make_api_params(api_config, api_name)
+
+>>>>>>> Stashed changes
 # --- Resource API ---
 class resourcesAPIFits(APIFitsAsync):
     def __init__(self, 
@@ -1475,6 +1558,8 @@ class rollcallListAPIFits(rollcallAPIFits):
             apis_name = ["rollcall"]
         super().__init__(login_session, apis_name)
 
+# Inspired by @5dbwat4's implementation of course.zju autosign func.
+# Reference: https://github.com/5dbwat4/ZJU-live-better/blob/main/courses.zju/autosign.js
 class rollcallAnswerRadarAPIFits(rollcallAPIFits):
     def __init__(self, 
                  login_session, 
@@ -1497,6 +1582,8 @@ class rollcallAnswerRadarAPIFits(rollcallAPIFits):
         
         return super()._make_api_url(api_config, api_name)
 
+# Inspired by @5dbwat4's implementation of course.zju autosign func.
+# Reference: https://github.com/5dbwat4/ZJU-live-better/blob/main/courses.zju/autosign.js
 class rollcallAnswerNumberAPIFits(rollcallAPIFits):
     def __init__(self, 
                  login_session, 

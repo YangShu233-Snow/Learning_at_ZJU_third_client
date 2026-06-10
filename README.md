@@ -172,6 +172,20 @@ LAZY SERVER 使用 `~/.lazy_server/master.key` 存储 Fernet 加密主密钥（`
 如服务器被入侵，攻击者可解密所有凭据，请做好主机安全防护。
 如需更高安全等级，可通过环境变量 `LAZY_SERVER_KEY` 传入主密钥（每次重启需重新提供）。
 
+## Contributors
+
+非常感谢以下开发者的贡献ლ(°◕‵ƹ′◕ლ)
+
+<a href="https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=YangShu233-Snow/Learning_at_ZJU_third_client" />
+</a>
+
+以下前辈为 LAZY 项目提供的其他帮助，或 LAZY 项目借鉴了他们的工作✿✿ヽ(°▽°)ノ✿
+
+- [@5dbwat4](https://github.com/5dbwat4): LAZY CLI Rollcall Answer Func was inspired by his [project](https://github.com/5dbwat4/ZJU-live-better)!
+- [@Gvrzizo](https://github.com/Gvrzizo): Arch Linux Release Maintainer、[LAZY TUI](https://github.com/Gvrzizo/lazy-tu) Owner
+- [@吃个诸葛亮](https://www.cc98.org/user/id/648605): LAZY CLI Assignment Read Func was inspired by his [project](https://www.cc98.org/topic/5994770)!
+
 ## License
 
 - **GUI + CLI + Core** (`CLI/`, `core/`, `GUI/`): **GNU Lesser General Public License v3.0** (LGPL-3.0-only)

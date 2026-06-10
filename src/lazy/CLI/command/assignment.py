@@ -1836,6 +1836,10 @@ async def read_assignment(
     assignments_id: Annotated[list[int], typer.Argument(help="任务ID")],
     json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True, help="启用JSON输出")] = False
 ):
+    if json:
+        logger.warning(f'错误启用 json 格式输出，但是命令不支持')
+        rprint(f'该命令暂时不支持 json 格式输出！')
+        
     table = Table.grid(expand=True)
     progress = Progress(
         SpinnerColumn(),

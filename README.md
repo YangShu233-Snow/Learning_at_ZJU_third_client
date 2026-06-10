@@ -176,9 +176,13 @@ LAZY SERVER 使用 `~/.lazy_server/master.key` 存储 Fernet 加密主密钥（`
 
 非常感谢以下开发者的贡献ლ(°◕‵ƹ′◕ლ)
 
+<div>
 <a href="https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=YangShu233-Snow/Learning_at_ZJU_third_client" />
-</a>
+  <img src="https://github.com/YangShu233-Snow.png" width="60px" style="border-radius: 50%;"/>
+  <img src="https://github.com/YardRat0117.png" width="60px" style="border-radius: 50%;"/>
+  <img src="https://github.com/Dremig.png" width="60px" style="border-radius: 50%;"/>
+</a><br>
+</div>
 
 以下前辈为 LAZY 项目提供的其他帮助，或 LAZY 项目借鉴了他们的工作✿✿ヽ(°▽°)ノ✿
 

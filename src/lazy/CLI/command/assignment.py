@@ -1914,6 +1914,10 @@ async def read_assignment(
                         upload.get('id')
                     ))
 
+            if json and not read_tasks:
+                print_with_json(True, "No video or document reading tasks found in the specified assignments.")
+                return
+
             logger.info(f"Loading {len(read_tasks)} reading tasks")       
             progress.update(
                 task,

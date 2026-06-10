@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Callable
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
@@ -1854,7 +1855,7 @@ async def read_assignment(
         table
     )
 
-    with Live(render_group, refresh_per_second=10):
+    with Live(render_group, refresh_per_second=10) if not json else nullcontext():
         task = progress.add_task(description='请求数据中...', total=4)
 
         semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)

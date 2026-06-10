@@ -1842,10 +1842,6 @@ async def read_assignment(
     assignments_id: Annotated[list[int], typer.Argument(help="任务ID")],
     json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True, help="启用JSON输出")] = False
 ):
-    if json:
-        logger.warning(f'错误启用 json 格式输出，但是命令不支持')
-        rprint(f'该命令暂时不支持 json 格式输出！')
-
     table = Table.grid(expand=True)
     progress = Progress(
         SpinnerColumn(),
@@ -1962,6 +1958,19 @@ async def read_assignment(
             )
 
             results = await asyncio.gather(*assignments_tasks)
+
+            if json:
+                json_results = []
+                for (assignment_id, tasks), completed in zip(read_tasks.items(), results, strict=True):
+                    json_results.append({
+                        "assignment_id": assignment_id,
+                        "title": tasks[0].assignment_title if tasks else "",
+                        "total_tasks": len(tasks),
+                        "completed": completed
+                    })
+                overall_success = all(results) if results else False
+                print_with_json(overall_success, "Read Assignments", json_results)
+                return
 
             if results and all(results):
                 progress.update(

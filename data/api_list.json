@@ -223,7 +223,8 @@
             "classroom_subject",
             "submissions",
             "topics",
-            "forum"
+            "forum",
+            "questionnaire"
         ],
         "apis_config": {
             "activity": {
@@ -339,6 +340,11 @@
                     "fields": "id,title,created_by(id,name),group_id,created_at,updated_at,content,uploads",
                     "page": 1
                 }
+            },
+            "questionnaire": {
+                "url": "https://courses.zju.edu.cn/api/questionnaire/<placeholder>/distribute",
+                "method": "GET",
+                "params": {}
             }
         }
     },

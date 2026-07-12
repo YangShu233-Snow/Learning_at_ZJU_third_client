@@ -165,7 +165,7 @@ def extract_subjects(subjects: list[dict], subject_type_map: dict)->list[Text|Pa
     
     for index, subject in enumerate(subjects):
         subject_description: str = extract_comment(subject.get("description"))
-        subject_point: int = subject.get("point", 0)
+        subject_point: int|str = subject.get("point", 0)
         subject_type: str = subject_type_map.get(subject.get("type"), subject.get("type"))
         subject_options: list[str] = []
         subject_answers: list[str] = []
@@ -260,14 +260,19 @@ async def guess_assignment_type(assignment_id: int, json: bool)->AssignmentType:
             raw_activity, raw_exam, raw_classroom = await asyncio.gather(*[
                 zju_api.assignmentViewAPIFits(client.session, assignment_id).get_api_data(),
                 zju_api.assignmentExamViewAPIFits(client.session, assignment_id, apis_name=["exam"]).get_api_data(),
-                zju_api.assignmentClassroomViewAPIFits(client.session, assignment_id, apis_name=["classroom"]).get_api_data()
+                zju_api.assignmentClassroomViewAPIFits(client.session, assignment_id, apis_name=["classroom"]).get_api_data(),
             ], return_exceptions=True)
 
         if raw_activity[0]:
             if raw_activity[0].get("type") == "forum":
-                progress.update(task, description="猜测是作业!", completed=1)
-                logger.info(f"猜测 {assignment_id} 为 Activity")    
+                progress.update(task, description="猜测是讨论!", completed=1)
+                logger.info(f"猜测 {assignment_id} 为 Forum")    
                 return AssignmentType.FORMUN
+            
+            if raw_activity[0].get("type") == "questionnaire":
+                progress.update(task, description="猜测是问卷!", completed=1)
+                logger.info(f"猜测 {assignment_id} 为 Questionnaire")    
+                return AssignmentType.QUESTIONNAIRE
             
             progress.update(task, description="猜测是作业!", completed=1)
             logger.info(f"猜测 {assignment_id} 为 Activity")
@@ -836,7 +841,7 @@ async def view_activity(
             student_id = keyring.get_password(KEYRING_SERVICE_NAME, KEYRING_LAZ_STUDENTID_NAME)
             
             if not student_id:
-                logger.error(f"{activity_id} 缺少'laz_studentid'参数，请将此问题上报给开发者！")
+                logger.error(f"{activity_id} 缺少'lazy_studentid'参数，请将此问题上报给开发者！")
                 if json:
                     print_with_json(False, "STUDENT_ID does not exist. Report it to developer,")
                     raise typer.Exit(code=1)
@@ -1257,6 +1262,242 @@ async def view_forum(
 
     rprint(activity_panel)
 
+async def view_questionnaire(
+    questionnaire_id: int,
+    type_map: dict,
+    preview: bool,
+    json: bool
+):
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True,
+        disable=json
+    ) as progress:
+        
+        task = progress.add_task(description="请求数据中...", total=2)
+        
+        cookies = CredentialManager().load_cookies()
+        if not cookies:
+            if json:
+                print_with_json(False, "Cookies is unacceptable.")
+                logger.error("Cookies不存在！")
+                raise typer.Exit(code=1)
+            
+            rprint("Cookies不存在！")
+            logger.error("Cookies不存在！")
+            raise typer.Exit(code=1)
+        
+        async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
+            # 请求主体数据
+            raw_activity = (await zju_api.assignmentViewAPIFits(client.session, questionnaire_id).get_api_data())[0]
+        
+            questionnaire_completion_criterion_key: str = raw_activity.get("completion_criterion_key", "none")
+            
+            # 判断是否获取提交列表（必须是提交完成的任务且有提交记录）
+            if questionnaire_completion_criterion_key == "submitted":
+                raw_submission_list = (await zju_api.assignmentViewQuestionnaireSubmissionsAPIFits(client.session, questionnaire_id).get_api_data())[0]
+            else:
+                raw_submission_list = {}
+
+            if preview:
+                raw_questionnaire_subjects = (await zju_api.assignmentViewQuestionnaireAPIFits(client.session, questionnaire_id).get_api_data())[0]
+
+        progress.advance(task, 1)
+        progress.update(task, description="渲染数据中...")
+
+        # --- 渲染阶段 ---
+        # 解析返回内容
+        # 任务名称
+        questionnaire_title = raw_activity.get("title", "null")
+        questionnaire_type = type_map.get(raw_activity.get("type", "null"), raw_activity.get("type", "null"))
+        questionnaire_description: str = extract_comment(raw_activity.get("data", {}).get("description", ""))
+
+        # 开放时间
+        questionnaire_start_time = transform_time(raw_activity.get("start_time"))
+        
+        # 截止日期
+        questionnaire_end_time = transform_time(raw_activity.get("end_time"))
+
+        # --- JSON FORMAT HEAD ---
+        if json:
+            uploads_list = raw_activity.get("uploads", None)
+            uploads = extract_uploads_json(uploads_list) if uploads_list else None
+
+            # --- 解析提交列表 ---
+            if raw_submission_list:
+                submissions_list = []
+                submissions: list[dict] = raw_submission_list.get("submissions", [])
+
+                for submission in submissions:
+                    submission_created_time = transform_time(submission.get("created_at"))
+                    submission_score = submission.get('score', 'null')
+
+                    submissions_list.append({
+                        "submitted_time": submission_created_time,
+                        "score": submission_score
+                    })
+            else:
+                submissions_list = None
+
+            # --- 解析预览内容 ---
+            if preview:
+                if not raw_questionnaire_subjects or not raw_questionnaire_subjects.get('subjects', []):
+                    preview_content = "Preview Failed."
+                else:
+                    questionnaire_subjects: list[dict] = raw_questionnaire_subjects.get('subjects', [])
+
+                    subject_type_map = {
+                        "single_selection": "单选",
+                        "short_answer": "简答",
+                        "multiple_selection": "多选",
+                        "true_or_false": "判断",
+                        "fill_in_blank": "填空",
+                        "analysis": "推断"
+                    }
+
+                    preview_content = extract_subjects_json(questionnaire_subjects, subject_type_map)
+            else:
+                preview_content = None
+
+            result = {
+                "title": questionnaire_title,
+                "type": questionnaire_type,
+                "start_time": questionnaire_start_time,
+                "end_time": questionnaire_end_time,
+                "description": questionnaire_description,
+                "uploads": uploads,
+                "submissions": submissions_list,
+                "preview": preview_content
+            }
+
+            print_with_json(True, "Questionnaire View", result)
+            return
+        # --- JSON FORMAT END ---
+
+        start_time_text = Text.assemble(
+            ("开放时间: ", "cyan"),
+            (questionnaire_start_time, "bright_white")
+        )
+        end_time_text = Text.assemble(
+            ("截止时间: ", "cyan"),
+            (questionnaire_end_time, "bright_white")
+        )
+
+        questionnaire_description_text = Text.assemble(
+            questionnaire_description
+        )
+        questionnaire_description_block = Padding(questionnaire_description_text, (0, 0, 0, 2))
+
+        # --- 准备 Panel 内容 ---
+        content_renderables = []
+        title_line = Align.center(Text.assemble((f"{questionnaire_title}", "bold bright_magenta")))
+        content_renderables.append(title_line)
+        content_renderables.append(start_time_text)
+        content_renderables.append(end_time_text)
+
+        if questionnaire_description_text:
+            content_renderables.append("[cyan]任务描述: [/cyan]")
+            content_renderables.append(questionnaire_description_block)
+            content_renderables.append("")
+
+        # 读取附件（如果有的话）
+        uploads: list[dict] = raw_activity.get("uploads")
+        if uploads:
+            content_renderables.append("")
+            content_renderables.extend(extract_uploads(uploads))
+
+        # 读取提交列表（如果有的话）
+        if raw_submission_list:
+            # 准备Submission的Panel内容
+            submission_content_renderables = []
+            submission_list: list[dict] = raw_submission_list.get("submissions")
+            
+            for submission in submission_list:
+                submission_created_time = transform_time(submission.get("created_at"))
+                submission_score = submission.get('score', 'null')
+
+                # --- 准备Panel内容 --- 
+                submission_head_text = Text.assemble(
+                    ("提交时间: ", "cyan"),
+                    submission_created_time,
+                    "\n",
+                    ("最终得分: ", "cyan"),
+                    (f"{submission_score}", "bright_white")
+                )
+
+                submission_content_renderables.append(submission_head_text)
+                
+                if submission != submission_list[-1]:
+                    submission_content_renderables.append(Rule(style="dim white"))
+                    submission_content_renderables.append("")
+
+            # --- 装配Submission List Panel ---
+            submission_list_panel = Panel(
+                Group(*submission_content_renderables),
+                title = "[yellow][提交记录][/yellow]",
+                border_style="yellow",
+                expand=True,
+                padding=(1, 2)
+            )
+            content_renderables.append("")
+            content_renderables.append(submission_list_panel)
+
+        if questionnaire_completion_criterion_key == "submitted" and not raw_submission_list:
+            content_renderables.append("")
+            content_renderables.append("无提交记录")
+
+        # --- 解析预览内容 ---
+        if preview:
+            questionnaire_subjects_renderables = []
+
+            if not raw_questionnaire_subjects or not raw_questionnaire_subjects.get('subjects', []):
+                preview_error_text = Text.assemble(
+                    ("(╥╯^╰╥) 预览失效了……", "red"),
+                    "\n",
+                    ("未知错误导致无法预览题目。", "dim")
+                )
+
+                questionnaire_subjects_renderables.append(preview_error_text)
+            else:
+                questionnaire_subjects: list[dict] = raw_questionnaire_subjects.get('subjects', [])
+                                
+                subject_type_map = {
+                    "single_selection": "单选",
+                    "short_answer": "简答",
+                    "multiple_selection": "多选",
+                    "true_or_false": "判断",
+                    "fill_in_blank": "填空",
+                    "analysis": "推断"
+                }
+
+                questionnaire_subjects_renderables = extract_subjects(questionnaire_subjects, subject_type_map)
+
+            questionnaire_preview_subjects_panel = Panel(
+                Group(*questionnaire_subjects_renderables),
+                title = "[yellow][内容预览][/yellow]",
+                border_style="cyan",
+                expand=True,
+                padding=(1, 2)
+            )
+
+            content_renderables.append("")
+            content_renderables.append(questionnaire_preview_subjects_panel)
+
+        questionnaire_panel = Panel(
+            Group(*content_renderables),
+            title = f"[white][{questionnaire_type}][/white]",
+            border_style="dim",
+            expand=True,
+            padding=(1, 2)
+        )
+
+        progress.advance(task, 1)
+        progress.update(task, description="渲染完成")
+
+        rprint(questionnaire_panel)
+
 async def sub_read_assignment_controller(
         client: ZjuAsyncClient,
         tasks: list[AssignmentReadTask],
@@ -1329,20 +1570,19 @@ async def sub_read_assignment(
 
     task = sub_progress.add_task(description=f'    └──[yellow]{read_task.resource_name} 加载中...', total=1)
 
-    video_duration = 125
+    video_duration = 60
 
     if read_task.mode == AssignmentReadType.VIDEO:
         curr_time = 0
         while True:
-            # 创建 10 min 的观看任务
             calls = [zju_api.assignmentReadAPIFits(
                 client.session, 
                 assignment_id = read_task.assignment_id,
                 payload = AssignmentReadVideoPayload(
-                    start,
-                    (start + video_duration if (start + video_duration) < (curr_time + 476) else curr_time + 476)
+                    curr_time + 1,
+                    curr_time + video_duration
                 )
-            ).post_api_data() for start in range(curr_time, curr_time + 476, video_duration)]
+            ).post_api_data()]
 
             async def call_wrapper(call):
                 async with semaphore:
@@ -1355,13 +1595,13 @@ async def sub_read_assignment(
             results = await asyncio.gather(*read_tasks, return_exceptions=True)
 
             if not isinstance(results[-1], Exception):
-                completeness = results[-1][0].get('completeness')
+                # completeness = results[-1][0].get('completeness')
 
-                if completeness == 'full':
-                    sub_progress.update(task, description=f"    └──[green]{read_task.resource_name} 已完成！[/green]", completed=1)
-                    return True
+                # if completeness == 'full':
+                #     sub_progress.update(task, description=f"    └──[green]{read_task.resource_name} 已完成！[/green]", completed=1)
+                #     return True
 
-                curr_time += 600
+                curr_time += 60
                 sub_progress.update(task, description=f"    └──[green]{read_task.resource_name} {format_timedelta(curr_time)}")
             else:
                 sub_progress.update(task, description=f"    └──[red]{read_task.resource_name} 发生错误！[/red]", completed=1)
@@ -1430,6 +1670,7 @@ async def view_assignment(
     classroom: Annotated[bool | None, typer.Option("--classroom", "-c", help="启用此选项，将查询对应课堂任务")] = False,
     activity: Annotated[bool | None, typer.Option("--activity", "-H", help="启用此选项，将查询对应作业")] = False,
     forum: Annotated[bool | None, typer.Option("--forum", "-F", help="启用此选项，将查询对应讨论")] = False,
+    questionnaire: Annotated[bool | None, typer.Option("--questionnaire", "-Q", help="启用此选项，将查询对应问卷")] = False,
     preview: Annotated[bool | None, typer.Option("--preview", "-P", help="启用此选项，预览测试或课堂任务题目")] = False,
     json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
@@ -1443,11 +1684,12 @@ async def view_assignment(
     assignment_type = AssignmentType.UNKOWN
 
     # 猜测任务类型
-    match (activity, forum, exam, classroom): 
-        case (True, _, _, _): assignment_type = AssignmentType.ACTIVITY
-        case (_, True, _, _): assignment_type = AssignmentType.FORMUN
-        case (_, _, True, _): assignment_type = AssignmentType.EXAM
-        case (_, _, _, True): assignment_type = AssignmentType.CLASSROOM
+    match (activity, forum, exam, classroom, questionnaire): 
+        case (True, _, _, _, _): assignment_type = AssignmentType.ACTIVITY
+        case (_, True, _, _, _): assignment_type = AssignmentType.FORMUN
+        case (_, _, True, _, _): assignment_type = AssignmentType.EXAM
+        case (_, _, _, True, _): assignment_type = AssignmentType.CLASSROOM
+        case (_, _, _, _, True): assignment_type = AssignmentType.QUESTIONNAIRE
         case _: assignment_type =  await guess_assignment_type(assignment_id, json)
 
     if assignment_type == AssignmentType.UNKOWN:
@@ -1475,7 +1717,8 @@ async def view_assignment(
         AssignmentType.ACTIVITY: view_activity_wrapper,
         AssignmentType.FORMUN: view_forum_wrapper,
         AssignmentType.EXAM: view_exam,
-        AssignmentType.CLASSROOM: view_classroom
+        AssignmentType.CLASSROOM: view_classroom,
+        AssignmentType.QUESTIONNAIRE: view_questionnaire
     }
 
     await view_callable_map[assignment_type](assignment_id, type_map, preview, json)

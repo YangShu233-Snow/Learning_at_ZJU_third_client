@@ -224,7 +224,9 @@
             "submissions",
             "topics",
             "forum",
-            "questionnaire"
+            "questionnaire",
+            "questionnaire_submissions_list",
+            "questionnaire_submissions"
         ],
         "apis_config": {
             "activity": {
@@ -345,6 +347,19 @@
                 "url": "https://courses.zju.edu.cn/api/questionnaire/<placeholder>/distribute",
                 "method": "GET",
                 "params": {}
+            },
+            "questionnaire_submissions_list": {
+                "url": "https://courses.zju.edu.cn/api/questionnaire/<placeholder>/submissions",
+                "method": "GET",
+                "params": {}
+            },
+            "questionnaire_submissions": {
+                "url": "https://courses.zju.edu.cn/api/questionnaire/<placeholder>/submissions",
+                "method": "POST",
+                "params": {
+                    "exam_paper_instance_id": 0,
+                    "subjects": []
+                }
             }
         }
     },

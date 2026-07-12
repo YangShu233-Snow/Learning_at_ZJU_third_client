@@ -1291,27 +1291,13 @@ async def view_questionnaire(
         
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             # 请求主体数据
-            student_id = keyring.get_password(KEYRING_SERVICE_NAME, KEYRING_LAZ_STUDENTID_NAME)
-            
-            if not student_id:
-                logger.error(f"{questionnaire_id} 缺少'lazy_studentid'参数，请将此问题上报给开发者！")
-                if json:
-                    print_with_json(False, "STUDENT_ID does not exist. Report it to developer,")
-                    raise typer.Exit(code=1)
-                
-                print("STUDENT_ID 缺失，请尝试重新登录！")
-                raise typer.Exit(code=1)
-        
             raw_activity = (await zju_api.assignmentViewAPIFits(client.session, questionnaire_id).get_api_data())[0]
         
             questionnaire_completion_criterion_key: str = raw_activity.get("completion_criterion_key", "none")
             
             # 判断是否获取提交列表（必须是提交完成的任务且有提交记录）
             if questionnaire_completion_criterion_key == "submitted":
-                if raw_activity.get("user_submit_count") and raw_activity.get("user_submit_count") > 0:
-                    raw_submission_list = (await zju_api.assignmentSubmissionListAPIFits(client.session, questionnaire_id, student_id).get_api_data())[0]
-                else:
-                    raw_submission_list = {}
+                raw_submission_list = (await zju_api.assignmentViewQuestionnaireSubmissionsAPIFits(client.session, questionnaire_id).get_api_data())[0]
             else:
                 raw_submission_list = {}
 
@@ -1368,71 +1354,24 @@ async def view_questionnaire(
 
         # 读取提交列表（如果有的话）
         if raw_submission_list:
-            
             # 准备Submission的Panel内容
             submission_content_renderables = []
-            submission_list: list[dict] = raw_submission_list.get("list")
+            submission_list: list[dict] = raw_submission_list.get("submissions")
             
             for submission in submission_list:
-                submission_created_time = datetime.fromisoformat(submission.get("created_at", "1900-01-01T00:00:00Z").replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S')
-                submission_comment = extract_comment(submission.get("comment"))
-                submission_instructor_comment: str = submission.get("instructor_comment") or ""
-                submission_uploads: list[dict]|list = submission.get("uploads", [])
-
-                # 原来老师评语也可以有附件？？？
-                submission_correct: dict = submission.get('submission_correct', {})
-                submission_correct_uploads_list: list = submission_correct.get('uploads', [])
+                submission_created_time = transform_time(submission.get("created_at"))
+                submission_score = submission.get('score', 'null')
 
                 # --- 准备Panel内容 --- 
-                submission_inner_comment = Text.assemble(
-                    submission_comment
-                )
-                submission_inner_comment_block = Padding(submission_inner_comment, (0, 0, 0, 2))
-
-                submission_inner_instructor_comment = Text.assemble(
-                    submission_instructor_comment
-                )
-                submission_inner_instructor_comment_block = Padding(submission_inner_instructor_comment, (0, 0, 0, 2))
-
                 submission_head_text = Text.assemble(
                     ("提交时间: ", "cyan"),
                     submission_created_time,
                     "\n",
-                    ("得分: ", "bold bright_magenta")
+                    ("最终得分: ", "cyan"),
+                    (f"{submission_score}", "bright_white")
                 )
 
                 submission_content_renderables.append(submission_head_text)
-                
-                if submission_inner_instructor_comment:
-                    submission_inner_instructor_comment_renderables = [Text(''), Text("老师评语: ", style='cyan'), submission_inner_instructor_comment_block]
-                
-                    # Fix: 老师评语也可以有附件
-                    if all(submission_correct_uploads_list):
-                        submission_inner_instructor_comment_renderables.extend([Text(''), *extract_uploads(submission_correct_uploads_list), Text('')])
-                        submission_content_renderables.append(Text(''))
-                        submission_content_renderables.append(Panel(
-                            Group(*submission_inner_instructor_comment_renderables),
-                            title = "[教师评阅]",
-                            border_style="bright_black",
-                            expand=True,
-                            padding=(1, 2)
-                        ))
-                        submission_content_renderables.append(Text(''))
-                    else:
-                        submission_content_renderables.extend(submission_inner_instructor_comment_renderables)
-
-
-                if submission_inner_comment:
-                    submission_content_renderables.append("")
-                    submission_content_renderables.append("[cyan]提交内容: [/cyan]")
-                    submission_content_renderables.append(submission_inner_comment_block)
-                
-                # 读取上传列表（如果有的话）
-                if submission_uploads:
-                    submission_upload_content_renderables = extract_uploads(submission_uploads)
-                    submission_content_renderables.append("")
-                    submission_content_renderables.extend(submission_upload_content_renderables)
-                    submission_content_renderables.append("")
                 
                 if submission != submission_list[-1]:
                     submission_content_renderables.append(Rule(style="dim white"))

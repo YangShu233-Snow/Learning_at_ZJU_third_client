@@ -1026,6 +1026,30 @@ class assignmentViewQuestionnaireAPIFits(assignmentAPIFits):
             return base_api_url.replace("<placeholder>", str(self.questionnaire_id))
 
         return super()._make_api_url(api_config, api_name)
+    
+class assignmentViewQuestionnaireSubmissionsAPIFits(assignmentAPIFits):
+    def __init__(self, 
+                 login_session, 
+                 questionnaire_id: int,
+                 apis_name=None
+                 ):
+        if not apis_name:
+            apis_name = ["questionnaire_submissions_list"]
+
+        super().__init__(login_session, apis_name)
+        self.questionnaire_id = questionnaire_id
+    
+    def _make_api_url(self, api_config, api_name):
+        base_api_url: str = api_config.get("url")
+
+        if not base_api_url:
+            logger.error(f"{api_name} 缺少url！")
+            return None
+        
+        if api_name == "questionnaire_submissions_list":
+            return base_api_url.replace("<placeholder>", str(self.questionnaire_id))
+
+        return super()._make_api_url(api_config, api_name)
 
 # --- Resource API ---
 class resourcesAPIFits(APIFitsAsync):

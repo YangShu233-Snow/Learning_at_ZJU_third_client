@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 from textwrap import dedent
-from typing import Annotated, List
+from typing import Annotated
 
 import keyring
 import typer
@@ -29,7 +29,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
-from ...core.login.login import CredentialManager, ZjuAsyncClient, ZjuClient
+from ...core.login.login import CredentialManager, ZjuAsyncClient
 from ...core.zjuAPI import zju_api
 from ...core.zjuAPI.types import (
     AssignmentReadFilePayload,
@@ -1320,6 +1320,62 @@ async def view_questionnaire(
         # 截止日期
         questionnaire_end_time = transform_time(raw_activity.get("end_time"))
 
+        # --- JSON FORMAT HEAD ---
+        if json:
+            uploads_list = raw_activity.get("uploads", None)
+            uploads = extract_uploads_json(uploads_list) if uploads_list else None
+
+            # --- 解析提交列表 ---
+            if raw_submission_list:
+                submissions_list = []
+                submissions: list[dict] = raw_submission_list.get("submissions", [])
+
+                for submission in submissions:
+                    submission_created_time = transform_time(submission.get("created_at"))
+                    submission_score = submission.get('score', 'null')
+
+                    submissions_list.append({
+                        "submitted_time": submission_created_time,
+                        "score": submission_score
+                    })
+            else:
+                submissions_list = None
+
+            # --- 解析预览内容 ---
+            if preview:
+                if not raw_questionnaire_subjects or not raw_questionnaire_subjects.get('subjects', []):
+                    preview_content = "Preview Failed."
+                else:
+                    questionnaire_subjects: list[dict] = raw_questionnaire_subjects.get('subjects', [])
+
+                    subject_type_map = {
+                        "single_selection": "单选",
+                        "short_answer": "简答",
+                        "multiple_selection": "多选",
+                        "true_or_false": "判断",
+                        "fill_in_blank": "填空",
+                        "analysis": "推断"
+                    }
+
+                    preview_content = extract_subjects_json(questionnaire_subjects, subject_type_map)
+            else:
+                preview_content = None
+
+            result = {
+                "title": questionnaire_title,
+                "type": questionnaire_type,
+                "start_time": questionnaire_start_time,
+                "end_time": questionnaire_end_time,
+                "description": questionnaire_description,
+                "uploads": uploads,
+                "submissions": submissions_list,
+                "preview": preview_content
+            }
+
+            print_with_json(True, "Questionnaire View", result)
+            return
+        # --- JSON FORMAT END ---
+
         start_time_text = Text.assemble(
             ("开放时间: ", "cyan"),
             (questionnaire_start_time, "bright_white")
@@ -1405,7 +1461,7 @@ async def view_questionnaire(
 
                 questionnaire_subjects_renderables.append(preview_error_text)
             else:
-                questionnaire_subjects: List[dict] = raw_questionnaire_subjects.get('subjects', [])
+                questionnaire_subjects: list[dict] = raw_questionnaire_subjects.get('subjects', [])
                                 
                 subject_type_map = {
                     "single_selection": "单选",
@@ -1539,7 +1595,7 @@ async def sub_read_assignment(
             results = await asyncio.gather(*read_tasks, return_exceptions=True)
 
             if not isinstance(results[-1], Exception):
-                completeness = results[-1][0].get('completeness')
+                # completeness = results[-1][0].get('completeness')
 
                 # if completeness == 'full':
                 #     sub_progress.update(task, description=f"    └──[green]{read_task.resource_name} 已完成！[/green]", completed=1)

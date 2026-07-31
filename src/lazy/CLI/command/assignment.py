@@ -846,15 +846,9 @@ async def view_activity(
 
             # 请求主体数据
             raw_activity = (await zju_api.assignmentViewAPIFits(client.session, activity_id).get_api_data())[0]
-        
-            activity_completion_criterion_key: str = raw_activity.get("completion_criterion_key", "none")
-            
-            # 判断是否获取提交列表（必须是提交完成的任务且有提交记录）
-            if activity_completion_criterion_key == "submitted":
-                if raw_activity.get("user_submit_count") and raw_activity.get("user_submit_count") > 0:
-                    raw_submission_list = (await zju_api.assignmentSubmissionListAPIFits(client.session, activity_id, student_id).get_api_data())[0]
-                else:
-                    raw_submission_list = {}
+
+            if raw_activity.get("user_submit_count") and raw_activity.get("user_submit_count") > 0:
+                raw_submission_list = (await zju_api.assignmentSubmissionListAPIFits(client.session, activity_id, student_id).get_api_data())[0]
             else:
                 raw_submission_list = {}
             
@@ -1071,7 +1065,7 @@ async def view_activity(
             content_renderables.append("")
             content_renderables.append(submission_list_panel)
         
-        if activity_completion_criterion_key == "submitted" and not raw_submission_list:
+        if not raw_submission_list:
             content_renderables.append("")
             content_renderables.append("无提交记录")
 
@@ -1455,6 +1449,7 @@ async def view_assignment(
             print_with_json(True, f"Assignment {assignment_id} doesn't exist.")
         
         rprint(f"任务 {assignment_id} 不存在！")
+        raise typer.Exit(code=1)
 
     if assignment_type in (AssignmentType.ACTIVITY, AssignmentType.FORMUN) and preview:
         if json:

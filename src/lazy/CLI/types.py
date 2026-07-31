@@ -11,6 +11,7 @@ class AssignmentType(Enum):
     FORMUN = 2
     EXAM = 3
     CLASSROOM = 4
+    QUESTIONNAIRE = 5
     
 @dataclass
 class LegalFileType:

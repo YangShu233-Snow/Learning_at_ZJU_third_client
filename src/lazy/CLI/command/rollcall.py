@@ -3,7 +3,7 @@ import logging
 import uuid
 from functools import partial
 from textwrap import dedent
-from typing import Annotated
+from typing import Annotated, List
 
 import typer
 from asyncer import syncify
@@ -148,17 +148,59 @@ async def check_code_worker(
             if not number_found_event.is_set():
                 progress.update(task_id, advance=1) # 更新进度条
 
-async def answer_number_rollcall(rollcall_id: int, number_code: str|None):
-    if number_code:
-        code_str = number_code.zfill(4)
-    device_id = generate_device_id()
+async def answer_number_rollcall(rollcall_id: int, number_code: str|None, auto: bool = False, course_id: int|None = None):
     cookies = CredentialManager().load_cookies()
     if not cookies:
         rprint("Cookies不存在！")
         logger.error("Cookies不存在！")
         raise typer.Exit(code=1)
+        
+    if number_code:
+        code_str = number_code.zfill(4)
+    device_id = generate_device_id()
 
     async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
+        if auto:
+            # 没有提供 course_id，自己查
+            # 根据提供的 rollcall_id 匹配
+            manual_course_id = True
+            if not course_id:
+                manual_course_id = False
+                raw_rollcalls_list = (await zju_api.rollcallListAPIFits(client.session).get_api_data())[0]
+                rollcalls_list: List[dict] = raw_rollcalls_list.get("rollcalls", [])
+
+                if not rollcalls_list:
+                    rprint("[bold yellow]未能成功获取点名任务所属课程 ID，请尝试手动提供！[/bold yellow]")
+                    logger.warning("Auto Number Failed! Cannot fetch the rollcall tasks list!")
+                    raise typer.Exit(code=1)
+
+                for rollcall in rollcalls_list:
+                    if rollcall.get("rollcall_id", "null") == rollcall_id:
+                        course_id = rollcall.get('course_id', 'null')
+                        break
+
+            raw_timetable_rollcalls: dict = (await zju_api.rollcallGetTimetableRollcallsAPIFits(client.session).get_api_data())[0]
+            timetable_rollcalls: List[dict] = raw_timetable_rollcalls.get("rollcalls")
+
+            if not timetable_rollcalls:
+                if manual_course_id:
+                    rprint("[bold yellow]课程点名任务列表为空！请检查提供的 课程ID 是否正确！[/bold yellow]")
+                else:
+                    rprint("[bold yellow]课程点名任务列表为空！请将此问题上报给开发者！[/bold yellow]")
+                
+                logger.error("Auto Number Failed! Cannot fetch the valid timetable rollcalls list")
+                raise typer.Exit(code=1)
+
+            number_code = None
+            for timetable_rollcall in timetable_rollcalls:
+                if timetable_rollcall.get('id') == rollcall_id:
+                    number_code = timetable_rollcall
+
+            if not number_code:
+                rprint("[bold yellow]未能成功获取签到码！请尝试手动提供签到码！[/bold yellow]")
+                logger.error("Auto Number Failed! Cannot fetch the number code automatically!")
+                raise typer.Exit(code=1)
+        
         if number_code:
             rollcall_data = {
                 "deviceId": device_id,
@@ -177,50 +219,52 @@ async def answer_number_rollcall(rollcall_id: int, number_code: str|None):
                     rprint(f"[bold red]签到失败！[/bold red] ❌ (代码: {code_str} 错误或无效)")
 
         else:
+            return 
+            # 废弃代码（Maybe
             # --- 并发爆破 ---
-            global number_found_event
-            number_found_event.clear()
+            # global number_found_event
+            # number_found_event.clear()
 
-            # 最大并发数
-            CONCURRENCY_LIMIT = 100
-            semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
+            # # 最大并发数
+            # CONCURRENCY_LIMIT = 100
+            # semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
 
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                TextColumn("({task.completed} / {task.total})"),
-                TimeElapsedColumn(),
-                transient=True # 签到结束后自动消失
-            ) as progress:
+            # with Progress(
+            #     SpinnerColumn(),
+            #     TextColumn("[progress.description]{task.description}"),
+            #     BarColumn(),
+            #     TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            #     TextColumn("({task.completed} / {task.total})"),
+            #     TimeElapsedColumn(),
+            #     transient=True # 签到结束后自动消失
+            # ) as progress:
                 
-                bruteforce_task_id = progress.add_task(
-                    f"并发爆破 [cyan](n={CONCURRENCY_LIMIT})[/cyan]...", 
-                    total=10000
-                )
+            #     bruteforce_task_id = progress.add_task(
+            #         f"并发爆破 [cyan](n={CONCURRENCY_LIMIT})[/cyan]...", 
+            #         total=10000
+            #     )
                 
-                # 创建 10000 个任务
-                tasks = [
-                    asyncio.create_task(
-                        check_code_worker(client, rollcall_id, device_id, i, semaphore, progress, bruteforce_task_id)
-                    ) for i in range(10000)
-                ]
+            #     # 创建 10000 个任务
+            #     tasks = [
+            #         asyncio.create_task(
+            #             check_code_worker(client, rollcall_id, device_id, i, semaphore, progress, bruteforce_task_id)
+            #         ) for i in range(10000)
+            #     ]
                 
-                # 等待所有任务完成 (或被 found_event 提前终止)
-                results = await asyncio.gather(*tasks, return_exceptions=True)
+            #     # 等待所有任务完成 (或被 found_event 提前终止)
+            #     results = await asyncio.gather(*tasks, return_exceptions=True)
             
-            # --- 进度条结束，报告结果 ---
-            found_code = None
-            for res in results:
-                if isinstance(res, str): # 成功的 worker 会返回
-                    found_code = res
-                    break
+            # # --- 进度条结束，报告结果 ---
+            # found_code = None
+            # for res in results:
+            #     if isinstance(res, str): # 成功的 worker 会返回
+            #         found_code = res
+            #         break
             
-            if found_code:
-                rprint(f"[bold green]✅ 爆破成功！ 签到码是: {found_code}[/bold green]")
-            else:
-                rprint("[bold red]❌ 爆破失败。未找到签到码。[/bold red]")
+            # if found_code:
+            #     rprint(f"[bold green]✅ 爆破成功！ 签到码是: {found_code}[/bold green]")
+            # else:
+            #     rprint("[bold red]❌ 爆破失败。未找到签到码。[/bold red]")
 
 # --- 注册签到任务查看命令 ---
 @app.command(
@@ -262,7 +306,7 @@ async def list_rollcall():
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             raw_rollcalls_list = (await zju_api.rollcallListAPIFits(client.session).get_api_data())[0]
         
-        rollcalls_list: list[dict] = raw_rollcalls_list.get("rollcalls", [])
+        rollcalls_list: List[dict] = raw_rollcalls_list.get("rollcalls", [])
 
         progress.update(task, description="渲染数据中...", completed=1)
 
@@ -279,12 +323,14 @@ async def list_rollcall():
         )
 
         rollcall_list_table.add_column("签到任务ID", style="cyan", ratio=2)
+        rollcall_list_table.add_column("课程ID", style="cyan", ratio=2)
         rollcall_list_table.add_column("课程名称", style="bright_yellow", ratio=4)
         rollcall_list_table.add_column("签到发起者", ratio=2)
         rollcall_list_table.add_column("签到属性", ratio=2)
 
         for rollcall in rollcalls_list:
             rollcall_course_title = rollcall.get("course_title", "null")
+            rollcall_course_id = rollcall.get('course_id', 'null')
             rollcall_initiator = rollcall.get("created_by_name", "null")
             rollcall_id = str(rollcall.get("rollcall_id", "null"))
             rollcall_is_radar = rollcall.get("is_radar", False)
@@ -293,11 +339,12 @@ async def list_rollcall():
 
             rollcall_list_table.add_row(
                 rollcall_id,
+                rollcall_course_id,
                 rollcall_course_title,
                 rollcall_initiator,
                 rollcall_description
             )
-        
+
         progress.advance(task)
         rprint(rollcall_list_table)
 
@@ -345,8 +392,18 @@ async def answer_rollcall(
     
     bruteforce: Annotated[bool, typer.Option(
         "--bruteforce", "-b", 
-        help="数字点名：启用并发爆破 (0000-9999)"
-    )] = False
+        help="数字点名：启用并发爆破 (0000-9999)\n Attetion: it should be deprecated in future."
+    )] = False,
+
+    auto_number: Annotated[bool, typer.Option(
+        "--auto-number",
+        help="数字点名自动挡，实验性功能"
+    )] = False,
+
+    course_id: Annotated[int, typer.Option(
+        "--course", "-c",
+        help="点名任务所对应的课程 ID"
+    )] = None
 ):  
     """
     应答学在浙大签到任务
@@ -357,18 +414,18 @@ async def answer_rollcall(
 
     以 -b 启用对数字点名的爆破
     """
+    if bruteforce:
+        rprint("[bold red]基于不可抗力因素，此功能暂时被禁止使用！[/bold red]")
+        raise typer.Exit(code=1)
     
-    modes = [site is not None, number is not None, bruteforce]
+    modes = [site is not None, number is not None, auto_number]
     
     if sum(modes) == 0:
         rprint("[bold red]错误：[/bold red] 请指定一种签到模式。")
-        rprint("  - [cyan]lazy rollcall answer <ID> --site <地点>[/cyan]")
-        rprint("  - [cyan]lazy rollcall answer <ID> --number <代码>[/cyan]")
-        rprint("  - [cyan]lazy rollcall answer <ID> --bruteforce[/cyan]")
         raise typer.Exit(code=1)
         
     if sum(modes) > 1:
-        rprint("[bold red]错误：[/bold red] 请不要同时使用 --site, --number, 或 --bruteforce。")
+        rprint("[bold red]错误：[/bold red] 请不要同时使用 --site, --number, 或 --auto-number")
         raise typer.Exit(code=1)
 
     # --- 调度 ---
@@ -378,12 +435,17 @@ async def answer_rollcall(
         await answer_radar_rollcall(rollcall_id, site)
     
     elif number:
-        rprint("[bold blue]检测到 --number, 启动 [数字(单次)] 签到...[/bold blue]")
+        rprint("[bold blue]检测到 --number, 启动 [数字] 签到...[/bold blue]")
         await answer_number_rollcall(rollcall_id, number)
     
     elif bruteforce:
-        rprint("[bold blue]检测到 --bruteforce, 启动 [数字(爆破)] 签到...[/bold blue]")
-        await answer_number_rollcall(rollcall_id, None)
+        # rprint("[bold blue]检测到 --bruteforce, 启动 [数字(爆破)] 签到...[/bold blue]")
+        # await answer_number_rollcall(rollcall_id, None)
+        return 
+
+    elif auto_number:
+        rprint("[bold yellow]您正在使用实验性功能！[/bold yellow]")
+        await answer_number_rollcall(rollcall_id, number, auto_number, course_id)
 
 # --- 配置命令组 ---
 app.add_typer(rollcall_config.app, name="config", help="管理签到定位配置")

@@ -383,6 +383,14 @@
                 "url": "https://courses.zju.edu.cn/api/rollcall/<placeholder>/answer_number_rollcall",
                 "method": "PUT",
                 "params": {}
+            },
+            "timetable_rollcalls": {
+                "url": "https://courses.zju.edu.cn/api/timetable_rollcalls",
+                "method": "GET",
+                "params": {
+                    "course_ids": 0,
+                    "rollcall_date": ""
+                }
             }
         }
     }

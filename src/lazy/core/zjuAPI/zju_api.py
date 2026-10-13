@@ -7,6 +7,7 @@ import re
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import List
 from urllib.parse import parse_qs, unquote
 
 import aiofiles
@@ -1658,3 +1659,30 @@ class rollcallAnswerNumberAPIFits(rollcallAPIFits):
             return base_api_url.replace("<placeholder>", str(self.rollcall_id))
 
         return None
+
+class rollcallGetTimetableRollcallsAPIFits(rollcallAPIFits):
+    def __init__(
+        self,
+        login_session,
+        course_ids: List[int],
+        rollcall_date: datetime,
+        apis_name=None
+    ):
+        if apis_name is None:
+            apis_name = ["timetable_rollcalls"]
+
+        super().__init__(login_session, apis_name)
+        self.course_ids = course_ids
+        self.rollcall_date = rollcall_date
+
+    def _make_api_params(self, api_config, api_name):
+        api_data = api_config.get("params", {})
+        
+        if api_name == "timetable_rollcalls":
+            date = self.rollcall_date.date().isoformat()
+            api_data["course_ids"] = ','.join(self.course_ids)
+            api_data["rollcall_date"] = date
+            return api_data
+        
+        return super()._make_api_params(api_config, api_name)
+    

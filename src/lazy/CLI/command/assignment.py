@@ -370,7 +370,7 @@ async def view_exam(exam_id: int, type_map: dict, preview: bool, json: bool):
                         "analysis": "推断"
                     }
 
-                    preview_content = extract_subjects_json(exam_subjects, subject_type_map, json)
+                    preview_content = extract_subjects_json(exam_subjects, subject_type_map)
 
             if raw_exam_submission_list:
                 # 测试最终成绩

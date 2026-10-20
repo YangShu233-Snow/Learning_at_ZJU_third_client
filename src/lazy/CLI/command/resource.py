@@ -724,9 +724,13 @@ async def download_resource(
                         # 首次回调，更新文件名和文件大小
                         if not sub_progress.tasks[task_id].started:
                             sub_progress.start_task(task_id)
-                            sub_progress.update(task_id, description=f"[cyan]下载: {filename}", total=total_size)
-
-                        sub_progress.update(task_id, completed=downloaded)
+                        
+                        sub_progress.update(
+                            task_id, 
+                            description=f"[cyan]下载: {filename}", 
+                            total=total_size, 
+                            completed=downloaded
+                        )
 
                     if await resource_downloader.download(progress_callback=update_progress):
                         if json:

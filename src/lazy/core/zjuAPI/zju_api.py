@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import logging
 import mimetypes
@@ -9,13 +10,14 @@ from datetime import datetime
 from pathlib import Path
 import secrets
 from typing import List
-from urllib.parse import parse_qs, unquote
+from urllib.parse import parse_qs, unquote, urljoin, urlsplit
 
 import aiofiles
 import httpx
 import requests
 from httpx import ConnectTimeout, HTTPError, HTTPStatusError
 
+from ..encrypt.WPSEncrypt import WPSEncryptToolKit
 from ..load_config import load_config
 from .types import (
     AssignmentReadFilePayload,
@@ -99,7 +101,7 @@ class APIFits:
             
             api_url = self._make_api_url(api_config, api_name)
             if api_url == None:
-                logger.error(f"{api_name}的{api_url}不存在！")
+                logger.error(f"{api_name}的 api_url 不存在！")
                 continue
 
             api_params = self._make_api_params(api_config = api_config, api_name=api_name)
@@ -141,7 +143,7 @@ class APIFits:
 
             api_url = self._make_api_url(api_config, api_name)
             if api_url == None:
-                logger.error(f"{api_name}的{api_url}不存在！")
+                logger.error(f"{api_name}的 api_url 不存在！")
                 continue
 
             logger.info(f"请求 {api_url} 中...")
@@ -178,7 +180,7 @@ class APIFits:
             
             api_url = self._make_api_url(api_config, api_name)
             if api_url == None:
-                logger.error(f"{api_name}的{api_url}不存在！")
+                logger.error(f"{api_name}的 api_url 不存在！")
                 continue
             
             logger.info(f"请求 {api_url} 中...")
@@ -252,7 +254,7 @@ class APIFitsAsync:
             api_params = self._make_api_params(api_config = api_config, api_name=api_name)
 
             if api_url == None:
-                logger.error(f"{api_name}的{api_url}不存在！")
+                logger.error(f"{api_name}的 api_url 不存在！")
                 continue
 
             tasks.append(self.login_session.get(url=api_url, params=api_params, follow_redirects=True))
@@ -308,7 +310,7 @@ class APIFitsAsync:
 
             api_url = self._make_api_url(api_config, api_name)
             if api_url == None:
-                logger.error(f"{api_name}的{api_url}不存在！")
+                logger.error(f"{api_name}的 api_url 不存在！")
                 continue
             
             if not self.data:
@@ -366,7 +368,7 @@ class APIFitsAsync:
             
             api_url = self._make_api_url(api_config, api_name)
             if api_url == None:
-                logger.error(f"{api_name}的{api_url}不存在！")
+                logger.error(f"{api_name}的 api_url 不存在！")
                 continue
             
             logger.info(f"请求 {api_url} 中...")
@@ -1100,15 +1102,15 @@ class resourcesListAPIFits(resourcesAPIFits):
     
 class resourcesDownloadAPIFits(resourcesAPIFits):
     def __init__(self, 
-                 login_session, 
-                 output_path: Path,
-                 resource_id: int|None = None,
-                 resources_id: list[int]|None = None,
-                 basename: str|None = None,
-                 apis_name=None
-                ):
+        login_session, 
+        output_path: Path,
+        resource_id: int|None = None,
+        resources_id: list[int]|None = None,
+        basename: str|None = None,
+        apis_name=None
+    ):
         if apis_name is None:
-            apis_name = ["download", "batch_download"]
+            apis_name = ["download", "batch_download", "wps_export", "wps_preview"]
         super().__init__(login_session, apis_name)
         if output_path:
             self.output_path = output_path
@@ -1124,6 +1126,19 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         # It's strange!
         self.wps_client_id = secrets.token_hex(16)
         self.wps_password = ''
+        self.wps_headers = {
+            "Content-Type": "application/json",
+            "Origin": "",
+            "Referer": "",
+            "X-App-Id": "",
+            "X-Csrf-Rand": "",
+            "X-User-Query": "",
+            "Encryption-Algorithm": "AES256",
+            "Encryption-Parameters": "",
+            "API-Parameters": "",
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
+        }
+        self.wps_encrypter: WPSEncryptToolKit = None
 
     def _make_api_url(self, api_config, api_name):    
         base_api_url: str = api_config.get("url", None)
@@ -1131,7 +1146,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             logger.error(f"{api_name}参数url缺失！")
             return None
 
-        if api_name == "download": 
+        if api_name in ["download", "wps_preview"]: 
             return base_api_url.replace("<placeholder>", str(self.resource_id))
         
         return super()._make_api_url(api_config, api_name)
@@ -1147,10 +1162,26 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             return api_params
         
         return super()._make_api_params(api_config, api_name)
+
+    def _make_api_data(self, api_config, api_name):
+        api_data: dict = api_config.get('data', None)
+        if not api_data:
+            logger.error(f"{api_name}参数data缺失！")
+            return None
+
+        if api_name == "wps_export":
+            api_data["clientId"] = self.wps_client_id
+            api_data["password"] = self.wps_password
+
+            
+            return api_data
+
+        return super()._make_api_data(api_config, api_name)
     
-    async def download(self, 
-                 progress_callback: Callable[[int, int, str], None] | None = None
-                 )->bool:
+    async def download(
+        self, 
+        progress_callback: Callable[[int, int, str], None] | None = None
+    )->bool:
         
         if self.apis_name == None or self.apis_config == None:
             self._load_api_config()
@@ -1169,7 +1200,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
         api_url = self._make_api_url(api_config, api_name)
         if not api_url:
-            logger.error(f"{api_name}的{api_url}不存在！")
+            logger.error(f"{api_name}的 api_url 不存在！")
             return False
 
         try:
@@ -1236,7 +1267,14 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
                 logger.info(f"{filename} 下载完成")
                 return True
+        
+        except HTTPStatusError as e:
+            if e.response.status_code == 403:
+                logger.warning(f"{self.resource_id} 权限不足！将尝试 WPS 导出接口。")
+                return await self._wps_export(progress_callback)
 
+            logger.error(f"请求过程中发生 HTTP 错误！错误原因: {e}")
+            return False
         except HTTPError as e:
             logger.error(f"请求过程中发生 HTTP 错误！错误原因: {e}")
             return False
@@ -1335,6 +1373,288 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             logger.error(f"请求过程中发生未知错误！错误原因: {e}")
             return False
 
+    async def wps_export(self):
+        pass
+
+    def _is_wpsenv_valid(
+        self,
+        wps_env: dict
+    )->bool:
+        if str(wps_env.get('root_file_id')) != str(self.resource_id):
+            logger.error(f'待请求资源ID: {self.resource_id} 与实际请求资源ID: {wps_env.get('root_file_id')} 不相符！')
+            return False
+
+        if wps_env.get('encryption', {}).get('algorithm') != 'AES256':
+            logger.error(f'WPS 组件加密方式非预期！实际加密方式: {wps_env.get('encryption', {}).get('algorithm', "Unknown")}')
+            return False
+
+        if not wps_env.get('encryption', {}).get('publicKey'):
+            logger.error(f"缺少 WPS RSA PEM！")
+            return False
+
+        return True
+    
+    def _resolve_wpsenv(
+        self,
+        html: str
+    )->dict|None:
+        pattern = r"window\.__WPSENV__\s*=\s*"
+        res = re.search(pattern, html)
+
+        if not res:
+            logger.error(f"WPS Preview 页面结构改变！请将此问题上报给开发者！")
+            return None
+
+        wps_env, _ = json.JSONDecoder().raw_decode(
+            html[res.end():].lstrip()
+        )
+
+        if not self._is_wpsenv_valid(wps_env):
+            return None
+
+        return wps_env
+
+    async def _wps_preview(self)->dict|None:
+        """获取合法的 WPS 登录状态"""
+        if self.apis_name == None or self.apis_config == None:
+            self._load_api_config()
+        
+        if not self.output_path.exists():
+            Path(self.output_path).mkdir(parents=True, exist_ok=True)
+
+        if not self.output_path.is_dir():
+            logger.error(f"{self.output_path} 不是一个文件夹路径！")
+            return None
+
+        api_name = "wps_preview"
+        api_config: dict = self.apis_config.get(api_name)
+        if not api_config:
+            logger.error(f"{api_name}不存在！")
+
+        api_url = self._make_api_url(api_config, api_name)
+        if not api_url:
+            logger.error(f"{api_name}的 api_url 不存在！")
+            return None
+
+        try:
+            preview_response = await self.login_session.get(
+                url=api_url
+            )
+            preview_response.raise_for_status()
+        except Exception as e:
+            logger.error(f"请求 WPS Preview 失败！无法获取合法 WPS 登录状态。错误原因: {e}")
+            return None
+
+        wps_preview_url = preview_response.json().get('preview_url')
+        if not wps_preview_url:
+            logger.error(f"获取 WPS Preview 链接失败！")
+            return None
+
+        try:
+            res = await self.login_session.get(
+                url=wps_preview_url
+            )
+            res.raise_for_status()
+        except Exception as e:
+            logger.error(f"访问 WPS Preview 失败！错误原因: {e}")
+            return None
+
+        self.final_preview_url = str(res.url)
+        preview_html = res.text
+        return self._resolve_wpsenv(preview_html)
+        
+    async def _wps_export(
+        self,
+        progress_callback: Callable[[int, int, str], None] | None = None
+    )->bool:
+        # 准备阶段
+        if progress_callback:
+            progress_callback(0, 1, "准备解析 WPS 在线文件中...")
+        wps_env = await self._wps_preview()
+        if not wps_env:
+            logger.error(f"无法获得 WPS 合法登录状态！请将此问题上报给开发者！")
+            return False
+
+        logger.info(f"初始化 WPS 加密工具")
+        pem = base64.b64decode(wps_env["encryption"]["publicKey"])
+        self.wps_encrypter = WPSEncryptToolKit(
+            rsa_pem=pem
+        )
+        logger.info(f"初始化成功！")
+
+        if self.apis_name == None or self.apis_config == None:
+            self._load_api_config()
+
+        if not self.output_path.exists():
+            Path(self.output_path).mkdir(parents=True, exist_ok=True)
+
+        if not self.output_path.is_dir():
+            logger.error(f"{self.output_path} 不是一个文件夹路径！")
+            return False
+
+        api_name = "wps_export"
+        api_config: dict = self.apis_config.get(api_name)
+        if not api_config:
+            logger.error(f"{api_name}不存在！")
+
+        api_url = urljoin(
+            self.final_preview_url,
+            wps_env["encryption"]["gateway"],
+        )
+
+        # 加密编码 data
+        api_data = self._make_api_data(api_config, api_name)
+        if not api_data:
+            logger.error(f"{api_name}的 api_data 不存在！")
+            return False
+        api_data = self.wps_encrypter.aes_encrypt(api_data)
+
+        # Header 接口声明字段值
+        # API-Parameters
+        api_parameters = {
+            "method": "POST",
+            "api": f"/api/v3/office/file/{self.resource_id}/export",
+            "query_string": "",
+            "schema": "https",
+        }
+        api_parameters = self.wps_encrypter.aes_encrypt(api_parameters)
+        
+        preview_parts = urlsplit(self.final_preview_url)
+        self.wps_headers.update({
+            "Content-Type": "text/plain;charset=UTF-8",
+            "Origin": f"{preview_parts.scheme}://{preview_parts.netloc}",
+            "Referer": self.final_preview_url,
+            "X-App-Id": wps_env["app_id"],
+            "X-Csrf-Rand": wps_env["csrf_token"],
+            "X-User-Query": preview_parts.query,
+            "Encryption-Algorithm": wps_env["encryption"]["algorithm"],
+            "Encryption-Parameters": self.wps_encrypter.encryption_parameters,
+            "API-Parameters": api_parameters,
+        })
+
+        logger.info(self.wps_headers)
+
+        logger.info(f"请求资源 {self.resource_id} 的 WPS Temp File 链接中...")
+        if progress_callback:
+            progress_callback(0, 1, "请求 WPS 文件地址中...")
+
+        try:
+            wps_response = await self.login_session.post(
+                url=api_url,
+                headers=self.wps_headers,
+                content=api_data
+            )
+            wps_response.raise_for_status()
+        except Exception as e:
+            logger.error(f"请求 WPS Temp File 链接失败！错误原因: {e}")
+            return False
+
+        encrypted_status = wps_response.headers.get('Encryption') == '1'
+        raw_text = wps_response.text
+
+        wps_res_plaintext = (
+            self.wps_encrypter.aes_decrypt(raw_text)
+            if encrypted_status
+            else raw_text
+        )
+
+        wps_res_json: dict = json.loads(wps_res_plaintext)
+
+        wps_url: str|None = wps_res_json.get('url')
+        wps_error: str = wps_res_json.get('error', 'Unknown')
+
+        if not wps_url:
+            logger.error(f'缺失 WPS Temp File 链接！错误原因: {wps_error}')
+            return False
+
+        wps_url = urljoin(api_url, wps_url)
+
+        try:
+            # 鉴于启用 stream 模式，使用上下文管理器来管理 TCP 连接
+            async with self.login_session.stream("GET", wps_url, timeout=20, follow_redirects=True) as response:
+                response.raise_for_status()
+
+                # 获取文件名
+                filename = None
+                content_disposition = response.headers.get('Content-Disposition')
+                if content_disposition:
+                    logger.info(f"获取到'content_disposition': {content_disposition}")
+                    fn_match = re.search(r'filename\*\s*=\s*utf-?8''([^;]+)', content_disposition)
+                    
+                    if fn_match:
+                        potential_filename = fn_match.group(1).strip('"')
+                        filename = unquote(potential_filename)
+                    # 如果没有找到 filename*，再尝试匹配非标准的 filename="..."
+                    else:
+                        fn_match = re.search(r'filename="?(.+)"', content_disposition)
+                        if fn_match:
+                            try:
+                                filename = fn_match.group(1).encode('latin-1').decode('utf-8')
+                            except UnicodeError:
+                                filename = fn_match.group(1) # 如果解码失败，使用原始字符串
+                else:
+                    logger.warning("未获取到content_disposition")
+                
+                if not filename:
+                    response_url = Path(str(response.url))
+                    filename = unquote(response_url.name)
+
+                if not filename:
+                    filename = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                
+                if self.basename:
+                    filename = f"{self.basename}_{filename}"
+
+                # 这个 API 似乎不返回完整名称
+                content_type = (
+                    response.headers.get("Content-Type", "")
+                    .split(";", 1)[0]
+                    .strip()
+                    .lower()
+                )
+                if filename and content_type == "application/pdf":
+                    if not filename.lower().endswith(".pdf"):
+                        filename += ".pdf"
+
+                logger.info(f"获取到文件名: {filename}")
+
+                file_path = self.output_path / filename
+                download_size = 0
+
+                logger.info(f"开始下载文件: {filename}")
+                # 分块读取
+                async with aiofiles.open(file_path, 'wb') as f:
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
+                        if chunk:
+                            await f.write(chunk)
+                            download_size += len(chunk)
+
+                            # 如果上层提供了进度回调，则通知状态
+                            if progress_callback:
+                                try:
+                                    progress_callback(download_size, download_size+1, filename)
+                                except Exception as e:
+                                    logger.warning(f"进度回调函数出错: {e}")
+
+                if progress_callback:
+                    try:
+                        progress_callback(download_size, download_size, filename)
+                    except Exception as e:
+                        logger.warning(f"进度回调函数出错: {e}")
+
+                logger.info(f"{filename} 下载完成")
+                return True
+        
+        except HTTPStatusError as e:
+            logger.error(f"请求过程中发生 HTTP 错误！错误原因: {e}")
+            return False
+        except HTTPError as e:
+            logger.error(f"请求过程中发生 HTTP 错误！错误原因: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"请求过程中发生未知错误！错误原因: {e}")
+            return False
+
 class resourcesRemoveAPIFits(resourcesAPIFits):
     def __init__(self, 
                  login_session,
@@ -1385,7 +1705,7 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
         
         api_url = self._make_api_url(api_config, api_name)
         if api_url == None:
-            logger.error(f"{api_name}的{api_url}不存在！")
+            logger.error(f"{api_name}的 api_url 不存在！")
             return False
         
         try:
@@ -1421,7 +1741,7 @@ class resourcesRemoveAPIFits(resourcesAPIFits):
         
         api_url = self._make_api_url(api_config, api_name)
         if api_url == None:
-            logger.error(f"{api_name}的{api_url}不存在！")
+            logger.error(f"{api_name}的 api_url 不存在！")
             return False
 
         api_params = self._make_api_params(api_config, api_name)

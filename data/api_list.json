@@ -138,7 +138,8 @@
             "batch_download",
             "remove",
             "batch_remove",
-            "upload"
+            "upload",
+            "wps_export"
         ],
         "apis_config": {
             "list": {
@@ -199,6 +200,22 @@
                     "source": "",
                     "is_marked_attachment": false,
                     "embed_material_type": ""
+                }
+            },
+            "wps_preview": {
+                "url": "https://courses.zju.edu.cn/api/uploads/<placeholder>/preview/private-wps",
+                "method": "GET",
+                "params": {}
+            },
+            "wps_export": {
+                "url": "https://course-wps.zju.edu.cn/weboffice",
+                "method": "POST",
+                "data": {
+                    "format": "pdf",
+                    "clientId": null,
+                    "password": "",
+                    "print": true,
+                    "options": {}
                 }
             }
         }

@@ -7,6 +7,7 @@ import re
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+import secrets
 from typing import List
 from urllib.parse import parse_qs, unquote
 
@@ -1118,6 +1119,12 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         self.resources_id = resources_id
         self.basename = basename
 
+        # WPS Export API need a clientId, which is a random 32-lens hex string.
+        # and the password is empty string in default.
+        # It's strange!
+        self.wps_client_id = secrets.token_hex(16)
+        self.wps_password = ''
+
     def _make_api_url(self, api_config, api_name):    
         base_api_url: str = api_config.get("url", None)
         if not base_api_url:
@@ -1168,6 +1175,9 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         try:
             # 鉴于启用 stream 模式，使用上下文管理器来管理 TCP 连接
             async with self.login_session.stream("GET", api_url, timeout=20, follow_redirects=True) as response:
+                if response.status_code == 403:
+                    pass
+                
                 response.raise_for_status()
 
                 # 获取文件名
@@ -1665,7 +1675,7 @@ class rollcallGetTimetableRollcallsAPIFits(rollcallAPIFits):
         self,
         login_session,
         course_ids: List[int],
-        rollcall_date: datetime,
+        rollcall_date: str,
         apis_name=None
     ):
         if apis_name is None:

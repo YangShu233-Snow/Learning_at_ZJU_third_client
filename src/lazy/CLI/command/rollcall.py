@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 import logging
 import uuid
 from functools import partial
@@ -179,7 +180,8 @@ async def answer_number_rollcall(rollcall_id: int, number_code: str|None, auto: 
                         course_id = rollcall.get('course_id', 'null')
                         break
 
-            raw_timetable_rollcalls: dict = (await zju_api.rollcallGetTimetableRollcallsAPIFits(client.session).get_api_data())[0]
+            rollcall_date = datetime.now().astimezone(timezone.utc).date().isoformat()
+            raw_timetable_rollcalls: dict = (await zju_api.rollcallGetTimetableRollcallsAPIFits(client.session, course_id, rollcall_date).get_api_data())[0]
             timetable_rollcalls: List[dict] = raw_timetable_rollcalls.get("rollcalls")
 
             if not timetable_rollcalls:

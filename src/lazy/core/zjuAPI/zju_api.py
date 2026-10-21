@@ -1264,7 +1264,8 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                                     progress_callback(download_size, total_size, filename)
                                 except Exception as e:
                                     logger.warning(f"进度回调函数出错: {e}")
-
+                self.filename = filename
+                self.total_size = total_size
                 logger.info(f"{filename} 下载完成")
                 return True
         
@@ -1363,6 +1364,8 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                                 except Exception as e:
                                     logger.warning(f"进度回调函数出错: {e}")
 
+                self.total_size = total_size
+                self.filename = filename
                 logger.info(f"{filename} 下载完成")
                 return True
 
@@ -1373,8 +1376,11 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             logger.error(f"请求过程中发生未知错误！错误原因: {e}")
             return False
 
-    async def wps_export(self):
-        pass
+    async def wps_export(
+        self,
+        progress_callback: Callable[[int, int, str], None] | None = None
+    )->bool:
+        return await self._wps_export(progress_callback)
 
     def _is_wpsenv_valid(
         self,
@@ -1532,8 +1538,6 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             "API-Parameters": api_parameters,
         })
 
-        logger.info(self.wps_headers)
-
         logger.info(f"请求资源 {self.resource_id} 的 WPS Temp File 链接中...")
         if progress_callback:
             progress_callback(0, 1, "请求 WPS 文件地址中...")
@@ -1642,6 +1646,8 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                     except Exception as e:
                         logger.warning(f"进度回调函数出错: {e}")
 
+                self.filename = filename
+                self.total_size = download_size
                 logger.info(f"{filename} 下载完成")
                 return True
         

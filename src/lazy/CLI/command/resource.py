@@ -1,8 +1,11 @@
+from asyncio import Semaphore
+import asyncio
 import logging
 from functools import partial
 from pathlib import Path
+import re
 from textwrap import dedent
-from typing import Annotated
+from typing import Annotated, Callable
 
 import typer
 from asyncer import syncify
@@ -22,10 +25,14 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
+from lazy.CLI.types import DownloaderMode
+
 from ...core.login.login import CredentialManager, ZjuAsyncClient
 from ...core.zjuAPI import zju_api
 from ..state import state
 from ..utils.utils import print_with_json, transform_time
+
+MAX_DOWNLOAD_CONCURRENT = 3
 
 # resource 命令组
 app = typer.Typer(help="管理学在浙大云盘资源",
@@ -112,6 +119,43 @@ def to_upload_dir_walker(dir: Path)->list[Path]:
         to_upload_files.append(file)
 
     return to_upload_files
+
+async def downloader_wrapper(
+    downloader: zju_api.resourcesDownloadAPIFits,
+    semaphore: Semaphore,
+    mode: DownloaderMode,
+    progress_callback: Callable[[int, int, str], None],
+    main_progress_callback: Callable[[int], None]
+):
+    async with semaphore:
+        if mode == DownloaderMode.WPS:
+            func = downloader.wps_export(progress_callback)
+        else:
+            func = downloader.download(progress_callback)
+
+        status = await func
+        result = {
+            'id': downloader.resource_id,
+            'status': ''
+        }
+
+        if status:
+            result["status"] = 'Success'
+            progress_callback(
+                downloader.total_size,
+                downloader.total_size,
+                f"[green]√ {downloader.filename}[/green]"
+            )
+        else:
+            result["status"] = 'Failed'
+            progress_callback(
+                downloader.total_size,
+                downloader.total_size,
+                f"[red]下载失败: {downloader.resource_id} o(￣ヘ￣o＃)[/red]"
+            )
+
+        main_progress_callback(1)
+        return result
 
 # 注册资源列举命令
 @app.command(
@@ -618,7 +662,9 @@ async def download_resource(
     basename: Annotated[list[str], typer.Option("--basename", "-n", help="文件的基本名，会附加在下载文件的开头")] = None,
     dest: Annotated[Path | None, typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = None,
     batch: Annotated[bool, typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False,
-    json: Annotated[bool, typer.Option("--json", "-J", hidden=True)] = False
+    json: Annotated[bool, typer.Option("--json", "-J", hidden=True)] = False,
+    wps: Annotated[bool, typer.Option("--wps", "-W", help="以 WPS 在线预览的导出功能下载资源")] = False,
+    max_concurrent: Annotated[int, typer.Option("--max-concurrent", "-M", help="最大下载并发数")] = MAX_DOWNLOAD_CONCURRENT
 ):
     """
     下载学在浙大云盘文件，支持对个人云盘与课程资源的下载。
@@ -712,6 +758,11 @@ async def download_resource(
                 raise typer.Exit(code=1)
 
             results = []
+            semaphore = Semaphore(max_concurrent)
+            download_tasks = []
+            def update_main_progress(advance):
+                progress.update(main_task, advance=advance)
+
             async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
                 for file_id in files_id:
                     resource_downloader = zju_api.resourcesDownloadAPIFits(client.session, output_path=dest, resource_id=file_id, basename=basename)
@@ -720,35 +771,66 @@ async def download_resource(
                     download_task = sub_progress.add_task(description=f"文件ID: {file_id}", start=False)
 
                     # 创建回调函数
-                    def update_progress(downloaded: int, total_size: int, filename: str, task_id: TaskID = download_task):
+                    def update_progress(downloaded: int, total_size: int, description: str, task_id: TaskID = download_task):
                         # 首次回调，更新文件名和文件大小
                         if not sub_progress.tasks[task_id].started:
                             sub_progress.start_task(task_id)
                         
+                        if downloaded == total_size:
+                            sub_progress.update(
+                                task_id,
+                                description=description,
+                                total=total_size,
+                                completed=downloaded
+                            )
+
                         sub_progress.update(
                             task_id, 
-                            description=f"[cyan]下载: {filename}", 
+                            description=f"[cyan]下载: {description}", 
                             total=total_size, 
                             completed=downloaded
                         )
-
-                    if await resource_downloader.download(progress_callback=update_progress):
-                        if json:
-                            results.append({
-                                "id": file_id,
-                                "status": "Success"
-                            })
-                        success_amount += 1
-                        sub_progress.update(download_task, description=f"[green]√ {sub_progress.tasks[download_task].description}", completed=sub_progress.tasks[download_task].total)
+                    
+                    if wps:
+                        download_tasks.append(downloader_wrapper(
+                            resource_downloader,
+                            semaphore,
+                            DownloaderMode.WPS,
+                            update_progress,
+                            update_main_progress
+                        ))
                     else:
-                        if json:
-                            results.append({
-                                "id": file_id,
-                                "status": "Failed"
-                            })
-                        sub_progress.update(download_task, description=f"[red]下载失败: {file_id} o(￣ヘ￣o＃)[/red]")
+                        download_tasks.append(downloader_wrapper(
+                            resource_downloader,
+                            semaphore,
+                            DownloaderMode.XZZD,
+                            update_progress,
+                            update_main_progress
+                        ))
 
-                    progress.update(main_task, advance=1)
+                results = await asyncio.gather(*download_tasks)
+                success_amount = len([
+                    success for success in results
+                    if success['status'] == "Success"
+                ])
+
+                    # if status:
+                    #     if json:
+                    #         results.append({
+                    #             "id": file_id,
+                    #             "status": "Success"
+                    #         })
+                    #     success_amount += 1
+                    #     sub_progress.update(download_task, description=f"[green]√ {sub_progress.tasks[download_task].description}", completed=sub_progress.tasks[download_task].total)
+                    # else:
+                    #     if json:
+                    #         results.append({
+                    #             "id": file_id,
+                    #             "status": "Failed"
+                    #         })
+                    #     sub_progress.update(download_task, description=f"[red]下载失败: {file_id} o(￣ヘ￣o＃)[/red]")
+
+                    # progress.update(main_task, advance=1)
 
             if json:
                 final_result = {

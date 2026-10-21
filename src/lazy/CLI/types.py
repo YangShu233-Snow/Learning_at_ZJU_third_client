@@ -12,7 +12,12 @@ class AssignmentType(Enum):
     EXAM = 3
     CLASSROOM = 4
     QUESTIONNAIRE = 5
-    
+
+@unique
+class DownloaderMode(Enum):
+    XZZD = 0
+    WPS = 1
+
 @dataclass
 class LegalFileType:
     video = [

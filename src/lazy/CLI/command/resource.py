@@ -128,8 +128,10 @@ async def downloader_wrapper(
     main_progress_callback: Callable[[int], None]
 ):
     async with semaphore:
-        if mode == DownloaderMode.WPS:
+        if mode == DownloaderMode.WPS_EXPORT:
             func = downloader.wps_export(progress_callback)
+        elif mode == DownloaderMode.WPS_DOWNLOAD:
+            func = downloader.wps_download(progress_callback)
         else:
             func = downloader.download(progress_callback)
 
@@ -663,7 +665,8 @@ async def download_resource(
     dest: Annotated[Path | None, typer.Option("--dest", "-d", help="下载路径", callback=is_download_dest_dir)] = None,
     batch: Annotated[bool, typer.Option("--batch", "-b", help="启用批量下载模式，所有下载的文件以压缩包的形式保存在下载目录下。")] = False,
     json: Annotated[bool, typer.Option("--json", "-J", hidden=True)] = False,
-    wps: Annotated[bool, typer.Option("--wps", "-W", help="以 WPS 在线预览的导出功能下载资源")] = False,
+    wps_export: Annotated[bool, typer.Option("--wps-export", "-W", help="以 WPS 在线预览的导出功能下载资源")] = False,
+    wps_download: Annotated[bool, typer.Option("--wps-download", "-w", help="以 WPS 在线预览获取学在浙大下载原链")] = False,
     max_concurrent: Annotated[int, typer.Option("--max-concurrent", "-M", help="最大下载并发数")] = MAX_DOWNLOAD_CONCURRENT
 ):
     """
@@ -675,6 +678,10 @@ async def download_resource(
 
     课程资源下载不支持 -b 选项。
     """
+    if wps_download and wps_export:
+        rprint("[yellow]请勿同时启用 WPS 导出或下载功能！[/yellow]")
+        raise typer.Exit(code=1)
+
     if not dest:
         dest = Path().home() / 'Downloads'
         
@@ -791,14 +798,24 @@ async def download_resource(
                             completed=downloaded
                         )
                     
-                    if wps:
+                    if wps_export:
                         download_tasks.append(downloader_wrapper(
                             resource_downloader,
                             semaphore,
-                            DownloaderMode.WPS,
+                            DownloaderMode.WPS_EXPORT,
                             update_progress,
                             update_main_progress
                         ))
+
+                    elif wps_download:
+                        download_tasks.append(downloader_wrapper(
+                            resource_downloader,
+                            semaphore,
+                            DownloaderMode.WPS_DOWNLOAD,
+                            update_progress,
+                            update_main_progress
+                        ))
+                    
                     else:
                         download_tasks.append(downloader_wrapper(
                             resource_downloader,
@@ -813,24 +830,6 @@ async def download_resource(
                     success for success in results
                     if success['status'] == "Success"
                 ])
-
-                    # if status:
-                    #     if json:
-                    #         results.append({
-                    #             "id": file_id,
-                    #             "status": "Success"
-                    #         })
-                    #     success_amount += 1
-                    #     sub_progress.update(download_task, description=f"[green]√ {sub_progress.tasks[download_task].description}", completed=sub_progress.tasks[download_task].total)
-                    # else:
-                    #     if json:
-                    #         results.append({
-                    #             "id": file_id,
-                    #             "status": "Failed"
-                    #         })
-                    #     sub_progress.update(download_task, description=f"[red]下载失败: {file_id} o(￣ヘ￣o＃)[/red]")
-
-                    # progress.update(main_task, advance=1)
 
             if json:
                 final_result = {

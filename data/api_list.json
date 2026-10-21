@@ -139,7 +139,8 @@
             "remove",
             "batch_remove",
             "upload",
-            "wps_export"
+            "wps_export",
+            "wps_download"
         ],
         "apis_config": {
             "list": {
@@ -214,9 +215,13 @@
                     "format": "pdf",
                     "clientId": null,
                     "password": "",
-                    "print": true,
+                    "print": false,
                     "options": {}
                 }
+            },
+            "wps_download": {
+                "url": "https://course-wps.zju.edu.cn/weboffice",
+                "method": "POST"
             }
         }
     },

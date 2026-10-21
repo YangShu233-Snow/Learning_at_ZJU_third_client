@@ -16,7 +16,8 @@ class AssignmentType(Enum):
 @unique
 class DownloaderMode(Enum):
     XZZD = 0
-    WPS = 1
+    WPS_EXPORT = 1
+    WPS_DOWNLOAD = 2
 
 @dataclass
 class LegalFileType:

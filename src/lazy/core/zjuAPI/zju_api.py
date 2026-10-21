@@ -1205,10 +1205,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
         try:
             # 鉴于启用 stream 模式，使用上下文管理器来管理 TCP 连接
-            async with self.login_session.stream("GET", api_url, timeout=20, follow_redirects=True) as response:
-                if response.status_code == 403:
-                    pass
-                
+            async with self.login_session.stream("GET", api_url, timeout=20, follow_redirects=True) as response:                
                 response.raise_for_status()
 
                 # 获取文件名
@@ -1272,7 +1269,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         except HTTPStatusError as e:
             if e.response.status_code == 403:
                 logger.warning(f"{self.resource_id} 权限不足！将尝试 WPS 导出接口。")
-                return await self._wps_export(progress_callback)
+                return await self._wps_download(progress_callback)
 
             logger.error(f"请求过程中发生 HTTP 错误！错误原因: {e}")
             return False
@@ -1375,6 +1372,12 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         except Exception as e:
             logger.error(f"请求过程中发生未知错误！错误原因: {e}")
             return False
+
+    async def wps_download(
+        self,
+        progress_callback: Callable[[int, int, str], None] | None = None  
+    )->bool:
+       return await self._wps_download(progress_callback) 
 
     async def wps_export(
         self,
@@ -1583,7 +1586,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                 content_disposition = response.headers.get('Content-Disposition')
                 if content_disposition:
                     logger.info(f"获取到'content_disposition': {content_disposition}")
-                    fn_match = re.search(r'filename\*\s*=\s*utf-?8''([^;]+)', content_disposition)
+                    fn_match = re.search(r"filename\*=UTF-8''([^;]+)", content_disposition)
                     
                     if fn_match:
                         potential_filename = fn_match.group(1).strip('"')
@@ -1623,6 +1626,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                 logger.info(f"获取到文件名: {filename}")
 
                 file_path = self.output_path / filename
+                total_size = int(response.headers.get('content-length', 0))
                 download_size = 0
 
                 logger.info(f"开始下载文件: {filename}")
@@ -1636,18 +1640,215 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                             # 如果上层提供了进度回调，则通知状态
                             if progress_callback:
                                 try:
-                                    progress_callback(download_size, download_size+1, filename)
+                                    if total_size:
+                                        progress_callback(download_size, total_size, filename)
+                                    else:
+                                        progress_callback(download_size, download_size+1, filename)
                                 except Exception as e:
                                     logger.warning(f"进度回调函数出错: {e}")
 
                 if progress_callback:
                     try:
-                        progress_callback(download_size, download_size, filename)
+                        if total_size:
+                            progress_callback(download_size, total_size, filename)
+                        else:
+                            progress_callback(download_size, download_size+1, filename)
                     except Exception as e:
                         logger.warning(f"进度回调函数出错: {e}")
 
                 self.filename = filename
-                self.total_size = download_size
+                self.total_size = total_size if total_size else download_size
+                logger.info(f"{filename} 下载完成")
+                return True
+        
+        except HTTPStatusError as e:
+            logger.error(f"请求过程中发生 HTTP 错误！错误原因: {e}")
+            return False
+        except HTTPError as e:
+            logger.error(f"请求过程中发生 HTTP 错误！错误原因: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"请求过程中发生未知错误！错误原因: {e}")
+            return False
+
+    async def _wps_download(
+        self,
+        progress_callback: Callable[[int, int, str], None] | None = None
+    ):
+         # 准备阶段
+        if progress_callback:
+            progress_callback(0, 1, "准备从 WPS 组件获得下载原链...")
+        wps_env = await self._wps_preview()
+        if not wps_env:
+            logger.error(f"无法获得 WPS 合法登录状态！请将此问题上报给开发者！")
+            return False
+
+        logger.info(f"初始化 WPS 加密工具")
+        pem = base64.b64decode(wps_env["encryption"]["publicKey"])
+        self.wps_encrypter = WPSEncryptToolKit(
+            rsa_pem=pem
+        )
+        logger.info(f"初始化成功！")
+
+        if self.apis_name == None or self.apis_config == None:
+            self._load_api_config()
+
+        if not self.output_path.exists():
+            Path(self.output_path).mkdir(parents=True, exist_ok=True)
+
+        if not self.output_path.is_dir():
+            logger.error(f"{self.output_path} 不是一个文件夹路径！")
+            return False
+
+        api_name = "wps_download"
+        api_config: dict = self.apis_config.get(api_name)
+        if not api_config:
+            logger.error(f"{api_name}不存在！")
+
+        api_url = urljoin(
+            self.final_preview_url,
+            wps_env["encryption"]["gateway"],
+        )
+
+        # Header 接口声明字段值
+        # API-Parameters
+        api_parameters = {
+            "method": "GET",
+            "api": f"/api/v3/office/file/{self.resource_id}/download",
+            "query_string": "",
+            "schema": "https",
+        }
+        api_parameters = self.wps_encrypter.aes_encrypt(api_parameters)
+        
+        preview_parts = urlsplit(self.final_preview_url)
+        self.wps_headers.update({
+            "Content-Type": "text/plain;charset=UTF-8",
+            "Origin": f"{preview_parts.scheme}://{preview_parts.netloc}",
+            "Referer": self.final_preview_url,
+            "X-App-Id": wps_env["app_id"],
+            "X-Csrf-Rand": wps_env["csrf_token"],
+            "X-User-Query": preview_parts.query,
+            "Encryption-Algorithm": wps_env["encryption"]["algorithm"],
+            "Encryption-Parameters": self.wps_encrypter.encryption_parameters,
+            "API-Parameters": api_parameters,
+        })
+
+        logger.info(f"请求资源 {self.resource_id} 的 WPS Temp File 链接中...")
+        if progress_callback:
+            progress_callback(0, 1, "请求 WPS 文件地址中...")
+
+        try:
+            wps_response = await self.login_session.post(
+                url=api_url,
+                headers=self.wps_headers
+            )
+            wps_response.raise_for_status()
+        except Exception as e:
+            logger.error(f"请求 WPS Temp File 链接失败！错误原因: {e}")
+            return False
+
+        encrypted_status = wps_response.headers.get('Encryption') == '1'
+        raw_text = wps_response.text
+
+        wps_res_plaintext = (
+            self.wps_encrypter.aes_decrypt(raw_text)
+            if encrypted_status
+            else raw_text
+        )
+
+        wps_res_json: dict = json.loads(wps_res_plaintext)
+
+        wps_url: str|None = wps_res_json.get('download_url')
+        wps_error: str = wps_res_json.get('error', 'Unknown')
+
+        if not wps_url:
+            logger.error(f'缺失 WPS Temp File 链接！错误原因: {wps_error}')
+            return False
+
+        wps_url = urljoin(api_url, wps_url)
+
+        try:
+            # 鉴于启用 stream 模式，使用上下文管理器来管理 TCP 连接
+            async with self.login_session.stream("GET", wps_url, timeout=20, follow_redirects=True) as response:
+                response.raise_for_status()
+
+                # 获取文件名
+                filename = None
+                content_disposition = response.headers.get('Content-Disposition')
+                if content_disposition:
+                    logger.info(f"获取到'content_disposition': {content_disposition}")
+                    fn_match = re.search(r"filename\*=UTF-8''([^;]+)", content_disposition)
+                    
+                    if fn_match:
+                        potential_filename = fn_match.group(1).strip('"')
+                        filename = unquote(potential_filename)
+                    # 如果没有找到 filename*，再尝试匹配非标准的 filename="..."
+                    else:
+                        fn_match = re.search(r'filename="?(.+)"', content_disposition)
+                        if fn_match:
+                            try:
+                                filename = fn_match.group(1).encode('latin-1').decode('utf-8')
+                            except UnicodeError:
+                                filename = fn_match.group(1) # 如果解码失败，使用原始字符串
+                else:
+                    logger.warning("未获取到content_disposition")
+                
+                if not filename:
+                    response_url = Path(str(response.url))
+                    filename = unquote(response_url.name)
+
+                if not filename:
+                    filename = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                
+                if self.basename:
+                    filename = f"{self.basename}_{filename}"
+
+                # 这个 API 似乎不返回完整名称
+                content_type = (
+                    response.headers.get("Content-Type", "")
+                    .split(";", 1)[0]
+                    .strip()
+                    .lower()
+                )
+                if filename and content_type == "application/pdf":
+                    if not filename.lower().endswith(".pdf"):
+                        filename += ".pdf"
+
+                logger.info(f"获取到文件名: {filename}")
+
+                file_path = self.output_path / filename
+                total_size = int(response.headers.get('content-length', 0))
+                download_size = 0
+
+                logger.info(f"开始下载文件: {filename}")
+                # 分块读取
+                async with aiofiles.open(file_path, 'wb') as f:
+                    async for chunk in response.aiter_bytes(chunk_size=8192):
+                        if chunk:
+                            await f.write(chunk)
+                            download_size += len(chunk)
+
+                            # 如果上层提供了进度回调，则通知状态
+                            if progress_callback:
+                                try:
+                                    if total_size:
+                                        progress_callback(download_size, total_size, filename)
+                                    else:
+                                        progress_callback(download_size, download_size+1, filename)
+                                except Exception as e:
+                                    logger.warning(f"进度回调函数出错: {e}")
+
+                if progress_callback:
+                    try:
+                        if total_size:
+                            progress_callback(download_size, total_size, filename)
+                        else:
+                            progress_callback(download_size, download_size+1, filename)
+                    except Exception as e:
+                        logger.warning(f"进度回调函数出错: {e}")
+
+                self.filename = filename
+                self.total_size = total_size if total_size else download_size
                 logger.info(f"{filename} 下载完成")
                 return True
         

@@ -332,7 +332,7 @@ async def list_rollcall():
 
         for rollcall in rollcalls_list:
             rollcall_course_title = rollcall.get("course_title", "null")
-            rollcall_course_id = rollcall.get('course_id', 'null')
+            rollcall_course_id = str(rollcall.get('course_id', 'null'))
             rollcall_initiator = rollcall.get("created_by_name", "null")
             rollcall_id = str(rollcall.get("rollcall_id", "null"))
             rollcall_is_radar = rollcall.get("is_radar", False)

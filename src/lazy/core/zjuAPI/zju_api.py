@@ -2216,7 +2216,7 @@ class rollcallGetTimetableRollcallsAPIFits(rollcallAPIFits):
         api_data = api_config.get("params", {})
         
         if api_name == "timetable_rollcalls":
-            date = self.rollcall_date.date().isoformat()
+            date = self.rollcall_date
             api_data["course_ids"] = ','.join(self.course_ids)
             api_data["rollcall_date"] = date
             return api_data

@@ -61,6 +61,36 @@ a = Analysis(
 
 ## 最终打包
 
+### Intel macOS 的 OpenSSL 依赖
+
+从 `cryptography 49.0.0` 起，上游取消了 Intel macOS 支持及对应的预编译 wheel。
+在该平台上从源码构建时，动态链接的 `cryptography` 可能与 Python 自带的
+OpenSSL 依赖冲突，导致打包后的程序出现 `Symbol not found: _SSL_get0_group_name`
+等错误，详见 [issue #38](https://github.com/YangShu233-Snow/Learning_at_ZJU_third_client/issues/38)。
+
+在 Intel Mac 上，安装项目依赖前先指定静态链接 OpenSSL：
+
+```bash
+brew install openssl@3 rust pkgconf
+export OPENSSL_DIR="$(brew --prefix openssl@3)"
+export OPENSSL_STATIC=1
+python -m pip install --no-cache-dir --no-binary=cryptography -e '.[dev]'
+```
+
+如果此前已经安装过 `cryptography`，在设置以上环境变量后，请指定 `pip` 用当前版本重新编译，
+避免 `pip` 直接复用已安装的包或缓存的动态链接 wheel：
+
+```bash
+CRYPTOGRAPHY_VERSION=$(python -c 'import importlib.metadata; print(importlib.metadata.version("cryptography"))')
+python -m pip install --force-reinstall --no-cache-dir --no-binary=cryptography --no-deps "cryptography==$CRYPTOGRAPHY_VERSION"
+```
+
+然后再执行 PyInstaller 打包。
+
+参考 [cryptography 官方构建说明](https://cryptography.io/en/50.0.2/installation/#building-cryptography-on-macos)。
+
+### 执行打包
+
 ```bash
 pyinstaller lazy.spec --noconfirm
 ```

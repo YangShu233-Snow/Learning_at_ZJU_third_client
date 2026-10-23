@@ -77,13 +77,30 @@ jobs:
             echo "ADD_DATA=--add-data=data:data" >> $GITHUB_ENV
           fi
 
+      # cryptography 49+ 不再提供 Intel macOS wheel，需要自行静态链接 OpenSSL。
+      # 必须在首次安装项目依赖前设置，避免先生成动态链接的构建。
+      - name: Prepare static OpenSSL build for Intel macOS
+        if: matrix.os == 'macos' && matrix.arch == 'x86_64'
+        shell: bash
+        run: |
+          brew install openssl@3 rust pkgconf
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+          echo "OPENSSL_STATIC=1" >> "$GITHUB_ENV"
+
       - name: Install dependencies
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller
           # 安装当前项目本身及其在 pyproject.toml 中定义的 dev 依赖
-          pip install -e .[dev]
+          # dev 依赖已包含 PyInstaller，无需额外安装一次。
+          if [ "${{ matrix.os }}" == "macos" ] && [ "${{ matrix.arch }}" == "x86_64" ]; then
+            python -m pip install --no-cache-dir --no-binary=cryptography -e '.[dev]'
+          else
+            python -m pip install -e '.[dev]'
+          fi
+
+          python -m pip check
+          python -m pip show cryptography pyinstaller
 
       - name: Run builder.py for customed setup
         shell: bash
@@ -109,6 +126,31 @@ jobs:
             # Linux 和 macOS 使用 tar 压缩 dist/lazy 文件夹
             tar -czvf ${{ env.ASSET_NAME }} -C dist lazy
           fi
+
+      - name: Release Archieve Test
+        shell: bash
+        run: |
+          # 在源码目录外解压运行，且不依赖开发环境的 Python / OpenSSL 搜索路径。
+          test_dir="$(mktemp -d)"
+          if [ "${{ matrix.os }}" == "windows" ]; then
+            python -c 'import os, sys, zipfile; zipfile.ZipFile(os.environ["ASSET_NAME"]).extractall(sys.argv[1])' "$test_dir"
+            executable="./lazy/lazy.exe"
+          else
+            tar -xzf "$ASSET_NAME" -C "$test_dir"
+            executable="./lazy/lazy"
+          fi
+          cd "$test_dir"
+          unset DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH DYLD_INSERT_LIBRARIES PYTHONPATH PYTHONHOME
+          "$executable" --help
+          "$executable" --version
+
+      - name: Upload test archive
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lazy-cli-${{ matrix.os }}-${{ matrix.arch }}
+          path: ${{ env.ASSET_NAME }}
+          if-no-files-found: error
 
       - name: Upload to Release
         # 仅在打 tag 时执行上传发布

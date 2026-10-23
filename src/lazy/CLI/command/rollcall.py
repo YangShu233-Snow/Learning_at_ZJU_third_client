@@ -1,21 +1,19 @@
 import asyncio
-from datetime import datetime, timezone
 import logging
 import uuid
+from datetime import datetime, timezone
 from functools import partial
 from textwrap import dedent
-from typing import Annotated, List
+from typing import Annotated
 
 import typer
 from asyncer import syncify
 from rich import print as rprint
 from rich.progress import (
-    BarColumn,
     Progress,
     SpinnerColumn,
     TaskID,
     TextColumn,
-    TimeElapsedColumn,
 )
 from rich.table import Table
 
@@ -168,7 +166,7 @@ async def answer_number_rollcall(rollcall_id: int, number_code: str|None, auto: 
             if not course_id:
                 manual_course_id = False
                 raw_rollcalls_list = (await zju_api.rollcallListAPIFits(client.session).get_api_data())[0]
-                rollcalls_list: List[dict] = raw_rollcalls_list.get("rollcalls", [])
+                rollcalls_list: list[dict] = raw_rollcalls_list.get("rollcalls", [])
 
                 if not rollcalls_list:
                     rprint("[bold yellow]未能成功获取点名任务所属课程 ID，请尝试手动提供！[/bold yellow]")
@@ -182,7 +180,7 @@ async def answer_number_rollcall(rollcall_id: int, number_code: str|None, auto: 
 
             rollcall_date = datetime.now().astimezone(timezone.utc).date().isoformat()
             raw_timetable_rollcalls: dict = (await zju_api.rollcallGetTimetableRollcallsAPIFits(client.session, course_id, rollcall_date).get_api_data())[0]
-            timetable_rollcalls: List[dict] = raw_timetable_rollcalls.get("rollcalls")
+            timetable_rollcalls: list[dict] = raw_timetable_rollcalls.get("rollcalls")
 
             if not timetable_rollcalls:
                 if manual_course_id:
@@ -308,7 +306,7 @@ async def list_rollcall():
         async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
             raw_rollcalls_list = (await zju_api.rollcallListAPIFits(client.session).get_api_data())[0]
         
-        rollcalls_list: List[dict] = raw_rollcalls_list.get("rollcalls", [])
+        rollcalls_list: list[dict] = raw_rollcalls_list.get("rollcalls", [])
 
         progress.update(task, description="渲染数据中...", completed=1)
 

@@ -1,11 +1,11 @@
-from asyncio import Semaphore
 import asyncio
 import logging
+from asyncio import Semaphore
+from collections.abc import Callable
 from functools import partial
 from pathlib import Path
-import re
 from textwrap import dedent
-from typing import Annotated, Callable
+from typing import Annotated
 
 import typer
 from asyncer import syncify

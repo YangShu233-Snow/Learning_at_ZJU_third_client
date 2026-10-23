@@ -5,11 +5,10 @@ import logging
 import mimetypes
 import os
 import re
+import secrets
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-import secrets
-from typing import List
 from urllib.parse import parse_qs, unquote, urljoin, urlsplit
 
 import aiofiles
@@ -1390,15 +1389,15 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         wps_env: dict
     )->bool:
         if str(wps_env.get('root_file_id')) != str(self.resource_id):
-            logger.error(f'待请求资源ID: {self.resource_id} 与实际请求资源ID: {wps_env.get('root_file_id')} 不相符！')
+            logger.error(f"待请求资源ID: {self.resource_id} 与实际请求资源ID: {wps_env.get('root_file_id')} 不相符！")
             return False
 
         if wps_env.get('encryption', {}).get('algorithm') != 'AES256':
-            logger.error(f'WPS 组件加密方式非预期！实际加密方式: {wps_env.get('encryption', {}).get('algorithm', "Unknown")}')
+            logger.error(f"WPS 组件加密方式非预期！实际加密方式: {wps_env.get('encryption', {}).get('algorithm', 'Unknown')}")
             return False
 
         if not wps_env.get('encryption', {}).get('publicKey'):
-            logger.error(f"缺少 WPS RSA PEM！")
+            logger.error("缺少 WPS RSA PEM！")
             return False
 
         return True
@@ -1411,7 +1410,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
         res = re.search(pattern, html)
 
         if not res:
-            logger.error(f"WPS Preview 页面结构改变！请将此问题上报给开发者！")
+            logger.error("WPS Preview 页面结构改变！请将此问题上报给开发者！")
             return None
 
         wps_env, _ = json.JSONDecoder().raw_decode(
@@ -1456,7 +1455,7 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
 
         wps_preview_url = preview_response.json().get('preview_url')
         if not wps_preview_url:
-            logger.error(f"获取 WPS Preview 链接失败！")
+            logger.error("获取 WPS Preview 链接失败！")
             return None
 
         try:
@@ -1481,15 +1480,15 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             progress_callback(0, 1, "准备解析 WPS 在线文件中...")
         wps_env = await self._wps_preview()
         if not wps_env:
-            logger.error(f"无法获得 WPS 合法登录状态！请将此问题上报给开发者！")
+            logger.error("无法获得 WPS 合法登录状态！请将此问题上报给开发者！")
             return False
 
-        logger.info(f"初始化 WPS 加密工具")
+        logger.info("初始化 WPS 加密工具")
         pem = base64.b64decode(wps_env["encryption"]["publicKey"])
         self.wps_encrypter = WPSEncryptToolKit(
             rsa_pem=pem
         )
-        logger.info(f"初始化成功！")
+        logger.info("初始化成功！")
 
         if self.apis_name == None or self.apis_config == None:
             self._load_api_config()
@@ -1619,9 +1618,8 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                     .strip()
                     .lower()
                 )
-                if filename and content_type == "application/pdf":
-                    if not filename.lower().endswith(".pdf"):
-                        filename += ".pdf"
+                if filename and content_type == "application/pdf" and not filename.lower().endswith(".pdf"):
+                    filename += ".pdf"
 
                 logger.info(f"获取到文件名: {filename}")
 
@@ -1680,15 +1678,15 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
             progress_callback(0, 1, "准备从 WPS 组件获得下载原链...")
         wps_env = await self._wps_preview()
         if not wps_env:
-            logger.error(f"无法获得 WPS 合法登录状态！请将此问题上报给开发者！")
+            logger.error("无法获得 WPS 合法登录状态！请将此问题上报给开发者！")
             return False
 
-        logger.info(f"初始化 WPS 加密工具")
+        logger.info("初始化 WPS 加密工具")
         pem = base64.b64decode(wps_env["encryption"]["publicKey"])
         self.wps_encrypter = WPSEncryptToolKit(
             rsa_pem=pem
         )
-        logger.info(f"初始化成功！")
+        logger.info("初始化成功！")
 
         if self.apis_name == None or self.apis_config == None:
             self._load_api_config()
@@ -1810,9 +1808,8 @@ class resourcesDownloadAPIFits(resourcesAPIFits):
                     .strip()
                     .lower()
                 )
-                if filename and content_type == "application/pdf":
-                    if not filename.lower().endswith(".pdf"):
-                        filename += ".pdf"
+                if filename and content_type == "application/pdf" and not filename.lower().endswith(".pdf"):
+                    filename += ".pdf"
 
                 logger.info(f"获取到文件名: {filename}")
 
@@ -2201,7 +2198,7 @@ class rollcallGetTimetableRollcallsAPIFits(rollcallAPIFits):
     def __init__(
         self,
         login_session,
-        course_ids: List[int],
+        course_ids: list[int],
         rollcall_date: str,
         apis_name=None
     ):

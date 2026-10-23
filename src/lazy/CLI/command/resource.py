@@ -146,7 +146,7 @@ async def downloader_wrapper(
             progress_callback(
                 downloader.total_size,
                 downloader.total_size,
-                f"[green]√ {downloader.filename}[/green]"
+                f"[green]√ [/green][cyan]下载: {downloader.filename}[/cyan]"
             )
         else:
             result["status"] = 'Failed'
@@ -793,7 +793,7 @@ async def download_resource(
 
                         sub_progress.update(
                             task_id, 
-                            description=f"[cyan]下载: {description}", 
+                            description=f"[cyan]{description}[/cyan]", 
                             total=total_size, 
                             completed=downloaded
                         )

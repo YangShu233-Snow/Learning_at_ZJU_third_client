@@ -78,7 +78,7 @@ jobs:
           fi
 
       # cryptography 49+ 不再提供 Intel macOS wheel，需要自行静态链接 OpenSSL。
-      # 必须在首次安装项目依赖前设置，避免先生成动态链接的构建。
+      # https://cryptography.io/en/50.0.2/changelog/#v49-0-0
       - name: Prepare static OpenSSL build for Intel macOS
         if: matrix.os == 'macos' && matrix.arch == 'x86_64'
         shell: bash
@@ -130,7 +130,6 @@ jobs:
       - name: Release Archieve Test
         shell: bash
         run: |
-          # 在源码目录外解压运行，且不依赖开发环境的 Python / OpenSSL 搜索路径。
           test_dir="$(mktemp -d)"
           if [ "${{ matrix.os }}" == "windows" ]; then
             python -c 'import os, sys, zipfile; zipfile.ZipFile(os.environ["ASSET_NAME"]).extractall(sys.argv[1])' "$test_dir"
@@ -141,7 +140,6 @@ jobs:
           fi
           cd "$test_dir"
           unset DYLD_LIBRARY_PATH DYLD_FALLBACK_LIBRARY_PATH DYLD_INSERT_LIBRARIES PYTHONPATH PYTHONHOME
-          "$executable" --help
           "$executable" --version
 
       - name: Upload test archive

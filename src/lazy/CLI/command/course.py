@@ -398,10 +398,10 @@ async def view_syllabus(
     last: Annotated[bool | None, typer.Option("--last", "-l", help="启用此选项，自动展示最新一章节")] = False,
     indices: Annotated[str | None, typer.Option("--index", "-i", help="通过索引号查看章节，索引从'1'开始，支持使用范围表示，如'1-5'。", callback=parse_indices)] = "",
     all: Annotated[bool | None, typer.Option("--all", "-A", help="启用此选项，展示所有章节内容")] = False,
-    only_activity: Annotated[bool | None, typer.Option("--activity", "-a", help="启用此选项，只展示活动内容")] = False,
-    only_classroom: Annotated[bool | None, typer.Option("--classroom", "-c", help="启用此选项，只展示课堂任务")] = False,
-    only_exam: Annotated[bool | None, typer.Option("--exam", "-e", help="启用此选项，只展示测试内容")] = False,
-    only_homework: Annotated[bool | None, typer.Option("--homework", "-H", help="启用此选项，只展示作业")] = False,
+    only_activity: Annotated[bool | None, typer.Option("--activity", "-a", help="启用此选项，筛选出活动内容")] = False,
+    only_classroom: Annotated[bool | None, typer.Option("--classroom", "-c", help="启用此选项，筛选出课堂任务")] = False,
+    only_exam: Annotated[bool | None, typer.Option("--exam", "-e", help="启用此选项，筛选出测试内容")] = False,
+    only_homework: Annotated[bool | None, typer.Option("--homework", "-H", help="启用此选项，筛选出作业")] = False,
     json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True)] = False
 ):
     """
@@ -473,28 +473,46 @@ async def view_syllabus(
             # activities_completeness: list[int] = [homework_activitie.get("id") for homework_activitie in raw_homework_completeness.get("homework_activities", {}) if homework_activitie.get("status") == "已交"]
             classrooms_completeness: list[dict] = [activity_read for activity_read in raw_course_activities_reads.get("activity_reads") if activity_read.get("activity_type") == "classroom_activity"]
 
+            only_state = any((only_homework, only_activity, only_exam, only_classroom))
+
             for module_id, module in modules_list:
                 # 筛选目标activities, exams 和 classrooms
                 activities_list: list[dict] = []
-                if not (only_classroom or only_exam):
-                    for course_activity in course_activities:
-                        if only_homework and course_activity.get("type", "null") != "homework":
+                for course_activity in course_activities:
+                    activity_type = course_activity.get("type", "null")
+                    is_homework = activity_type == 'homework'
+
+                    if course_activity.get("module_id") != module_id:
+                        continue
+
+                    if only_state:
+                        if is_homework and not only_homework:
                             continue
 
-                        if course_activity.get("module_id") == module_id:
-                                activities_list.append(course_activity)
+                        if not is_homework and not only_activity:
+                            continue
+
+                    activities_list.append(course_activity)
 
                 exams_list: list[dict] = []
-                if not (only_classroom or only_activity or only_homework):
-                    for course_exam in course_exams:
-                        if course_exam.get("module_id") == module_id:
-                            exams_list.append(course_exam)
+                for course_exam in course_exams:
+                    if course_exam.get("module_id") != module_id:
+                        continue
+
+                    if only_state and not only_exam:
+                        continue
+                    
+                    exams_list.append(course_exam)
 
                 classrooms_list: list[dict] = []
-                if not (only_exam or only_activity or only_homework):
-                    for course_classroom in course_classrooms:
-                        if course_classroom.get("module_id") == module_id:
-                            classrooms_list.append(course_classroom)
+                for course_classroom in course_classrooms:
+                    if course_classroom.get("module_id") != module_id:
+                        continue
+
+                    if only_state and not only_classroom:
+                        continue
+                    
+                    classrooms_list.append(course_classroom)
                 
                 course_modules_node_list.append((module, activities_list, exams_list, classrooms_list))
 

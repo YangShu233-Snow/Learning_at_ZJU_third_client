@@ -147,6 +147,24 @@ async def check_code_worker(
             if not number_found_event.is_set():
                 progress.update(task_id, advance=1) # 更新进度条
 
+async def test_number(rollcall_id: int, number_code: str|None, auto: bool = False, course_id: int|None = None):
+    cookies = CredentialManager().load_cookies()
+    if not cookies:
+        rprint("Cookies不存在！")
+        logger.error("Cookies不存在！")
+        raise typer.Exit(code=1)
+        
+    if number_code:
+        code_str = number_code.zfill(4)
+    device_id = generate_device_id()
+
+    async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
+        if auto:
+            rollcall_date = datetime.now().astimezone(timezone.utc).date().isoformat()
+            raw_timetable_rollcalls: dict = (await zju_api.rollcallGetTimetableRollcallsAPIFits(client.session, [course_id], rollcall_date).get_api_data())[0]
+            rprint(raw_timetable_rollcalls)
+            # timetable_rollcalls: list[dict] = raw_timetable_rollcalls.get("rollcalls")
+
 async def answer_number_rollcall(rollcall_id: int, number_code: str|None, auto: bool = False, course_id: int|None = None):
     cookies = CredentialManager().load_cookies()
     if not cookies:
@@ -179,7 +197,7 @@ async def answer_number_rollcall(rollcall_id: int, number_code: str|None, auto: 
                         break
 
             rollcall_date = datetime.now().astimezone(timezone.utc).date().isoformat()
-            raw_timetable_rollcalls: dict = (await zju_api.rollcallGetTimetableRollcallsAPIFits(client.session, course_id, rollcall_date).get_api_data())[0]
+            raw_timetable_rollcalls: dict = (await zju_api.rollcallGetTimetableRollcallsAPIFits(client.session, [course_id], rollcall_date).get_api_data())[0]
             timetable_rollcalls: list[dict] = raw_timetable_rollcalls.get("rollcalls")
 
             if not timetable_rollcalls:
@@ -446,6 +464,7 @@ async def answer_rollcall(
     elif auto_number:
         rprint("[bold yellow]您正在使用实验性功能！[/bold yellow]")
         await answer_number_rollcall(rollcall_id, number, auto_number, course_id)
+        # await test_number(rollcall_id, number, auto_number, course_id)
 
 # --- 配置命令组 ---
 app.add_typer(rollcall_config.app, name="config", help="管理签到定位配置")

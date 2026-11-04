@@ -2206,7 +2206,7 @@ class rollcallGetTimetableRollcallsAPIFits(rollcallAPIFits):
             apis_name = ["timetable_rollcalls"]
 
         super().__init__(login_session, apis_name)
-        self.course_ids = course_ids
+        self.course_ids = list(map(str, course_ids))
         self.rollcall_date = rollcall_date
 
     def _make_api_params(self, api_config, api_name):

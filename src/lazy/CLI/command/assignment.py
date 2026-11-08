@@ -1844,7 +1844,8 @@ async def todo_assignment(
             course_name = todo.get("course_name", "null")
             course_id = todo.get("course_id", "null")
             todo_id = todo.get("id", "null")
-            end_time = datetime.fromisoformat(todo.get("end_time").replace('Z', '+00:00')) if todo.get("end_time") else None
+            end_time_text = todo.get("end_time").replace('Z', '+00:00') if todo.get("end_time") else None
+            end_time = datetime.fromisoformat(end_time_text)
             todo_type = type_map.get(todo.get("type", "null"), todo.get("type", "null"))
 
             if json:
@@ -1853,7 +1854,7 @@ async def todo_assignment(
                     "course_name": course_name,
                     "course_id": course_id,
                     "todo_id": todo_id,
-                    "end_time": end_time,
+                    "end_time": transform_time(end_time_text),
                     "todo_type": todo_type
                 }
 
@@ -2098,7 +2099,7 @@ async def open_topic(
     no_args_is_help=True)
 @app.command(
     "read",
-    help="完成视频或文档的阅读任务，",
+    help="完成视频或文档的阅读任务，这是一个未经测试的功能！",
     epilog=dedent("""
         EXAMPLES:
 
@@ -2111,6 +2112,9 @@ async def read_assignment(
     assignments_id: Annotated[list[int], typer.Argument(help="任务ID")],
     json: Annotated[bool | None, typer.Option("--json", "-J", hidden=True, help="启用JSON输出")] = False
 ):
+    if not json:
+        rprint("[yellow]您正在使用实验性功能！[/yellow]")
+        
     table = Table.grid(expand=True)
     progress = Progress(
         SpinnerColumn(),

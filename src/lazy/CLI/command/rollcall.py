@@ -155,8 +155,9 @@ async def test_number(rollcall_id: int, number_code: str|None, auto: bool = Fals
         raise typer.Exit(code=1)
         
     if number_code:
-        code_str = number_code.zfill(4)
-    device_id = generate_device_id()
+        pass
+        # code_str = number_code.zfill(4)
+    # device_id = generate_device_id()
 
     async with ZjuAsyncClient(cookies=cookies, trust_env=state.trust_env) as client:
         if auto:

@@ -1,9 +1,9 @@
 import logging
+import sys
+import traceback
+
 import httpx
 import keyring
-import traceback
-import sys
-
 import keyring.errors
 from rich import print as rprint
 
